@@ -37,9 +37,10 @@ export async function GET(req: NextRequest) {
 
   // Les clusters sont des agrégats toutes années confondues → pas de filtre annee
   // (le filtre annee s'applique uniquement aux points bruts)
+  const extraCols = cluster_level === "commune" ? ",loyer_median_m2,rendement_brut" : "";
   let q = supabase
     .from(`dvf_clusters_${cluster_level}`)
-    .select("cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom")
+    .select(`cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom${extraCols}`)
     .gte("count", 5);  // masquer les communes avec trop peu de données
 
   if (dept.length > 0) q = q.in("dept", dept);

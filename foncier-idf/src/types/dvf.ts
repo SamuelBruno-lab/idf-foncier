@@ -8,6 +8,8 @@ export interface DvfCluster {
   prix_m2_median: number;
   dept: string;
   type_local: string | null;
+  loyer_median_m2?: number | null;
+  rendement_brut?: number | null;
 }
 
 export interface DvfPoint {

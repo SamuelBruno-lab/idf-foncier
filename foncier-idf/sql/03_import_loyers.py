@@ -130,25 +130,32 @@ def fetch_clusters() -> list[dict]:
     return resp.json()
 
 
-def upsert_batch(records: list[dict], batch_size=500):
+def update_batch(records: list[dict]):
+    """Met à jour loyer_median_m2 et rendement_brut via PATCH individuel par cluster_id."""
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates,return=minimal",
+        "Prefer": "return=minimal",
     }
-    url = f"{SUPABASE_URL}/rest/v1/dvf_clusters_commune?on_conflict=cluster_id"
     total = len(records)
+    errors = 0
 
     with httpx.Client(timeout=60) as client:
-        for i in range(0, total, batch_size):
-            batch = records[i : i + batch_size]
-            resp = client.post(url, headers=headers, json=batch)
-            if resp.status_code not in (200, 201):
-                print(f"\n  ERREUR {resp.status_code}: {resp.text[:300]}")
-                return
-            print(f"  dvf_clusters_commune: {min(i + batch_size, total)}/{total}", end="\r")
+        for i, rec in enumerate(records):
+            cid = rec["cluster_id"]
+            payload = {k: v for k, v in rec.items() if k != "cluster_id"}
+            url = f"{SUPABASE_URL}/rest/v1/dvf_clusters_commune?cluster_id=eq.{cid}"
+            resp = client.patch(url, headers=headers, json=payload)
+            if resp.status_code not in (200, 201, 204):
+                errors += 1
+                if errors <= 3:
+                    print(f"\n  ERREUR {resp.status_code} ({cid}): {resp.text[:200]}")
+            if (i + 1) % 50 == 0 or (i + 1) == total:
+                print(f"  {i + 1}/{total}", end="\r")
     print()
+    if errors:
+        print(f"  {errors} erreurs sur {total} mises à jour")
 
 
 def main():
@@ -192,9 +199,10 @@ def main():
 
     print(f"  {matched}/{len(clusters)} clusters avec loyer trouvé")
 
-    # 4. Upsert
-    print("\nMise à jour des clusters...")
-    upsert_batch(enriched)
+    # 4. Mise à jour (PATCH par cluster_id, uniquement ceux avec loyer)
+    to_update = [r for r in enriched if r["loyer_median_m2"] is not None]
+    print(f"\nMise à jour de {len(to_update)} clusters...")
+    update_batch(to_update)
 
     print("\n✅ Import loyers terminé!")
 

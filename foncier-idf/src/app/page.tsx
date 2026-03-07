@@ -34,7 +34,7 @@ const DvfMap = dynamic(() => import("@/components/DvfMap"), {
 
 export default function HomePage() {
   const router = useRouter();
-  const [filters, setFilters] = useState<DvfFilters>({});
+  const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"] });
   const [mode, setMode] = useState<"points" | "clusters" | "heatmap">("clusters");
   const [points, setPoints] = useState<DvfPoint[]>([]);
   const [clusters, setClusters] = useState<DvfCluster[]>([]);

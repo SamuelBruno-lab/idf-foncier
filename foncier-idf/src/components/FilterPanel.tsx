@@ -15,7 +15,7 @@ const DEPTS_IDF = [
   { code: "60", nom: "Oise" },
 ];
 
-const TYPES = ["Appartement", "Maison", "Local industriel. commercial ou assimilé", "Dépendance"];
+const TYPES = ["Appartement", "Maison", "Local industriel. commercial ou assimilé"];
 
 interface Props {
   filters: DvfFilters;
@@ -145,9 +145,9 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
             Type de bien
           </div>
           <select
-            value={filters.type_local?.[0] ?? ""}
+            value={filters.type_local?.[0] ?? "Appartement"}
             onChange={(e) =>
-              onFiltersChange({ ...filters, type_local: e.target.value ? [e.target.value] : undefined })
+              onFiltersChange({ ...filters, type_local: [e.target.value] })
             }
             style={{
               width: "100%",
@@ -160,7 +160,6 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
               marginBottom: 14,
             }}
           >
-            <option value="">Tous types</option>
             {TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}

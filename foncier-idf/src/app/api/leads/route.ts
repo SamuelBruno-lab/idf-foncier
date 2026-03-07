@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
   const societe: string = (body.societe ?? "").trim().slice(0, 120);
   const telephone: string = (body.telephone ?? "").trim().slice(0, 30);
   const consentement: boolean = body.consentement === true;
+  const intent: string = (body.intent ?? "").trim().slice(0, 30);
+  const commune_code: string = (body.commune_code ?? "").trim().slice(0, 10);
+  const commune_nom: string = (body.commune_nom ?? "").trim().slice(0, 120);
+  const budget: string = (body.budget ?? "").trim().slice(0, 60);
+  const timeline: string = (body.timeline ?? "").trim().slice(0, 60);
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Email invalide" }, { status: 400 });
@@ -39,7 +44,12 @@ export async function POST(req: NextRequest) {
       telephone: telephone || null,
       consentement,
       ip_hash,
-      source: "carte_idf",
+      source: (body.source ?? "carte_idf").slice(0, 80),
+      intent: intent || null,
+      commune_code: commune_code || null,
+      commune_nom: commune_nom || null,
+      budget: budget || null,
+      timeline: timeline || null,
     },
     { onConflict: "email", ignoreDuplicates: true }
   );

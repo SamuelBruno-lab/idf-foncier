@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ZonesMap from "@/components/ZonesMap";
+import AnalyseLeadSection from "@/components/AnalyseLeadSection";
 
 interface EvolutionRow {
   annee: number;
@@ -421,6 +423,12 @@ export default async function AnalysePage({
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
                 {stats.hdbscanZones.length} micro-marchés identifiés par analyse géospatiale
               </p>
+
+              {/* Carte des zones */}
+              <div style={{ marginBottom: 20 }}>
+                <ZonesMap zones={stats.hdbscanZones} />
+              </div>
+
               {types.map((type) => {
                 const zones = stats.hdbscanZones.filter((z) => z.type_local === type);
                 const typeColors: Record<string, string> = {
@@ -557,38 +565,8 @@ export default async function AnalysePage({
           );
         })()}
 
-        {/* CTA lead */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, rgba(0,212,255,0.08), rgba(168,85,247,0.08))",
-            border: "1px solid rgba(168,85,247,0.2)",
-            borderRadius: 16,
-            padding: "28px 28px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
-            Recevoir les analyses par email
-          </div>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, margin: "0 0 20px" }}>
-            Alertes de marché, évolutions de prix, nouvelles communes analysées.
-          </p>
-          <Link
-            href="/?modal=leads"
-            style={{
-              display: "inline-block",
-              padding: "12px 28px",
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #a855f7, #7c3aed)",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 15,
-              textDecoration: "none",
-            }}
-          >
-            Je m&apos;inscris gratuitement →
-          </Link>
-        </div>
+        {/* CTAs monétisables */}
+        <AnalyseLeadSection commune={{ code: stats.code, nom: stats.nom }} />
 
         {/* Footer */}
         <div

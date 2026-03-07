@@ -160,7 +160,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
         {isCluster ? (
           <>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: "#00d4ff" }}>
-              Zone {(hovered as DvfCluster).dept}
+              {(hovered as DvfCluster).nom ?? `Dept. ${(hovered as DvfCluster).dept}`}
             </div>
             <div>{(hovered as DvfCluster).count.toLocaleString("fr-FR")} transactions</div>
             <div style={{ marginTop: 4, color: "#ffdd00", fontWeight: 600 }}>

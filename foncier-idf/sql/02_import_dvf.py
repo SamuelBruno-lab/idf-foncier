@@ -103,6 +103,16 @@ def compute_clusters(records: list) -> tuple:
     communes, depts, regions = [], [], []
 
     for (code_commune, type_local), g in df.groupby(["code_commune", "type_local"], dropna=False):
+        # Filtrer les prix/m² aberrants (ex: surface déclarée 1m² → prix/m² fantaisiste)
+        prix_m2_vals = g["prix_m2"].dropna()
+        if len(prix_m2_vals) >= 4:
+            q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
+            iqr = q3 - q1
+            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            g_clean = g[mask | g["prix_m2"].isna()]
+        else:
+            # < 4 transactions : filtre fixe large (200–30 000 €/m²)
+            g_clean = g[(g["prix_m2"].isna()) | ((g["prix_m2"] >= 200) & (g["prix_m2"] <= 30000))]
         communes.append({
             "cluster_id": f"{code_commune}_{type_local}",
             "nom": g["commune"].iloc[0] if "commune" in g else None,
@@ -110,12 +120,20 @@ def compute_clusters(records: list) -> tuple:
             "lon": g["lon"].median(),
             "dept": g["dept"].iloc[0],
             "type_local": type_local if pd.notna(type_local) else None,
-            "count": len(g),
-            "prix_median": int(g["valeur_fonciere"].median()) if g["valeur_fonciere"].notna().any() else None,
-            "prix_m2_median": int(g["prix_m2"].median()) if g["prix_m2"].notna().any() else None,
+            "count": len(g_clean),
+            "prix_median": int(g_clean["valeur_fonciere"].median()) if g_clean["valeur_fonciere"].notna().any() else None,
+            "prix_m2_median": int(g_clean["prix_m2"].median()) if g_clean["prix_m2"].notna().any() else None,
         })
 
     for (dept, type_local), g in df.groupby(["dept", "type_local"], dropna=False):
+        prix_m2_vals = g["prix_m2"].dropna()
+        if len(prix_m2_vals) >= 4:
+            q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
+            iqr = q3 - q1
+            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            g_clean = g[mask | g["prix_m2"].isna()]
+        else:
+            g_clean = g[(g["prix_m2"].isna()) | ((g["prix_m2"] >= 200) & (g["prix_m2"] <= 30000))]
         depts.append({
             "cluster_id": f"{dept}_{type_local}",
             "nom": f"Dept {dept}",
@@ -123,12 +141,20 @@ def compute_clusters(records: list) -> tuple:
             "lon": g["lon"].median(),
             "dept": dept,
             "type_local": type_local if pd.notna(type_local) else None,
-            "count": len(g),
-            "prix_median": int(g["valeur_fonciere"].median()) if g["valeur_fonciere"].notna().any() else None,
-            "prix_m2_median": int(g["prix_m2"].median()) if g["prix_m2"].notna().any() else None,
+            "count": len(g_clean),
+            "prix_median": int(g_clean["valeur_fonciere"].median()) if g_clean["valeur_fonciere"].notna().any() else None,
+            "prix_m2_median": int(g_clean["prix_m2"].median()) if g_clean["prix_m2"].notna().any() else None,
         })
 
     for (region, type_local), g in df.groupby(["region", "type_local"], dropna=False):
+        prix_m2_vals = g["prix_m2"].dropna()
+        if len(prix_m2_vals) >= 4:
+            q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
+            iqr = q3 - q1
+            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            g_clean = g[mask | g["prix_m2"].isna()]
+        else:
+            g_clean = g[(g["prix_m2"].isna()) | ((g["prix_m2"] >= 200) & (g["prix_m2"] <= 30000))]
         regions.append({
             "cluster_id": f"{region}_{type_local}",
             "nom": region,
@@ -136,9 +162,9 @@ def compute_clusters(records: list) -> tuple:
             "lon": g["lon"].median(),
             "dept": None,
             "type_local": type_local if pd.notna(type_local) else None,
-            "count": len(g),
-            "prix_median": int(g["valeur_fonciere"].median()) if g["valeur_fonciere"].notna().any() else None,
-            "prix_m2_median": int(g["prix_m2"].median()) if g["prix_m2"].notna().any() else None,
+            "count": len(g_clean),
+            "prix_median": int(g_clean["valeur_fonciere"].median()) if g_clean["valeur_fonciere"].notna().any() else None,
+            "prix_m2_median": int(g_clean["prix_m2"].median()) if g_clean["prix_m2"].notna().any() else None,
         })
 
     return communes, depts, regions

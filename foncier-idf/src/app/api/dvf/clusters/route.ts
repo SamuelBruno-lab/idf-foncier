@@ -35,11 +35,12 @@ export async function GET(req: NextRequest) {
   // Zoom < 13 → clusters pré-calculés
   const cluster_level = zoom >= 10 ? "commune" : zoom >= 7 ? "dept" : "region";
 
+  // Les clusters sont des agrégats toutes années confondues → pas de filtre annee
+  // (le filtre annee s'applique uniquement aux points bruts)
   let q = supabase
     .from(`dvf_clusters_${cluster_level}`)
     .select("cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom")
-    .gte("annee_min", annee_min)
-    .lte("annee_max", annee_max);
+    .gte("count", 5);  // masquer les communes avec trop peu de données
 
   if (dept.length > 0) q = q.in("dept", dept);
   if (type_local) q = q.eq("type_local", type_local);

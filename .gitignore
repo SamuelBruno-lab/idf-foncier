@@ -2,3 +2,4 @@ dvf_*.csv
 hdbscan_zones_idf.json
 __pycache__/
 *.pyc
+.vercel

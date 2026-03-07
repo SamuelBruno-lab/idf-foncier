@@ -35,7 +35,7 @@ const DvfMap = dynamic(() => import("@/components/DvfMap"), {
 export default function HomePage() {
   const router = useRouter();
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"] });
-  const [mode, setMode] = useState<"points" | "clusters" | "heatmap">("clusters");
+  const [mode, setMode] = useState<"clusters" | "heatmap">("clusters");
   const [points, setPoints] = useState<DvfPoint[]>([]);
   const [clusters, setClusters] = useState<DvfCluster[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,6 +86,7 @@ export default function HomePage() {
         params.set("annee_max", String(Math.max(...filters.annee)));
       }
       params.set("zoom", String(zoom));
+      params.set("mode", mode);
 
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
@@ -102,7 +103,7 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, zoom]);
+  }, [filters, zoom, mode]);
 
   useEffect(() => {
     fetchData();
@@ -119,7 +120,7 @@ export default function HomePage() {
   }, []);
 
   const totalTx =
-    mode === "points"
+    mode === "heatmap"
       ? points.length
       : clusters.reduce((s, c) => s + c.count, 0);
 

@@ -20,8 +20,8 @@ const TYPES = ["Appartement", "Maison", "Local industriel. commercial ou assimil
 interface Props {
   filters: DvfFilters;
   onFiltersChange: (f: DvfFilters) => void;
-  mode: "points" | "clusters" | "heatmap";
-  onModeChange: (m: "points" | "clusters" | "heatmap") => void;
+  mode: "clusters" | "heatmap";
+  onModeChange: (m: "clusters" | "heatmap") => void;
   totalTx: number;
 }
 
@@ -83,7 +83,7 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
             Mode
           </div>
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-            {(["clusters", "points", "heatmap"] as const).map((m) => (
+            {(["clusters", "heatmap"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => onModeChange(m)}
@@ -100,7 +100,7 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
                   fontWeight: mode === m ? 700 : 400,
                 }}
               >
-                {m === "clusters" ? "Zones" : m === "points" ? "Points" : "Heatmap"}
+                {m === "clusters" ? "Zones" : "Heatmap"}
               </button>
             ))}
           </div>

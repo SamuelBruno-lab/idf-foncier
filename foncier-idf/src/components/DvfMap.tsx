@@ -44,7 +44,7 @@ function priceColor(prix_m2: number | null, min: number, max: number): [number, 
 interface Props {
   points: DvfPoint[];
   clusters: DvfCluster[];
-  mode: "points" | "clusters" | "heatmap";
+  mode: "clusters" | "heatmap";
   filters: DvfFilters;
   isLoading: boolean;
   onCommuneClick?: (code: string, nom: string) => void;
@@ -114,25 +114,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
       ];
     }
 
-    // mode === "points"
-    return [
-      new ScatterplotLayer<DvfPoint>({
-        id: "points",
-        data: points,
-        getPosition: (d) => [d.lon, d.lat],
-        getRadius: 12,
-        radiusMinPixels: 3,
-        radiusMaxPixels: 14,
-        getFillColor: (d) => priceColor(d.prix_m2, priceRange[0], priceRange[1]),
-        getLineColor: [255, 255, 255, 60],
-        lineWidthMinPixels: 0.5,
-        pickable: true,
-        onHover: (info: PickingInfo) => {
-          setHovered(info.object ?? null);
-          setCursor(info.object ? "pointer" : "grab");
-        },
-      }),
-    ];
+    return [];
   }, [points, clusters, mode, priceRange]);
 
   const renderTooltip = useCallback(() => {

@@ -13,15 +13,16 @@ export async function GET(req: NextRequest) {
   const type_local = searchParams.get("type_local");
   const annee_min = parseInt(searchParams.get("annee_min") ?? "2020");
   const annee_max = parseInt(searchParams.get("annee_max") ?? "2025");
+  const mode = searchParams.get("mode");
 
-  // Zoom > 13 → points bruts (max 2000), sinon clusters
-  if (zoom >= 13) {
+  // Heatmap ou Zoom > 13 → points bruts
+  if (mode === "heatmap" || zoom >= 13) {
     let q = supabase
       .from("dvf_points")
       .select("id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,dept,annee")
       .gte("annee", annee_min)
       .lte("annee", annee_max)
-      .limit(2000);
+      .limit(mode === "heatmap" ? 15000 : 2000);
 
     if (dept.length > 0) q = q.in("dept", dept);
     if (type_local) q = q.eq("type_local", type_local);

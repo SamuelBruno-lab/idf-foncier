@@ -19,6 +19,15 @@ const INITIAL_VIEW = {
   bearing: 0,
 };
 
+// Gradient couleur rendement brut (gris→rouge→orange→vert)
+function rendementColor(r: number | null | undefined): [number, number, number, number] {
+  if (r == null) return [100, 100, 120, 120];
+  if (r < 3) return [255, 60, 60, 200];
+  if (r < 5) return [255, 160, 0, 200];
+  if (r < 7) return [50, 220, 100, 200];
+  return [0, 255, 120, 220];
+}
+
 // Gradient couleur prix/m²  (bleu→vert→jaune→orange→rouge)
 function priceColor(prix_m2: number | null, min: number, max: number): [number, number, number, number] {
   if (!prix_m2) return [150, 150, 150, 180];
@@ -47,10 +56,11 @@ interface Props {
   mode: "clusters" | "heatmap";
   filters: DvfFilters;
   isLoading: boolean;
+  colorBy: "prix" | "rendement";
   onCommuneClick?: (code: string, nom: string) => void;
 }
 
-export default function DvfMap({ points, clusters, mode, filters, isLoading, onCommuneClick }: Props) {
+export default function DvfMap({ points, clusters, mode, filters, isLoading, colorBy, onCommuneClick }: Props) {
   const [hovered, setHovered] = useState<DvfPoint | DvfCluster | null>(null);
   const [cursor, setCursor] = useState("grab");
 
@@ -91,7 +101,10 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
           data: clusters,
           getPosition: (d) => [d.lon, d.lat],
           getRadius: (d) => Math.sqrt(d.count) * 40,
-          getFillColor: (d) => priceColor(d.prix_m2_median, priceRange[0], priceRange[1]),
+          getFillColor: (d) =>
+            colorBy === "rendement"
+              ? rendementColor(d.rendement_brut)
+              : priceColor(d.prix_m2_median, priceRange[0], priceRange[1]),
           getLineColor: [255, 255, 255, 80],
           lineWidthMinPixels: 1,
           radiusMinPixels: 6,
@@ -115,7 +128,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
     }
 
     return [];
-  }, [points, clusters, mode, priceRange]);
+  }, [points, clusters, mode, priceRange, colorBy]);
 
   const renderTooltip = useCallback(() => {
     if (!hovered) return null;

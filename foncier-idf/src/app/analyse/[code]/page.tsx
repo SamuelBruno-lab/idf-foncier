@@ -39,6 +39,8 @@ interface CommuneStats {
   dept: string;
   totalCount: number;
   prix_m2_median: number;
+  loyer_median_m2: number | null;
+  rendement_brut: number | null;
   byType: TypeRow[];
   evolution: EvolutionRow[];
   hdbscanZones: HdbscanZone[];
@@ -61,7 +63,7 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
 
   const { data: clusters } = await supabase
     .from("dvf_clusters_commune")
-    .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median")
+    .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,loyer_median_m2,rendement_brut")
     .like("cluster_id", `${code}_%`);
 
   if (!clusters || clusters.length === 0) return null;
@@ -99,12 +101,25 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
 
   const allPrixM2 = clusters.map((c) => c.prix_m2_median).filter(Boolean) as number[];
 
+  // Loyer et rendement : uniquement sur les biens résidentiels
+  const residentialClusters = clusters.filter(
+    (c) => c.type_local === "Appartement" || c.type_local === "Maison"
+  );
+  const loyerVals = residentialClusters
+    .map((c) => c.loyer_median_m2)
+    .filter((v): v is number => v != null && v > 0);
+  const rendementVals = residentialClusters
+    .map((c) => c.rendement_brut)
+    .filter((v): v is number => v != null && v > 0);
+
   return {
     code,
     nom: clusters[0].nom,
     dept: clusters[0].dept,
     totalCount: clusters.reduce((s, c) => s + c.count, 0),
     prix_m2_median: median(allPrixM2),
+    loyer_median_m2: loyerVals.length > 0 ? Math.round(median(loyerVals) * 10) / 10 : null,
+    rendement_brut: rendementVals.length > 0 ? Math.round(median(rendementVals) * 10) / 10 : null,
     byType: clusters.map((c) => ({
       type: c.type_local,
       count: c.count,
@@ -234,23 +249,52 @@ export default async function AnalysePage({
                 ? `${stats.prix_m2_median.toLocaleString("fr-FR")} €/m²`
                 : "N/A",
               color: "#ffdd00",
+              show: true,
             },
             {
               label: "Transactions totales",
               value: stats.totalCount.toLocaleString("fr-FR"),
               color: "#00d4ff",
+              show: true,
             },
             {
               label: "Période couverte",
               value: `${yearMin} – ${yearMax}`,
               color: "#a855f7",
+              show: true,
             },
-          ].map(({ label, value, color }) => (
+            {
+              label: "Loyer médian",
+              value: stats.loyer_median_m2 != null
+                ? `${stats.loyer_median_m2.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/m²/mois`
+                : "N/A",
+              color: "#88ffcc",
+              show: stats.loyer_median_m2 != null,
+            },
+            {
+              label: "Rendement brut",
+              value: stats.rendement_brut != null
+                ? `${stats.rendement_brut.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
+                : "N/A",
+              color: stats.rendement_brut == null
+                ? "#888"
+                : stats.rendement_brut >= 5
+                ? "#00ff88"
+                : stats.rendement_brut >= 3
+                ? "#ffaa00"
+                : "#ff4444",
+              show: stats.rendement_brut != null,
+            },
+          ].filter((c) => c.show).map(({ label, value, color }) => (
             <div
               key={label}
               style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: label === "Rendement brut"
+                  ? "rgba(0,255,136,0.04)"
+                  : "rgba(255,255,255,0.04)",
+                border: label === "Rendement brut"
+                  ? "1px solid rgba(0,255,136,0.15)"
+                  : "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 12,
                 padding: "20px 18px",
               }}

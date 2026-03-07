@@ -42,6 +42,7 @@ export default function HomePage() {
   const [zoom] = useState(10);
   const [showHero, setShowHero] = useState(true);
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [colorBy, setColorBy] = useState<"prix" | "rendement">("rendement");
   const didCheckModal = useRef(false);
 
   // Recherche commune
@@ -133,6 +134,7 @@ export default function HomePage() {
         mode={mode}
         filters={filters}
         isLoading={isLoading}
+        colorBy={colorBy}
         onCommuneClick={(code) => window.open(`/analyse/${code}`, "_blank")}
       />
 
@@ -143,6 +145,9 @@ export default function HomePage() {
           onFiltersChange={setFilters}
           mode={mode}
           onModeChange={setMode}
+          colorBy={colorBy}
+          onColorByChange={setColorBy}
+          onLeadClick={() => setShowLeadModal(true)}
           totalTx={totalTx}
         />
       )}
@@ -198,18 +203,19 @@ export default function HomePage() {
               maxWidth: 800,
             }}
           >
-            1,2 million de transactions
+            Trouvez les zones à fort
             <br />
             <span
               style={{
-                background: "linear-gradient(90deg, #00d4ff, #a855f7)",
+                background: "linear-gradient(90deg, #00ff88, #00d4ff)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              cartographiées par IA
-            </span>
+              rendement locatif
+            </span>{" "}
+            en IDF
           </h1>
 
           {/* Sous-titre */}
@@ -224,8 +230,8 @@ export default function HomePage() {
               lineHeight: 1.6,
             }}
           >
-            Toutes les ventes immobilières de 2020 à 2025 regroupées en zones de marché
-            par machine learning · Données DVF open data
+            1,2 million de ventes DVF croisées avec les loyers médians · Rendement brut
+            par commune, cartographié et analysé par IA
           </p>
 
           {/* Stats */}
@@ -241,7 +247,7 @@ export default function HomePage() {
             {[
               { val: "9 depts", label: "IDF + Oise" },
               { val: "5 ans", label: "2020 → 2025" },
-              { val: "IA", label: "Micro-marchés" },
+              { val: "jusqu'à 8%", label: "Rendement brut" },
             ].map(({ val, label }) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>

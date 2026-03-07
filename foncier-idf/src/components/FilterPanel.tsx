@@ -22,10 +22,15 @@ interface Props {
   onFiltersChange: (f: DvfFilters) => void;
   mode: "clusters" | "heatmap";
   onModeChange: (m: "clusters" | "heatmap") => void;
+  colorBy: "prix" | "rendement";
+  onColorByChange: (c: "prix" | "rendement") => void;
+  onLeadClick: () => void;
   totalTx: number;
 }
 
-export default function FilterPanel({ filters, onFiltersChange, mode, onModeChange, totalTx }: Props) {
+export default function FilterPanel({ filters, onFiltersChange, mode, onModeChange, colorBy, onColorByChange, onLeadClick, totalTx }: Props) {
+  const isCommercial = filters.type_local?.[0] === "Local industriel. commercial ou assimilé";
+  const rendementDisabled = isCommercial || mode === "heatmap";
   const [open, setOpen] = useState(true);
 
   const toggleDept = (code: string) => {
@@ -104,6 +109,43 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
               </button>
             ))}
           </div>
+
+          {/* Toggle Vue : Prix vs Rendement */}
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,.4)", marginBottom: 6 }}>
+            Vue
+          </div>
+          <div style={{ display: "flex", gap: 6, marginBottom: rendementDisabled ? 4 : 14 }}>
+            {(["prix", "rendement"] as const).map((c) => {
+              const active = colorBy === c && !rendementDisabled;
+              const disabled = c === "rendement" && rendementDisabled;
+              return (
+                <button
+                  key={c}
+                  onClick={() => !disabled && onColorByChange(c)}
+                  title={disabled ? "Non disponible pour ce type de bien" : undefined}
+                  style={{
+                    flex: 1,
+                    padding: "5px 0",
+                    borderRadius: 6,
+                    border: "1px solid",
+                    borderColor: active ? "#00ff88" : "rgba(255,255,255,0.15)",
+                    background: active ? "rgba(0,255,136,0.12)" : "rgba(255,255,255,0.05)",
+                    color: disabled ? "#333" : active ? "#00ff88" : "#aaa",
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    fontSize: 11,
+                    fontWeight: active ? 700 : 400,
+                  }}
+                >
+                  {c === "prix" ? "Prix/m²" : "Rendement"}
+                </button>
+              );
+            })}
+          </div>
+          {rendementDisabled && (
+            <div style={{ fontSize: 10, color: "rgba(255,180,0,0.5)", marginBottom: 14, padding: "4px 8px", background: "rgba(255,180,0,0.05)", borderRadius: 5, border: "1px solid rgba(255,180,0,0.12)" }}>
+              {mode === "heatmap" ? "Rendement en mode Zones uniquement" : "Rendement non disponible pour ce type"}
+            </div>
+          )}
 
           {/* Hint clic commune */}
           <div style={{ fontSize: 10, color: "rgba(0,212,255,0.5)", marginBottom: 14, padding: "5px 8px", background: "rgba(0,212,255,0.05)", borderRadius: 5, border: "1px solid rgba(0,212,255,0.12)" }}>
@@ -200,6 +242,27 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
               );
             })}
           </div>
+
+          {/* CTA lead */}
+          <button
+            onClick={onLeadClick}
+            style={{
+              width: "100%",
+              padding: "9px 0",
+              borderRadius: 8,
+              border: "1px solid rgba(168,85,247,0.4)",
+              background: "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(124,58,237,0.12))",
+              color: "#c084fc",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              marginBottom: 12,
+              fontFamily: "Segoe UI, Arial, sans-serif",
+              letterSpacing: 0.3,
+            }}
+          >
+            Être contacté par un expert →
+          </button>
 
           <div style={{ fontSize: 10, color: "rgba(255,255,255,.25)", textAlign: "center", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.06)" }}>
             datamerry.com · Source DVF data.gouv.fr

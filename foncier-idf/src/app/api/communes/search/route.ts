@@ -11,21 +11,22 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json([]);
 
   const { data, error } = await supabase
-    .from("dvf_hdbscan_zones")
-    .select("code_commune, nom_commune")
-    .ilike("nom_commune", `%${q}%`)
-    .order("nom_commune")
+    .from("dvf_clusters_commune")
+    .select("cluster_id, nom")
+    .ilike("nom", `%${q}%`)
+    .order("nom")
     .limit(200); // on déduplique côté serveur
 
   if (error) return NextResponse.json([], { status: 500 });
 
-  // Dédupliquer par code_commune
+  // Dédupliquer par code_commune (cluster_id = "{code}_{type_local}")
   const seen = new Set<string>();
   const results: { code: string; nom: string }[] = [];
   for (const row of data ?? []) {
-    if (!seen.has(row.code_commune)) {
-      seen.add(row.code_commune);
-      results.push({ code: row.code_commune, nom: row.nom_commune });
+    const code = row.cluster_id.split("_")[0];
+    if (!seen.has(code)) {
+      seen.add(code);
+      results.push({ code, nom: row.nom });
     }
     if (results.length >= 10) break;
   }

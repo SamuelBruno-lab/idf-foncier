@@ -51,7 +51,7 @@ interface TypeRow {
   prix_m2_median: number | null;
 }
 
-interface HdbscanZone {
+interface Zone {
   id: string;
   type_local: string;
   cluster_id: number;
@@ -77,7 +77,7 @@ interface CommuneStats {
   rendement_brut: number | null;
   byType: TypeRow[];
   evolution: EvolutionRow[];
-  hdbscanZones: HdbscanZone[];
+  zones: Zone[];
 }
 
 function median(arr: number[]): number {
@@ -108,7 +108,7 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     .eq("code_commune", code)
     .limit(5000);
 
-  const { data: hdbscanZones } = await supabase
+  const { data: zones } = await supabase
     .from("dvf_hdbscan_zones")
     .select(
       "id,type_local,cluster_id,count,prix_m2_median,prix_m2_p25,prix_m2_p75,prix_median,hull_coords,centroid_lat,centroid_lon,annee_min,annee_max"
@@ -161,7 +161,7 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
       prix_m2_median: c.prix_m2_median,
     })),
     evolution,
-    hdbscanZones: (hdbscanZones ?? []) as HdbscanZone[],
+    zones: (zones ?? []) as Zone[],
   };
 }
 
@@ -554,9 +554,9 @@ export default async function AnalysePage({
           </div>
         )}
 
-        {/* Zones HDBSCAN */}
-        {stats.hdbscanZones.length > 0 && (() => {
-          const types = [...new Set(stats.hdbscanZones.map((z) => z.type_local))];
+        {/* Micro-marchés */}
+        {stats.zones.length > 0 && (() => {
+          const types = [...new Set(stats.zones.map((z) => z.type_local))];
           return (
             <div style={{ marginBottom: 36 }}>
               <h2
@@ -572,16 +572,16 @@ export default async function AnalysePage({
                 Micro-marchés
               </h2>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
-                {stats.hdbscanZones.length} micro-marchés identifiés par analyse géospatiale
+                {stats.zones.length} micro-marchés identifiés par analyse géospatiale
               </p>
 
               {/* Carte des zones */}
               <div style={{ marginBottom: 20 }}>
-                <ZonesMap zones={stats.hdbscanZones} />
+                <ZonesMap zones={stats.zones} />
               </div>
 
               {types.map((type) => {
-                const zones = stats.hdbscanZones.filter((z) => z.type_local === type);
+                const zones = stats.zones.filter((z) => z.type_local === type);
                 const typeColors: Record<string, string> = {
                   Appartement: "#00d4ff",
                   Maison: "#ff8844",

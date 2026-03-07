@@ -57,9 +57,9 @@ def download_zip(url: str) -> bytes:
     return resp.content
 
 
-def parse_source(zip_bytes: bytes, csv_name: str, zonage_name: str) -> dict[str, float]:
+def parse_source(zip_bytes: bytes, csv_name: str, zonage_name: str) -> dict[str, dict[str, float]]:
     """
-    Retourne un dict {code_insee: loyer_median_m2} pour toutes les communes de la source.
+    Retourne un dict {code_insee: {"global": loyer, "Appartement": loyer, "Maison": loyer}}
     Stratégie :
       - Couronne (L7502) : zones de zonage = "1".."7" → correspondent aux suffixes OLAP ".01"..".07"
       - Paris (L7501)    : zones de zonage (1, 2, 3) ne correspondent pas aux 14 zones OLAP
@@ -73,31 +73,33 @@ def parse_source(zip_bytes: bytes, csv_name: str, zonage_name: str) -> dict[str,
             for row in reader:
                 commune_to_zone[row["Commune"].zfill(5)] = row["Zone"]
 
-        # 2. Loyers par zone_calcul + loyer global (Zone_calcul vide)
+        # 2. Loyers par zone_calcul × type_habitat (+ loyer global sans dimension)
         with z.open(csv_name) as f:
             reader = csv.DictReader(io.TextIOWrapper(f, encoding="latin-1"), delimiter=";")
-            zone_to_loyer: dict[str, float] = {}
-            global_loyer: float | None = None
+            # {zone_id: {"global": float, "Appartement": float, "Maison": float}}
+            zone_to_loyer: dict[str, dict[str, float]] = {}
+            global_loyer: dict[str, float] = {}  # zone_id="" → loyers agglomération
             for row in reader:
                 z_id = row["Zone_calcul"]
-                dims = [
-                    row["Zone_complementaire"], row["Type_habitat"],
+                type_hab = row["Type_habitat"]
+                other_dims = [
+                    row["Zone_complementaire"],
                     row["epoque_construction_homogene"], row["anciennete_locataire_homogene"],
                     row["nombre_pieces_homogene"], row["epoque_construction_local"],
                     row["anciennete_locataire_local"], row["nombre_pieces_local"],
                 ]
-                if any(dims):
+                if any(other_dims):
                     continue
                 med = parse_float(row["loyer_median"])
                 if not med:
                     continue
-                if z_id and z_id not in zone_to_loyer:
-                    zone_to_loyer[z_id] = med
-                elif not z_id and global_loyer is None:
-                    global_loyer = med
+                key = type_hab if type_hab else "global"
+                target = zone_to_loyer.setdefault(z_id, {}) if z_id else global_loyer
+                if key not in target:
+                    target[key] = med
 
-    # 3. Zone locale (ex: "01") → clé OLAP par suffixe numérique
-    def local_to_olap(zone_local: str) -> float | None:
+    # 3. Zone locale (ex: "01") → dict de loyers OLAP par suffixe numérique
+    def local_to_olap(zone_local: str) -> dict[str, float] | None:
         num = str(int(zone_local))
         padded = zone_local.zfill(2)
         for key, val in zone_to_loyer.items():
@@ -106,14 +108,14 @@ def parse_source(zip_bytes: bytes, csv_name: str, zonage_name: str) -> dict[str,
                 return val
         return None
 
-    # 4. Assemblage : essayer le matching par zone, sinon loyer global
-    commune_loyer: dict[str, float] = {}
+    # 4. Assemblage : essayer le matching par zone, sinon loyers globaux agglomération
+    commune_loyer: dict[str, dict[str, float]] = {}
     for insee, zone_local in commune_to_zone.items():
-        loyer = local_to_olap(zone_local)
-        if loyer is None:
-            loyer = global_loyer  # fallback Paris : loyer agrégé agglomération
-        if loyer is not None:
-            commune_loyer[insee] = loyer
+        loyers = local_to_olap(zone_local)
+        if loyers is None:
+            loyers = global_loyer  # fallback Paris : loyers agrégés agglomération
+        if loyers:
+            commune_loyer[insee] = loyers
 
     return commune_loyer
 
@@ -160,7 +162,7 @@ def update_batch(records: list[dict]):
 
 def main():
     # 1. Télécharger et parser les deux sources OLAP
-    commune_loyer: dict[str, float] = {}
+    commune_loyer: dict[str, dict[str, float]] = {}
     for src in SOURCES:
         print(f"\n[{src['label']}]")
         zip_bytes = download_zip(src["url"])
@@ -178,10 +180,18 @@ def main():
     # 3. Enrichir avec loyer + rendement
     enriched = []
     matched = 0
+    matched_by_type = 0
     for c in clusters:
         cid = c["cluster_id"]  # ex: "75056_Appartement"
-        code = cid.split("_")[0].zfill(5)
-        loyer = commune_loyer.get(code)
+        parts = cid.split("_", 1)
+        code = parts[0].zfill(5)
+        type_local = parts[1] if len(parts) > 1 else ""
+        loyers = commune_loyer.get(code, {})
+
+        # Loyer par type en priorité, sinon loyer global
+        loyer = loyers.get(type_local) or loyers.get("global")
+        by_type = type_local in loyers
+
         prix_m2 = c.get("prix_m2_median")
 
         rendement = None
@@ -190,6 +200,8 @@ def main():
 
         if loyer:
             matched += 1
+            if by_type:
+                matched_by_type += 1
 
         enriched.append({
             "cluster_id": cid,
@@ -197,7 +209,7 @@ def main():
             "rendement_brut": rendement,
         })
 
-    print(f"  {matched}/{len(clusters)} clusters avec loyer trouvé")
+    print(f"  {matched}/{len(clusters)} clusters avec loyer trouvé ({matched_by_type} avec loyer par type, {matched - matched_by_type} avec loyer global fallback)")
 
     # 4. Mise à jour (PATCH par cluster_id, uniquement ceux avec loyer)
     to_update = [r for r in enriched if r["loyer_median_m2"] is not None]

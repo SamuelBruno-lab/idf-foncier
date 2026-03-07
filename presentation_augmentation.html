@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyse Foncière VLG — Présentation Hiérarchie</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; }
+
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 80px;
+    border-bottom: 4px solid #0f3460;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #e94560, #0f3460, #16213e);
+  }
+
+  .slide-number {
+    position: absolute;
+    bottom: 20px;
+    right: 40px;
+    font-size: 0.8em;
+    color: #555;
+  }
+
+  /* SLIDE 1 - TITRE */
+  .slide-title {
+    background: linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%);
+    text-align: center;
+  }
+
+  .slide-title h1 {
+    font-size: 2.8em;
+    color: #fff;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+
+  .slide-title .subtitle {
+    font-size: 1.4em;
+    color: #e94560;
+    margin-bottom: 30px;
+    font-weight: 300;
+  }
+
+  .slide-title .meta {
+    font-size: 0.95em;
+    color: #aaa;
+    margin-top: 40px;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #e94560;
+    color: white;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    margin: 5px;
+    font-weight: 600;
+  }
+
+  .badge-green { background: #27ae60; }
+  .badge-blue { background: #2980b9; }
+  .badge-orange { background: #e67e22; }
+
+  /* SLIDE GÉNÉRIQUE */
+  .slide h2 {
+    font-size: 1.9em;
+    color: #e94560;
+    margin-bottom: 30px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #0f3460;
+  }
+
+  .slide h3 {
+    font-size: 1.2em;
+    color: #5dade2;
+    margin: 20px 0 10px;
+  }
+
+  .slide p { line-height: 1.7; color: #ccc; margin-bottom: 12px; }
+  .slide ul { padding-left: 25px; }
+  .slide ul li { margin: 10px 0; line-height: 1.6; color: #ccc; }
+  .slide ul li strong { color: #fff; }
+
+  /* CARTES CHIFFRES */
+  .cards {
+    display: grid;
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .cards-2 { grid-template-columns: 1fr 1fr; }
+  .cards-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .card {
+    background: rgba(15, 52, 96, 0.4);
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+  }
+
+  .card .big-number {
+    font-size: 3em;
+    font-weight: 700;
+    color: #e94560;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .card .big-number.green { color: #27ae60; }
+  .card .big-number.blue { color: #5dade2; }
+  .card .big-number.orange { color: #e67e22; }
+
+  .card .card-label {
+    font-size: 0.9em;
+    color: #aaa;
+    line-height: 1.4;
+  }
+
+  /* TABLEAU COMPARATIF */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 0.95em;
+  }
+
+  th {
+    background: #0f3460;
+    padding: 14px 20px;
+    text-align: left;
+    color: #fff;
+    font-size: 0.95em;
+  }
+
+  td {
+    padding: 12px 20px;
+    border-bottom: 1px solid #2c2c3e;
+    color: #ccc;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td { background: rgba(15, 52, 96, 0.15); }
+
+  td.highlight { color: #27ae60; font-weight: 600; }
+  td.negative { color: #e94560; font-weight: 600; }
+
+  /* QUOTE */
+  .quote {
+    background: rgba(233, 69, 96, 0.1);
+    border-left: 4px solid #e94560;
+    padding: 20px 25px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-style: italic;
+    color: #ddd;
+    font-size: 1.05em;
+  }
+
+  /* TIMELINE */
+  .timeline { margin-top: 20px; }
+  .timeline-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    gap: 20px;
+  }
+  .timeline-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #e94560;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .timeline-dot.green { background: #27ae60; }
+  .timeline-dot.blue { background: #5dade2; }
+
+  /* CONCLUSION */
+  .slide-conclusion {
+    background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+    text-align: center;
+  }
+
+  .demande {
+    background: rgba(233, 69, 96, 0.15);
+    border: 2px solid #e94560;
+    border-radius: 16px;
+    padding: 30px 50px;
+    margin: 30px auto;
+    max-width: 600px;
+  }
+
+  .demande .montant {
+    font-size: 4em;
+    font-weight: 700;
+    color: #e94560;
+    display: block;
+  }
+
+  .demande .per-month {
+    font-size: 1.1em;
+    color: #aaa;
+  }
+
+  .roi-box {
+    background: rgba(39, 174, 96, 0.1);
+    border: 1px solid #27ae60;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 500px;
+  }
+
+  .roi-box span { color: #27ae60; font-size: 1.3em; font-weight: 700; }
+
+  /* Numéros de slide */
+  .slide-nav {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .nav-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #444;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  .nav-dot:hover { background: #e94560; }
+
+  @media print {
+    .slide { page-break-after: always; min-height: 100vh; }
+    .slide-nav { display: none; }
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+  }
+
+  .icon { font-size: 2em; margin-bottom: 10px; }
+  .text-center { text-align: center; }
+  .text-green { color: #27ae60; }
+  .text-red { color: #e94560; }
+  .text-blue { color: #5dade2; }
+  .mt-20 { margin-top: 20px; }
+
+  .footer-commune {
+    position: absolute;
+    bottom: 15px;
+    left: 40px;
+    font-size: 0.75em;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SLIDE 1 — TITRE
+     ============================================================ -->
+<div class="slide slide-title" id="slide-1">
+  <div>
+    <div style="font-size:0.9em; color:#5dade2; margin-bottom:15px; letter-spacing:2px; text-transform:uppercase;">Service Foncier · Villeneuve-la-Garenne</div>
+    <h1>Analyse Foncière<br><span style="color:#e94560;">Villeneuve-la-Garenne</span></h1>
+    <div class="subtitle">Outil d'aide à la décision foncière à l'IA</div>
+
+    <div style="margin: 30px 0;">
+      <span class="badge badge-green">Développement interne</span>
+      <span class="badge badge-blue">Intelligence Artificielle</span>
+      <span class="badge">Open Data DVF</span>
+      <span class="badge badge-orange">Gain de temps &amp; d'argent</span>
+    </div>
+
+    <div style="margin-top: 50px; color: #888; font-size: 0.9em;">
+      Présenté par le Responsable du Service Foncier<br>
+      <span style="color: #5dade2;">Mars 2026</span>
+    </div>
+  </div>
+  <div class="slide-number">1 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 2 — CONTEXTE : LE TRACK RECORD
+     ============================================================ -->
+<div class="slide" id="slide-2">
+  <h2>📊 Contexte : un service foncier qui performe</h2>
+
+  <p>Avant de présenter l'outil, un rappel du bilan du service foncier sous sa direction actuelle.</p>
+
+  <div class="cards cards-3 mt-20">
+    <div class="card">
+      <span class="big-number green">335 K€</span>
+      <div class="card-label">d'impôts économisés<br>pour la commune<br><strong>en 3 ans</strong></div>
+    </div>
+    <div class="card">
+      <span class="big-number blue">3 ans</span>
+      <div class="card-label">d'ancienneté dans<br>la collectivité<br><strong>sans augmentation</strong></div>
+    </div>
+    <div class="card">
+      <span class="big-number orange">+1</span>
+      <div class="card-label">outil IA propriétaire<br>développé en dehors<br><strong>des heures de travail</strong></div>
+    </div>
+  </div>
+
+  <div class="quote" style="margin-top: 30px;">
+    « On nous demande d'optimiser le budget. »<br>
+    <span style="font-size: 0.85em; color: #888;">— Argument avancé pour justifier l'absence d'augmentation</span>
+  </div>
+
+  <p style="margin-top: 15px;">
+    <strong class="text-green">Réponse :</strong> L'optimisation du budget, c'est précisément ce que fait ce service — à hauteur de <strong>335 000 € récupérés</strong> sur la fiscalité, et maintenant via un outil IA développé <em>gratuitement</em> pour la collectivité.
+  </p>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">2 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 3 — LE PROBLÈME : DVF MANUEL
+     ============================================================ -->
+<div class="slide" id="slide-3">
+  <h2>❌ Le problème : la recherche manuelle dans DVF</h2>
+
+  <div class="two-col">
+    <div>
+      <h3>Avant l'outil</h3>
+      <ul>
+        <li>Consultation manuelle de DVF (Demandes de Valeurs Foncières) transaction par transaction</li>
+        <li>Sélection des références pertinentes basée sur la <strong>seule intuition</strong> ou l'expérience</li>
+        <li>Risque d'<strong>oubli de références importantes</strong> ou de sélection biaisée</li>
+        <li>Temps de recherche incompressible pour chaque dossier</li>
+        <li>Micro-marchés définis de manière subjective, discutables lors d'un contentieux</li>
+        <li>Pas de visualisation spatiale des dynamiques de marché</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Conséquences opérationnelles</h3>
+      <div class="card" style="margin-bottom:15px;">
+        <span class="big-number" style="font-size:2em; color:#e94560;">⏱️ Temps</span>
+        <div class="card-label">Heures perdues par dossier en recherche de références comparables</div>
+      </div>
+      <div class="card" style="margin-bottom:15px;">
+        <span class="big-number" style="font-size:2em; color:#e94560;">⚖️ Risque</span>
+        <div class="card-label">Fragilité des estimations foncières en cas de recours contentieux</div>
+      </div>
+      <div class="card">
+        <span class="big-number" style="font-size:2em; color:#e94560;">📍 Imprécision</span>
+        <div class="card-label">Délimitation empirique des zones de marché sans fondement statistique</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">3 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 4 — LA SOLUTION : L'OUTIL
+     ============================================================ -->
+<div class="slide" id="slide-4">
+  <h2>✅ La solution : Analyse Foncière VLG</h2>
+
+  <p>Application web interactive développée sur mesure pour le service foncier, exploitant les données DVF en open data.</p>
+
+  <div class="cards cards-2 mt-20">
+    <div>
+      <h3>🗺️ Cartographie interactive</h3>
+      <ul>
+        <li>Visualisation de <strong>toutes les transactions</strong> foncières sur la commune et les communes limitrophes</li>
+        <li>Filtres par type de bien, surface, période, valeur</li>
+        <li>Accès instantané aux détails de chaque mutation</li>
+        <li>Comparaison multi-communes (VLG, Gennevilliers, Asnières, Colombes...)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>🔬 Micro-marchés par HDBSCAN</h3>
+      <ul>
+        <li>Algorithme de clustering IA (<strong>HDBSCAN</strong>) appliqué aux données de prix</li>
+        <li>Identification <strong>automatique et scientifique</strong> des zones homogènes de marché</li>
+        <li>Résultats reproductibles et défendables en contentieux</li>
+        <li>Mise à jour possible à chaque millésime DVF</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quote mt-20">
+    <strong>HDBSCAN</strong> (Hierarchical Density-Based Spatial Clustering) est un algorithme reconnu en machine learning, capable d'identifier des clusters de forme arbitraire dans des données géospatiales — sans avoir à définir le nombre de zones à l'avance. Les micro-marchés émergent des données elles-mêmes.
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">4 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 5 — BÉNÉFICES CONCRETS
+     ============================================================ -->
+<div class="slide" id="slide-5">
+  <h2>💡 Bénéfices concrets pour la collectivité</h2>
+
+  <div class="cards cards-3 mt-20">
+    <div class="card">
+      <span class="big-number green">-80%</span>
+      <div class="card-label">Estimation du gain de temps sur la recherche de références foncières comparables par dossier</div>
+    </div>
+    <div class="card">
+      <span class="big-number blue">100%</span>
+      <div class="card-label">Références issues de données officielles DVF — traçables, auditables, opposables</div>
+    </div>
+    <div class="card">
+      <span class="big-number orange">0 €</span>
+      <div class="card-label">Coût de licence logicielle — données open data, code propriétaire commune</div>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top: 25px;">
+    <div>
+      <h3>Usages immédiats</h3>
+      <ul>
+        <li>Évaluation des biens à acquérir ou céder</li>
+        <li>Instruction de DIA (Droit de Préemption Urbain)</li>
+        <li>Référencement pour contentieux fonciers</li>
+        <li>Suivi des tendances de marché annuel</li>
+        <li>Aide à la négociation amiable</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Usages potentiels</h3>
+      <ul>
+        <li>Extension à d'autres communes IDF (92, 94 déjà développés)</li>
+        <li>Mutualisable avec d'autres services fonciers intercommunaux</li>
+        <li>Capitalisation pour mise à jour annuelle automatique</li>
+        <li>Valorisable sur Idealco / réseau des collectivités</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">5 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 6 — COÛT : INTERNE vs EXTERNE
+     ============================================================ -->
+<div class="slide" id="slide-6">
+  <h2>💶 Valeur de l'outil : développement interne vs externe</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Poste</th>
+        <th>Développement externe</th>
+        <th class="text-green">Développement interne (réalisé)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cahier des charges &amp; spécifications</strong></td>
+        <td class="negative">3 000 – 5 000 €</td>
+        <td class="highlight">Inclus (expertise métier propriétaire)</td>
+      </tr>
+      <tr>
+        <td><strong>Développement application web + IA</strong></td>
+        <td class="negative">15 000 – 35 000 €</td>
+        <td class="highlight">0 € (hors temps de travail)</td>
+      </tr>
+      <tr>
+        <td><strong>Intégration données DVF + cartographie</strong></td>
+        <td class="negative">5 000 – 10 000 €</td>
+        <td class="highlight">0 € (open data)</td>
+      </tr>
+      <tr>
+        <td><strong>Formation algorithmes IA (HDBSCAN, ML)</strong></td>
+        <td class="negative">2 000 – 5 000 €</td>
+        <td class="highlight">0 € (IBM AI Developer — sur congés personnels)</td>
+      </tr>
+      <tr>
+        <td><strong>Maintenance &amp; mises à jour annuelles</strong></td>
+        <td class="negative">3 000 – 6 000 € / an</td>
+        <td class="highlight">Assurée en interne</td>
+      </tr>
+      <tr style="background: rgba(39,174,96,0.08);">
+        <td><strong>TOTAL estimé</strong></td>
+        <td class="negative" style="font-size:1.2em;"><strong>28 000 – 61 000 €</strong></td>
+        <td class="highlight" style="font-size:1.2em;"><strong>0 € pour la commune</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 20px; color: #aaa; font-size: 0.9em;">
+    * Estimations basées sur les tarifs du marché (ESN, freelance senior Data/GIS/IA en Île-de-France, 2024-2025). L'outil a été développé sur du temps personnel, lors de formations certifiantes suivies en dehors des heures de travail.
+  </p>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">6 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 7 — PROFIL ET FORMATION
+     ============================================================ -->
+<div class="slide" id="slide-7">
+  <h2>🎓 Un profil rare : expertise métier + compétences IA</h2>
+
+  <p>Le développement de cet outil mobilise des compétences qui ne sont pas incluses dans une fiche de poste standard de responsable foncier.</p>
+
+  <div class="two-col mt-20">
+    <div>
+      <h3>Formations certifiantes (hors temps de travail)</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot blue"></div>
+          <div>
+            <strong>IBM AI Developer Professional Certificate</strong><br>
+            <span style="color:#aaa; font-size:0.9em;">Intégration ML, Python, déploiement IA — entièrement en anglais, suivi sur congés et soirées</span>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot blue"></div>
+          <div>
+            <strong>IBM AI Product Manager Professional Certificate</strong><br>
+            <span style="color:#aaa; font-size:0.9em;">Conception produit, roadmap, valeur métier des outils IA — entièrement en anglais</span>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot green"></div>
+          <div>
+            <strong>Expertise fiscalité foncière</strong><br>
+            <span style="color:#aaa; font-size:0.9em;">Maîtrise avancée permettant 335 K€ d'économies fiscales en 3 ans</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3>Ce que coûterait un remplacement</h3>
+      <div class="card" style="margin-bottom:15px; text-align:left; padding:20px;">
+        <ul>
+          <li>Période de recrutement : <strong class="text-red">2 à 4 mois</strong> (poste rare)</li>
+          <li>Probabilité de trouver profil équivalent (foncier + IA + fiscalité) : <strong class="text-red">très faible</strong></li>
+          <li>Période d'essai non concluante = <strong class="text-red">recommencer</strong></li>
+          <li>Coût période d'essai (3 mois) + onboarding : <strong class="text-red">~15 000 – 20 000 €</strong></li>
+          <li>Perte de mémoire institutionnelle et de la maîtrise de l'outil : <strong class="text-red">incalculable</strong></li>
+          <li>Formation du remplaçant à l'outil développé : <strong class="text-red">plusieurs mois</strong></li>
+        </ul>
+      </div>
+      <div class="quote" style="font-size:0.9em;">
+        Les compétences IA + droit foncier + fiscalité dans une seule personne constituent un profil introuvable sur le marché de la fonction publique territoriale.
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">7 / 9</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 8 — PERSPECTIVES
+     ============================================================ -->
+<div class="slide" id="slide-8">
+  <h2>🚀 Perspectives &amp; valorisation</h2>
+
+  <p>Cet outil positionne la commune de Villeneuve-la-Garenne comme pionnière dans l'utilisation de l'IA pour la gestion foncière en collectivité.</p>
+
+  <div class="cards cards-2 mt-20">
+    <div class="card" style="text-align:left; padding:25px;">
+      <h3 style="margin-top:0; color:#5dade2;">Court terme</h3>
+      <ul style="list-style:none; padding:0;">
+        <li style="margin:10px 0;">✅ Outil opérationnel sur VLG</li>
+        <li style="margin:10px 0;">✅ Extension départements 92 et 94 développée</li>
+        <li style="margin:10px 0;">📅 Présentation aux chefs de service (réunion avril 2026)</li>
+        <li style="margin:10px 0;">📢 Partage d'expérience sur <strong>Idealco</strong></li>
+      </ul>
+    </div>
+    <div class="card" style="text-align:left; padding:25px;">
+      <h3 style="margin-top:0; color:#5dade2;">Moyen terme</h3>
+      <ul style="list-style:none; padding:0;">
+        <li style="margin:10px 0;">🔄 Mise à jour annuelle millésime DVF</li>
+        <li style="margin:10px 0;">🤝 Mutualisation possible avec EPCI / communes voisines</li>
+        <li style="margin:10px 0;">📊 Enrichissement (loyers, permis de construire)</li>
+        <li style="margin:10px 0;">🏆 Candidature à des prix innovation publique</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quote mt-20">
+    La DGS a exprimé un intérêt pour le partage d'expériences innovantes. Cet outil constitue une vitrine concrète de la capacité d'innovation du service foncier municipal.
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">8 / 10</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 9 — VALIDATION EXTERNE
+     ============================================================ -->
+<div class="slide" id="slide-9">
+  <h2>🌐 Validation externe — le secteur privé reconnaît la rareté</h2>
+
+  <p style="margin-bottom:30px;">Depuis la publication de l'outil sur <strong>data.gouv.fr</strong> et le partage d'expérience sur <strong>Idealco</strong>, des retours spontanés de professionnels du secteur immobilier confirment la valeur exceptionnelle du travail produit.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 1.6fr; gap: 30px; margin-top:20px; align-items:start;">
+
+    <!-- La question posée -->
+    <div style="background:#16213e; border:1px solid #0f3460; border-radius:12px; padding:22px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#5dade2,#0f3460); display:flex; align-items:center; justify-content:center; font-weight:bold; color:#fff; flex-shrink:0; font-size:0.9em;">SB</div>
+        <div>
+          <div style="font-weight:600; color:#fff; font-size:0.9em;">Samuel BRUNO</div>
+          <div style="color:#888; font-size:0.75em;">Responsable foncier · Mairie VLG · il y a 3 jours</div>
+        </div>
+      </div>
+      <div style="font-weight:700; color:#5dade2; font-size:0.9em; margin-bottom:10px;">Comment optimisez-vous votre veille foncière au niveau communal ?</div>
+      <p style="color:#ccc; font-size:0.82em; line-height:1.5; margin:0 0 12px 0;">Les outils nationaux (DVF, AppDVF) sont souvent trop génériques. À VLG, nous avons développé en interne : carte interactive, analyse au m², clustering spatial des mutations — accessible librement (données publiques).</p>
+      <div style="background:#1a3a5c; border-radius:6px; padding:6px 10px; font-size:0.75em; color:#aaa;">📌 Publié sur <strong style="color:#5dade2;">app.idealco.fr</strong> · 1 commentaire</div>
+    </div>
+
+    <!-- Commentaire Bruno Iratchet REALIA -->
+    <div style="background:#16213e; border:2px solid #e94560; border-radius:12px; padding:25px; position:relative;">
+      <div style="position:absolute; top:-12px; left:20px; background:#e94560; color:#fff; font-size:0.72em; font-weight:700; padding:3px 12px; border-radius:10px; white-space:nowrap;">RÉPONSE SPONTANÉE D'UN EXPERT DU SECTEUR PRIVÉ</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; margin-top:8px;">
+        <div style="width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,#e94560,#8e1a30); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:1em; color:#fff; flex-shrink:0;">BI</div>
+        <div>
+          <div style="font-weight:600; color:#fff; font-size:0.95em;">Bruno Iratchet <span style="color:#5dade2;">✓</span></div>
+          <div style="color:#888; font-size:0.8em;">Consultant - Gérant · REALIA · il y a 2 jours</div>
+        </div>
+      </div>
+      <blockquote style="border-left:3px solid #e94560; padding-left:15px; margin:0 0 14px 0; color:#ddd; font-style:italic; line-height:1.7; font-size:0.93em;">
+        "Votre application est très ergonomique et facile à utiliser, bravo ! Étant publique, elle mériterait d'être référencée sur data.gouv.fr.<br><br>
+        <strong style="color:#fff; font-style:normal;">Pour les collectivités qui n'ont pas la chance d'avoir un expert comme vous,</strong> il existe au moins cette solution commerciale (je n'ai pas de lien avec cette société) : geofoncier.fr<br><br>
+        Bonne journée, Bruno"
+      </blockquote>
+      <div style="background:#1a1a2e; border-radius:8px; padding:10px 14px; font-size:0.82em; color:#aaa; line-height:1.6;">
+        → Suite à ce commentaire, l'outil a été <strong style="color:#5dade2;">référencé sur data.gouv.fr</strong> parmi les réutilisations DVF<br>
+        → Un cabinet privé spécialisé reconnaît qu'<strong style="color:#e94560;">aucune solution commerciale ne remplace ce profil</strong>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="quote mt-20" style="border-left-color:#e94560;">
+    L'outil est public sur <strong>data.gouv.fr</strong> — la commune en bénéficie gratuitement tant que son créateur est là. Sa maintenance, ses évolutions (92, 94, EPCI) et son expertise ne s'externalisent pas.
+  </div>
+
+  <div class="footer-commune">Analyse Foncière VLG · Service Foncier</div>
+  <div class="slide-number">9 / 10</div>
+</div>
+
+<!-- ============================================================
+     SLIDE 10 — CONCLUSION / DEMANDE
+     ============================================================ -->
+<div class="slide slide-conclusion" id="slide-10">
+  <h2 style="text-align:center; border:none; font-size:2em;">La demande</h2>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 10px;">
+    <div>
+      <h3 style="color:#aaa; text-align:center; margin-bottom:20px;">Ce que la commune a reçu</h3>
+      <div class="cards">
+        <div class="card">
+          <span class="big-number green" style="font-size:2em;">335 K€</span>
+          <div class="card-label">économisés sur la fiscalité en 3 ans</div>
+        </div>
+        <div class="card">
+          <span class="big-number blue" style="font-size:2em;">30–60 K€</span>
+          <div class="card-label">de valeur d'outil IA développé gratuitement</div>
+        </div>
+        <div class="card">
+          <span class="big-number orange" style="font-size:2em;">2 certif.</span>
+          <div class="card-label">IBM IA financées sur fonds personnels</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
+      <h3 style="color:#aaa; text-align:center; margin-bottom:20px;">Ce qui est demandé</h3>
+      <div class="demande">
+        <span class="montant">+100 € <span style="font-size:0.45em; color:#5dade2; font-weight:600;">NET</span></span>
+        <div class="per-month">par mois · soit +1 200 € net / an</div>
+      </div>
+      <div style="font-size:0.8em; color:#aaa; text-align:center; margin-top:6px; margin-bottom:10px;">
+        <strong style="color:#fff;">en revalorisation IFSE</strong> — <em>en sus du CIA</em>
+      </div>
+      <div style="background:#1a1a2e; border:1px solid #333; border-radius:8px; padding:10px 14px; font-size:0.8em; color:#aaa; text-align:left; line-height:1.7;">
+        <div style="margin-bottom:4px;">• Brut nécessaire : <strong style="color:#fff;">~160 €/mois</strong></div>
+        <div style="margin-bottom:4px; color:#666;">  (CSG/CRDS 9,7% + PAS 30%)</div>
+        <div style="margin-bottom:4px;">• Coût annuel : <strong style="color:#fff;">~1 925 € brut</strong> pour <strong style="color:#5dade2;">1 200 € net</strong></div>
+        <div>• CIA → <strong style="color:#5dade2;">inchangé (maintenu)</strong></div>
+      </div>
+      <div class="roi-box" style="margin-top:12px;">
+        <strong>ROI pour la commune :</strong><br>
+        <span>174 x</span> le coût de la demande<br>
+        <span style="font-size:0.85em; color:#aaa;">(335 K€ / 1 925 € brut annuels)</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e); border:1px solid #0f3460; border-radius:12px; padding:20px 30px; margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:center;">
+    <div style="border-right:1px solid #0f3460; padding-right:20px;">
+      <div style="color:#e94560; font-weight:700; font-size:0.85em; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Dans le secteur privé</div>
+      <p style="color:#ddd; font-size:0.9em; margin:0; line-height:1.6;">Un collaborateur qui fait économiser <strong style="color:#fff;">335 000 €</strong> à son entreprise en 3 ans reçoit une <strong style="color:#5dade2;">prime, une augmentation, une promotion</strong>. C'est une règle non écrite universellement respectée.</p>
+    </div>
+    <div style="padding-left:10px;">
+      <div style="color:#5dade2; font-weight:700; font-size:0.85em; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Dans le secteur public</div>
+      <p style="color:#ddd; font-size:0.9em; margin:0; line-height:1.6;">Le mécanisme indemnitaire existe précisément pour ça. La demande de <strong style="color:#fff;">100 € / mois</strong> n'est pas une faveur — c'est <strong style="color:#5dade2;">la norme dans tout secteur qui valorise la performance.</strong></p>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:18px; color:#888; font-size:0.88em;">
+    Cette revalorisation symbolique de <strong style="color:#fff;">100 € / mois</strong> ne compense pas la valeur créée — elle reconnaît simplement l'investissement personnel consenti.<br>
+    <span style="color: #5dade2; margin-top:8px; display:block; font-size:1.05em;">Optimiser le budget, c'est aussi retenir les talents qui le font.</span>
+  </div>
+
+  <div class="slide-number">10 / 10</div>
+</div>
+
+</body>
+</html>

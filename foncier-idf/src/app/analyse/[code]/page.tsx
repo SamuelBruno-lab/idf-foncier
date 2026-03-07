@@ -4,6 +4,40 @@ import { notFound } from "next/navigation";
 import ZonesMap from "@/components/ZonesMap";
 import AnalyseLeadSection from "@/components/AnalyseLeadSection";
 
+// Pages statiques pré-générées pour le SEO (top 100 communes par volume)
+// Les autres communes restent accessibles en rendu dynamique
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data } = await supabase
+      .from("dvf_clusters_commune")
+      .select("cluster_id,count")
+      .order("count", { ascending: false })
+      .limit(500);
+
+    if (!data) return [];
+    // Dédupliquer par code commune (cluster_id = "{code}_{type_local}")
+    const seen = new Set<string>();
+    const codes: string[] = [];
+    for (const row of data) {
+      const code = row.cluster_id.split("_")[0];
+      if (!seen.has(code)) {
+        seen.add(code);
+        codes.push(code);
+        if (codes.length >= 100) break;
+      }
+    }
+    return codes.map((code) => ({ code }));
+  } catch {
+    return [];
+  }
+}
+
 interface EvolutionRow {
   annee: number;
   count: number;
@@ -131,12 +165,56 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   };
 }
 
+// Médianes IDF de référence (source OLAP 2024 / DVF 2020-2024)
+const IDF_RENDEMENT_MEDIAN = 4.4;
+const IDF_PRIX_M2_MEDIAN = 5500;
+
+function getContextPhrase(stats: CommuneStats): string | null {
+  if (stats.rendement_brut != null) {
+    const diff = stats.rendement_brut - IDF_RENDEMENT_MEDIAN;
+    const pct = Math.abs(Math.round((diff / IDF_RENDEMENT_MEDIAN) * 100));
+    if (diff >= 1.5)
+      return `Rendement attractif · ${pct}% au-dessus de la médiane IDF (${IDF_RENDEMENT_MEDIAN}%) — profil investisseur locatif.`;
+    if (diff >= 0)
+      return `Rendement dans la moyenne IDF (${IDF_RENDEMENT_MEDIAN}%) — bon équilibre valorisation / rendement.`;
+    if (diff >= -1.5)
+      return `Marché légèrement sous la médiane IDF en rendement · profil patrimonial et valorisation long terme.`;
+    return `Marché premium à faible rendement locatif · profil résidence principale ou patrimoine.`;
+  }
+  if (stats.prix_m2_median > IDF_PRIX_M2_MEDIAN * 1.4)
+    return `Marché premium — prix médian ${Math.round(((stats.prix_m2_median - IDF_PRIX_M2_MEDIAN) / IDF_PRIX_M2_MEDIAN) * 100)}% au-dessus de la médiane IDF.`;
+  if (stats.prix_m2_median < IDF_PRIX_M2_MEDIAN * 0.7)
+    return `Marché accessible — prix médian ${Math.round(((IDF_PRIX_M2_MEDIAN - stats.prix_m2_median) / IDF_PRIX_M2_MEDIAN) * 100)}% sous la médiane IDF.`;
+  return null;
+}
+
 const TYPE_LABEL: Record<string, string> = {
   "Appartement": "Appartement",
   "Maison": "Maison",
   "Local industriel. commercial ou assimilé": "Local commercial",
   "Dépendance": "Dépendance",
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params;
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data } = await supabase
+    .from("dvf_clusters_commune")
+    .select("nom,dept")
+    .like("cluster_id", `${code}_%`)
+    .limit(1)
+    .single();
+
+  const nom = data?.nom ?? code;
+  const dept = data?.dept ?? "";
+  return {
+    title: `Marché immobilier ${nom} (${dept}) — Prix, loyers, rendement | datamerry`,
+    description: `Analyse DVF de ${nom} : prix médian au m², loyer médian, rendement locatif brut, évolution 2020–2025 et micro-marchés identifiés par IA.`,
+  };
+}
 
 export default async function AnalysePage({
   params,
@@ -307,6 +385,32 @@ export default async function AnalysePage({
           ))}
         </div>
 
+        {/* Phrase de contexte marché */}
+        {(() => {
+          const phrase = getContextPhrase(stats);
+          if (!phrase) return null;
+          const isGood = stats.rendement_brut != null && stats.rendement_brut >= IDF_RENDEMENT_MEDIAN;
+          return (
+            <div
+              style={{
+                marginBottom: 28,
+                padding: "14px 20px",
+                borderRadius: 10,
+                background: isGood ? "rgba(0,255,136,0.04)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${isGood ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.07)"}`,
+                display: "flex",
+                gap: 12,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{isGood ? "📈" : "📊"}</span>
+              <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+                {phrase}
+              </p>
+            </div>
+          );
+        })()}
+
         {/* Par type de bien */}
         {mainTypes.length > 0 && (
           <div style={{ marginBottom: 36 }}>
@@ -369,12 +473,14 @@ export default async function AnalysePage({
             >
               Évolution annuelle
             </h2>
+            <div style={{ overflowX: "auto" }}>
             <div
               style={{
                 background: "rgba(255,255,255,0.03)",
                 border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 12,
                 overflow: "hidden",
+                minWidth: 420,
               }}
             >
               {/* En-tête tableau */}
@@ -444,6 +550,7 @@ export default async function AnalysePage({
                 </div>
               ))}
             </div>
+            </div>{/* /overflowX wrapper */}
           </div>
         )}
 
@@ -503,6 +610,8 @@ export default async function AnalysePage({
                         overflow: "hidden",
                       }}
                     >
+                    <div style={{ overflowX: "auto" }}>
+                    <div style={{ minWidth: 480 }}>
                       {/* En-tête */}
                       <div
                         style={{
@@ -602,6 +711,8 @@ export default async function AnalysePage({
                         );
                       })}
                     </div>
+                    </div>{/* /minWidth */}
+                    </div>{/* /overflowX */}
                   </div>
                 );
               })}

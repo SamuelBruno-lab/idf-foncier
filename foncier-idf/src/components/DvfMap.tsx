@@ -241,6 +241,39 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
       </DeckGL>
 
       {renderTooltip()}
+
+      {/* Légende rendement */}
+      {colorBy === "rendement" && mode === "clusters" && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 36,
+            left: 12,
+            zIndex: 500,
+            background: "rgba(10,10,30,0.9)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontFamily: "Segoe UI, Arial, sans-serif",
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
+            Rendement brut
+          </div>
+          {[
+            { color: "#00ff78", label: "> 7%" },
+            { color: "#32dc64", label: "5 – 7%" },
+            { color: "#ffa000", label: "3 – 5%" },
+            { color: "#ff3c3c", label: "< 3%" },
+            { color: "rgba(100,100,120,0.6)", label: "N/A" },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+              <div style={{ width: 11, height: 11, borderRadius: "50%", background: color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: "#bbb" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

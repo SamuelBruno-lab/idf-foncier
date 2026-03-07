@@ -414,10 +414,10 @@ export default async function AnalysePage({
                   marginBottom: 6,
                 }}
               >
-                Zones HDBSCAN
+                Micro-marchés
               </h2>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
-                {stats.hdbscanZones.length} zones de marché identifiées par clustering géospatial
+                {stats.hdbscanZones.length} micro-marchés identifiés par analyse géospatiale
               </p>
               {types.map((type) => {
                 const zones = stats.hdbscanZones.filter((z) => z.type_local === type);
@@ -439,7 +439,7 @@ export default async function AnalysePage({
                         marginBottom: 8,
                       }}
                     >
-                      {TYPE_LABEL[type] ?? type} — {zones.length} zones
+                      {TYPE_LABEL[type] ?? type} — {zones.length} micro-marchés
                     </div>
                     <div
                       style={{

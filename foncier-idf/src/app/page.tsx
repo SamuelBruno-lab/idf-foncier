@@ -240,7 +240,7 @@ export default function HomePage() {
             {[
               { val: "9 depts", label: "IDF + Oise" },
               { val: "5 ans", label: "2020 → 2025" },
-              { val: "HDBSCAN", label: "Clustering ML" },
+              { val: "IA", label: "Micro-marchés" },
             ].map(({ val, label }) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>

@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
   description:
-    "Carte interactive de toutes les ventes immobilières IDF + Oise 2020–2025. Zones de marché calculées par machine learning (HDBSCAN). Données DVF open data. 100% gratuit.",
+    "Carte interactive de toutes les ventes immobilières IDF + Oise 2020–2025. Micro-marchés identifiés par IA. Données DVF open data. 100% gratuit.",
   metadataBase: new URL("https://datamerry.com"),
   openGraph: {
     title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
     description:
-      "Carte interactive de toutes les ventes immobilières IDF + Oise 2020–2025. Zones de marché calculées par machine learning (HDBSCAN). Données DVF open data. 100% gratuit.",
+      "Carte interactive de toutes les ventes immobilières IDF + Oise 2020–2025. Micro-marchés identifiés par IA. Données DVF open data. 100% gratuit.",
     url: "https://datamerry.com",
     siteName: "datamerry",
     locale: "fr_FR",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     "immobilier", "Île-de-France", "DVF", "prix immobilier", "carte immobilière",
-    "transactions immobilières", "datamerry", "machine learning", "HDBSCAN",
+    "transactions immobilières", "datamerry", "micro-marchés immobiliers", "analyse foncière IA",
     "foncier", "Villeneuve-la-Garenne", "Oise",
   ],
 };

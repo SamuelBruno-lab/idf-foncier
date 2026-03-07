@@ -132,6 +132,8 @@ export default async function AnalysePage({
 
   const maxPrix = Math.max(...stats.evolution.map((e) => e.prix_m2_median), 1);
   const maxCount = Math.max(...stats.evolution.map((e) => e.count), 1);
+  const yearMin = stats.evolution.length > 0 ? stats.evolution[0].annee : 2020;
+  const yearMax = stats.evolution.length > 0 ? stats.evolution[stats.evolution.length - 1].annee : 2025;
 
   const mainTypes = stats.byType
     .filter((t) => t.type === "Appartement" || t.type === "Maison")
@@ -210,7 +212,7 @@ export default async function AnalysePage({
             {stats.nom}
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 6 }}>
-            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · 2020–2025 · Source DVF
+            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF
           </p>
         </div>
 
@@ -238,7 +240,7 @@ export default async function AnalysePage({
             },
             {
               label: "Période couverte",
-              value: "2020 – 2025",
+              value: `${yearMin} – ${yearMax}`,
               color: "#a855f7",
             },
           ].map(({ label, value, color }) => (

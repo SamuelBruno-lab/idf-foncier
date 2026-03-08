@@ -30,10 +30,16 @@ const DEPT_INFO: Record<string, { nom: string; nomFull: string; color: string; d
 
 const DEPT_ORDER = ["75", "92", "93", "94", "95", "91", "77", "60"];
 
-// Cartes statiques GitHub Pages disponibles par département
+// Cartes statiques GitHub Pages — même pipeline HDBSCAN que hauts-de-seine-foncier
 const STATIC_MAPS: Record<string, string> = {
+  "60": "https://samuelbruno-lab.github.io/oise-foncier/",
+  "75": "https://samuelbruno-lab.github.io/paris-foncier/",
+  "77": "https://samuelbruno-lab.github.io/seine-et-marne-foncier/",
+  "91": "https://samuelbruno-lab.github.io/essonne-foncier/",
   "92": "https://samuelbruno-lab.github.io/hauts-de-seine-foncier/",
+  "93": "https://samuelbruno-lab.github.io/seine-saint-denis-foncier/",
   "94": "https://samuelbruno-lab.github.io/val-de-marne-foncier/",
+  "95": "https://samuelbruno-lab.github.io/val-d-oise-foncier/",
 };
 
 type CommuneSuggestion = { code: string; nom: string };

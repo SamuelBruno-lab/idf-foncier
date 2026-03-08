@@ -8,14 +8,21 @@ const supabase = createClient(
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const dept = req.nextUrl.searchParams.get("dept")?.trim();
   if (q.length < 2) return NextResponse.json([]);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("dvf_clusters_commune")
-    .select("cluster_id, nom")
+    .select("cluster_id, nom, dept")
     .ilike("nom", `%${q}%`)
     .order("nom")
     .limit(200); // on déduplique côté serveur
+
+  if (dept) {
+    query = query.eq("dept", dept);
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json([], { status: 500 });
 

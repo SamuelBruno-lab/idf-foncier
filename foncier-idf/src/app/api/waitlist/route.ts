@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,15 +19,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "email invalide" }, { status: 400 });
   }
 
+  const entryType = type ?? "notify";
+
   // Upsert pour éviter les doublons
   const { error } = await supabase.from("waitlist").upsert(
-    { email, commune_code, commune_nom, type: type ?? "notify" },
+    { email, commune_code, commune_nom, type: entryType },
     { onConflict: "email,commune_code", ignoreDuplicates: true }
   );
 
   if (error) {
     console.error("waitlist upsert error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+
+  // Confirmation email uniquement pour les inscriptions gratuites (pas les paid_request)
+  if (entryType === "notify" && process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const communeLabel = commune_nom ?? commune_code;
+    resend.emails.send({
+      from: "datamerry <no-reply@datamerry.com>",
+      to: email,
+      subject: `Vous êtes sur la liste pour ${communeLabel} — datamerry`,
+      text: [
+        `Bonjour,`,
+        ``,
+        `Vous êtes bien inscrit(e) sur la liste d'attente pour ${communeLabel}.`,
+        ``,
+        `Vous serez notifié(e) par email dès que l'analyse sera disponible gratuitement.`,
+        ``,
+        `À bientôt,`,
+        `L'équipe datamerry`,
+        `https://datamerry.com`,
+      ].join("\n"),
+    }).catch((err: unknown) => console.error("resend waitlist email error:", err));
   }
 
   return NextResponse.json({ ok: true });

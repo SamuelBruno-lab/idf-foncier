@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import ZonesMap from "@/components/ZonesMap";
 import AnalyseLeadSection from "@/components/AnalyseLeadSection";
+import WaitlistBox from "@/components/WaitlistBox";
 
 // Pages statiques pré-générées pour le SEO (top 100 communes par volume)
 // Les autres communes restent accessibles en rendu dynamique
@@ -223,7 +223,25 @@ export default async function AnalysePage({
 }) {
   const { code } = await params;
   const stats = await getCommuneStats(code);
-  if (!stats) notFound();
+
+  // Commune non encore analysée → page waitlist
+  if (!stats) {
+    let communeNom = code;
+    try {
+      const geo = await fetch(`https://geo.api.gouv.fr/communes/${code}?fields=nom`, { next: { revalidate: 86400 } });
+      if (geo.ok) { const d = await geo.json(); communeNom = d.nom ?? code; }
+    } catch { /* ignore */ }
+    return (
+      <div style={{ minHeight: "100vh", background: "#070714", color: "#e8e8f0", fontFamily: "Segoe UI, Arial, sans-serif", padding: "0 0 60px" }}>
+        <div style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "16px 32px", display: "flex", alignItems: "center", gap: 16 }}>
+          <Link href="/" style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, textDecoration: "none" }}>← datamerry</Link>
+        </div>
+        <div style={{ maxWidth: 640, margin: "60px auto", padding: "0 24px" }}>
+          <WaitlistBox commune={{ code, nom: communeNom }} />
+        </div>
+      </div>
+    );
+  }
 
   const maxPrix = Math.max(...stats.evolution.map((e) => e.prix_m2_median), 1);
   const maxCount = Math.max(...stats.evolution.map((e) => e.count), 1);

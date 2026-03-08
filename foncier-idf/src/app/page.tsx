@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
+
+const DEPTS = [
+  { code: "75", shortName: "Paris", color: "#ef4444" },
+  { code: "92", shortName: "Hts-de-Seine", color: "#00d4ff" },
+  { code: "93", shortName: "Seine-St-Denis", color: "#00ff88" },
+  { code: "94", shortName: "Val-de-Marne", color: "#a78bfa" },
+  { code: "95", shortName: "Val-d'Oise", color: "#f59e0b" },
+  { code: "91", shortName: "Essonne", color: "#10b981" },
+  { code: "77", shortName: "Seine-et-Marne", color: "#f97316" },
+  { code: "60", shortName: "Oise", color: "#ec4899" },
+];
 import FilterPanel from "@/components/FilterPanel";
 import LeadModal from "@/components/LeadModal";
 import CookieBanner from "@/components/CookieBanner";
@@ -325,39 +337,55 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* CTAs */}
+          {/* Navigation départements */}
+          <div style={{ width: "100%", maxWidth: 640, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
+              Explorer par département
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              {DEPTS.map((d) => (
+                <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
+                  <div
+                    style={{
+                      padding: "12px 6px",
+                      borderRadius: 10,
+                      border: `1px solid ${d.color}44`,
+                      background: `${d.color}11`,
+                      textAlign: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}22`;
+                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}99`;
+                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}11`;
+                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}44`;
+                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
+                    }}
+                  >
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{d.code}</div>
+                    <div style={{ fontSize: 9, color: `${d.color}cc`, marginTop: 2, lineHeight: 1.3 }}>{d.shortName}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* CTAs secondaires */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               onClick={() => setShowHero(false)}
               style={{
-                padding: "14px 32px",
+                padding: "12px 28px",
                 borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(135deg, #00d4ff, #0099cc)",
-                color: "#000",
-                fontWeight: 700,
-                fontSize: 16,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                boxShadow: "0 0 30px rgba(0,212,255,0.4)",
-                transition: "transform 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              Explorer la carte →
-            </button>
-
-            <button
-              onClick={() => setShowLeadModal(true)}
-              style={{
-                padding: "14px 32px",
-                borderRadius: 10,
-                border: "1px solid rgba(168,85,247,0.5)",
-                background: "rgba(168,85,247,0.12)",
-                color: "#c084fc",
+                border: "1px solid rgba(0,212,255,0.4)",
+                background: "rgba(0,212,255,0.1)",
+                color: "#00d4ff",
                 fontWeight: 600,
-                fontSize: 16,
+                fontSize: 14,
                 cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
                 transition: "transform 0.15s",
@@ -365,8 +393,28 @@ export default function HomePage() {
               onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              Recevoir les analyses
+              Carte IDF complète →
             </button>
+            <Link href="/actualites" style={{ textDecoration: "none" }}>
+              <div
+                style={{
+                  padding: "12px 28px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(168,85,247,0.4)",
+                  background: "rgba(168,85,247,0.1)",
+                  color: "#c084fc",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontFamily: "Segoe UI, sans-serif",
+                  transition: "transform 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
+              >
+                Actualités & projets pilotes
+              </div>
+            </Link>
           </div>
 
           {/* Footer branding */}

@@ -1,0 +1,150 @@
+name: Generate commune map
+
+on:
+  repository_dispatch:
+    types: [generate-map]
+  workflow_dispatch:
+    inputs:
+      commune_code:
+        description: "Code INSEE commune (ex: 92078)"
+        required: true
+      commune_nom:
+        description: "Nom de la commune (ex: Puteaux)"
+        required: true
+      job_id:
+        description: "ID du job Supabase"
+        required: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pandas folium requests branca supabase
+
+      - name: Set commune variables
+        id: vars
+        run: |
+          CODE="${{ github.event.client_payload.commune_code || github.event.inputs.commune_code }}"
+          NOM="${{ github.event.client_payload.commune_nom || github.event.inputs.commune_nom }}"
+          JOB_ID="${{ github.event.client_payload.job_id || github.event.inputs.job_id }}"
+          echo "commune_code=$CODE" >> $GITHUB_OUTPUT
+          echo "commune_nom=$NOM" >> $GITHUB_OUTPUT
+          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+
+      - name: Download DVF data
+        run: |
+          CODE=${{ steps.vars.outputs.commune_code }}
+          DEPT=${CODE:0:2}
+          echo "Downloading DVF for dept $DEPT..."
+          curl -sL "https://files.data.gouv.fr/geo-dvf/latest/csv/${DEPT}/communes/${CODE}.csv" \
+            -o /tmp/dvf_${CODE}.csv || echo "No CSV found, will use API"
+
+      - name: Generate map HTML
+        env:
+          COMMUNE_CODE: ${{ steps.vars.outputs.commune_code }}
+          COMMUNE_NOM: ${{ steps.vars.outputs.commune_nom }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python scripts/generate_commune_map.py
+
+      - name: Commit and push map
+        run: |
+          CODE=${{ steps.vars.outputs.commune_code }}
+          NOM="${{ steps.vars.outputs.commune_nom }}"
+          git config user.name "datamerry-bot"
+          git config user.email "bot@datamerry.com"
+          mkdir -p public/maps
+          cp /tmp/map_${CODE}.html public/maps/${CODE}.html
+          git add public/maps/${CODE}.html
+          git diff --staged --quiet || git commit -m "feat: carte ${NOM} (${CODE}) générée automatiquement"
+          git push
+
+      - name: Update job status in Supabase
+        if: steps.vars.outputs.job_id != ''
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          JOB_ID: ${{ steps.vars.outputs.job_id }}
+          COMMUNE_CODE: ${{ steps.vars.outputs.commune_code }}
+        run: |
+          python - <<'EOF'
+          import os, datetime
+          from supabase import create_client
+
+          sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
+          job_id = os.environ["JOB_ID"]
+          code = os.environ["COMMUNE_CODE"]
+          map_url = f"https://samuelbruno-lab.github.io/datamerry-maps/{code}.html"
+          now = datetime.datetime.utcnow().isoformat()
+          public_at = (datetime.datetime.utcnow() + datetime.timedelta(hours=72)).isoformat()
+
+          sb.table("jobs").update({
+            "status": "done",
+            "map_url": map_url,
+            "generated_at": now,
+            "public_at": public_at,
+          }).eq("id", job_id).execute()
+          print(f"Job {job_id} updated → done, public at {public_at}")
+          EOF
+
+      - name: Notify waitlist by email
+        if: steps.vars.outputs.job_id != ''
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          COMMUNE_CODE: ${{ steps.vars.outputs.commune_code }}
+          COMMUNE_NOM: ${{ steps.vars.outputs.commune_nom }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python - <<'EOF'
+          import os, requests
+          from supabase import create_client
+
+          sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
+          code = os.environ["COMMUNE_CODE"]
+          nom = os.environ["COMMUNE_NOM"]
+          map_url = f"https://samuelbruno-lab.github.io/datamerry-maps/{code}.html"
+
+          # Récupérer la waitlist
+          result = sb.table("waitlist").select("email").eq("commune_code", code).eq("type", "notify").is_("notified_at", "null").execute()
+          emails = [r["email"] for r in (result.data or [])]
+
+          resend_key = os.environ.get("RESEND_API_KEY", "")
+          if not resend_key or not emails:
+              print(f"No emails to notify or no Resend key. Count: {len(emails)}")
+          else:
+              for email in emails:
+                  r = requests.post(
+                      "https://api.resend.com/emails",
+                      headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                      json={
+                          "from": "contact@datamerry.com",
+                          "to": email,
+                          "subject": f"[datamerry] L'analyse de {nom} est disponible !",
+                          "html": f"""
+                          <p>Bonjour,</p>
+                          <p>L'analyse foncière de <strong>{nom}</strong> que vous attendiez est maintenant disponible gratuitement sur datamerry.</p>
+                          <p><a href="{map_url}" style="background:#00d4ff;color:#000;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Voir la carte →</a></p>
+                          <p style="color:#888;font-size:12px;">datamerry · Observatoire foncier IA</p>
+                          """
+                      }
+                  )
+                  print(f"Email sent to {email}: {r.status_code}")
+
+          # Marquer comme notifiés
+          if emails:
+              sb.table("waitlist").update({"notified_at": "now()"}).eq("commune_code", code).in_("email", emails).execute()
+          EOF

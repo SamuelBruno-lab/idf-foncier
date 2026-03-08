@@ -58,6 +58,12 @@ def load_dept(dept: str, csv_path: str) -> list:
     df["surface_reelle_bati"] = pd.to_numeric(df["surface_reelle_bati"], errors="coerce").round().astype("Int64")
     df["date_mutation"] = pd.to_datetime(df["date_mutation"], errors="coerce")
     df["annee"] = df["date_mutation"].dt.year.astype("Int64")
+
+    # Correction DVF multi-lots : valeur_fonciere est la valeur totale de la mutation,
+    # répétée sur chaque lot. On divise par le nombre de lots par id_mutation.
+    lots_par_mutation = df.groupby("id_mutation")["id_mutation"].transform("count")
+    df["valeur_fonciere"] = (df["valeur_fonciere"].astype(float) / lots_par_mutation).round().astype("Int64")
+
     surf = df["surface_reelle_bati"].fillna(0).astype(float)
     df["prix_m2"] = np.where(
         surf > 0,
@@ -108,7 +114,7 @@ def compute_clusters(records: list) -> tuple:
         if len(prix_m2_vals) >= 4:
             q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
             iqr = q3 - q1
-            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            mask = (g["prix_m2"] >= max(200, q1 - 1.5 * iqr)) & (g["prix_m2"] <= q3 + 1.5 * iqr)
             g_clean = g[mask | g["prix_m2"].isna()]
         else:
             # < 4 transactions : filtre fixe large (200–30 000 €/m²)
@@ -130,7 +136,7 @@ def compute_clusters(records: list) -> tuple:
         if len(prix_m2_vals) >= 4:
             q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
             iqr = q3 - q1
-            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            mask = (g["prix_m2"] >= max(200, q1 - 1.5 * iqr)) & (g["prix_m2"] <= q3 + 1.5 * iqr)
             g_clean = g[mask | g["prix_m2"].isna()]
         else:
             g_clean = g[(g["prix_m2"].isna()) | ((g["prix_m2"] >= 200) & (g["prix_m2"] <= 30000))]
@@ -151,7 +157,7 @@ def compute_clusters(records: list) -> tuple:
         if len(prix_m2_vals) >= 4:
             q1, q3 = prix_m2_vals.quantile(0.25), prix_m2_vals.quantile(0.75)
             iqr = q3 - q1
-            mask = (g["prix_m2"] >= max(200, q1 - 3 * iqr)) & (g["prix_m2"] <= q3 + 3 * iqr)
+            mask = (g["prix_m2"] >= max(200, q1 - 1.5 * iqr)) & (g["prix_m2"] <= q3 + 1.5 * iqr)
             g_clean = g[mask | g["prix_m2"].isna()]
         else:
             g_clean = g[(g["prix_m2"].isna()) | ((g["prix_m2"] >= 200) & (g["prix_m2"] <= 30000))]

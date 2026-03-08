@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from(`dvf_clusters_${cluster_level}`)
     .select(`cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom${extraCols}`)
-    .gte("count", 5);  // masquer les communes avec trop peu de données
+    .gte("count", cluster_level === "commune" ? 20 : 5);  // min 20 transactions/commune pour éviter les outliers statistiques
 
   if (dept.length > 0) q = q.in("dept", dept);
   if (type_local) q = q.eq("type_local", type_local);

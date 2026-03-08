@@ -65,11 +65,15 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
   const [cursor, setCursor] = useState("grab");
 
   const priceRange = useMemo(() => {
-    const vals = points.map((p) => p.prix_m2).filter(Boolean) as number[];
+    // En mode clusters, utiliser les prix des clusters ; sinon utiliser les points bruts
+    const vals = clusters.length > 0
+      ? clusters.map((c) => c.prix_m2_median).filter(Boolean) as number[]
+      : points.map((p) => p.prix_m2).filter(Boolean) as number[];
     if (vals.length === 0) return [2000, 12000] as [number, number];
     const sorted = [...vals].sort((a, b) => a - b);
+    // Percentiles P5-P95 pour écarter les extrêmes (outliers comme Pially/Conches)
     return [sorted[Math.floor(sorted.length * 0.05)], sorted[Math.floor(sorted.length * 0.95)]] as [number, number];
-  }, [points]);
+  }, [points, clusters]);
 
   const layers = useMemo(() => {
     if (mode === "heatmap") {

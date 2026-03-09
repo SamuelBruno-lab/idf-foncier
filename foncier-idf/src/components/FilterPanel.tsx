@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { DvfFilters } from "@/types/dvf";
 
 const DEPTS_IDF = [
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function FilterPanel({ filters, onFiltersChange, mode, onModeChange, colorBy, onColorByChange, onLeadClick, totalTx }: Props) {
+  const router = useRouter();
   const isCommercial = filters.type_local?.[0] === "Local industriel. commercial ou assimilé";
   const rendementDisabled = isCommercial || mode === "heatmap";
   const [open, setOpen] = useState(true);
@@ -90,7 +92,7 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
         {DEPTS_IDF.map(({ code, nom }) => {
           const active = !filters.dept || filters.dept.includes(code);
           return (
-            <button key={code} onClick={() => toggleDept(code)} title={nom} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid", borderColor: active ? "#00d4ff" : "rgba(255,255,255,0.15)", background: active ? "rgba(0,212,255,0.15)" : "rgba(255,255,255,0.04)", color: active ? "#00d4ff" : "#666", cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400 }}>
+            <button key={code} onClick={() => router.push(`/dept/${code}`)} title={`Voir la carte micro-marchés ${nom}`} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid", borderColor: active ? "#00d4ff" : "rgba(255,255,255,0.15)", background: active ? "rgba(0,212,255,0.15)" : "rgba(255,255,255,0.04)", color: active ? "#00d4ff" : "#666", cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400 }}>
               {code}
             </button>
           );

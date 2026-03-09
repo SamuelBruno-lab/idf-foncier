@@ -108,6 +108,41 @@ CLUSTER_COLORS = [
 def c_color(cid):
     return CLUSTER_COLORS[int(cid) % len(CLUSTER_COLORS)] if cid >= 0 else "#666666"
 
+def aggregate_mutations(data):
+    """Une ligne par mutation :
+    - Exclut les mutations mixtes (plusieurs type_local différents)
+    - Agrège surface_terrain (somme des parcelles) pour les maisons
+    - Agrège surface_reelle_bati (somme Carrez) pour les appartements
+    """
+    if "id_mutation" not in data.columns:
+        return data
+    # 1. Exclure mutations mixtes
+    if "type_local" in data.columns:
+        n_types = data.groupby("id_mutation")["type_local"].apply(
+            lambda x: x.dropna().nunique()
+        )
+        pure_ids = n_types[n_types <= 1].index
+        n_mixed = int((n_types > 1).sum())
+        if n_mixed > 0:
+            print(f"  Mutations mixtes exclues : {n_mixed}")
+        data = data[data["id_mutation"].isin(pure_ids)].copy()
+    # 2. Agréger surfaces par mutation
+    agg_dict = {}
+    for col in ["surface_terrain", "surface_reelle_bati"]:
+        if col in data.columns:
+            agg_dict[col] = "sum"
+    if agg_dict:
+        agg_df = data.groupby("id_mutation").agg(agg_dict).reset_index()
+        for col in agg_dict:
+            agg_df[col] = agg_df[col].replace(0, np.nan)
+        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+        data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
+        data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
+    else:
+        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+    print(f"  Mutations agrégées : {len(data_dedup)}")
+    return data_dedup
+
 def load_data(cfg):
     frames = []
     years_loaded = []
@@ -139,16 +174,34 @@ def load_data(cfg):
     data = pd.concat(frames, ignore_index=True)
     data = data.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
     data = data[data["valeur_fonciere"] > 0]
-    if "id_mutation" in data.columns and "id_parcelle" in data.columns:
-        data = data.drop_duplicates(subset=["id_mutation", "id_parcelle"])
     data["valeur_fonciere"] = pd.to_numeric(data["valeur_fonciere"], errors="coerce")
     data["surface_reelle_bati"] = pd.to_numeric(data.get("surface_reelle_bati", pd.Series(dtype=float)), errors="coerce")
+    if "surface_terrain" in data.columns:
+        data["surface_terrain"] = pd.to_numeric(data["surface_terrain"], errors="coerce")
     data["date_mutation"] = pd.to_datetime(data.get("date_mutation", pd.Series(dtype=str)), errors="coerce")
-    data["prix_m2"] = np.where(
-        data["surface_reelle_bati"] > 0,
-        data["valeur_fonciere"] / data["surface_reelle_bati"],
-        np.nan,
-    )
+    # Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
+    data = aggregate_mutations(data)
+    # Prix/m² : surface Carrez pour appartements, surface parcelle pour maisons
+    if "surface_terrain" in data.columns and "type_local" in data.columns:
+        data["prix_m2"] = np.where(
+            (data["type_local"] == "Appartement") & (data["surface_reelle_bati"] > 0),
+            data["valeur_fonciere"] / data["surface_reelle_bati"],
+            np.where(
+                (data["type_local"] == "Maison") & (data["surface_terrain"] > 0),
+                data["valeur_fonciere"] / data["surface_terrain"],
+                np.where(
+                    data["surface_reelle_bati"] > 0,
+                    data["valeur_fonciere"] / data["surface_reelle_bati"],
+                    np.nan,
+                ),
+            ),
+        )
+    else:
+        data["prix_m2"] = np.where(
+            data["surface_reelle_bati"] > 0,
+            data["valeur_fonciere"] / data["surface_reelle_bati"],
+            np.nan,
+        )
     data = data.dropna(subset=["valeur_fonciere"])
     data["latitude"] = pd.to_numeric(data["latitude"], errors="coerce")
     data["longitude"] = pd.to_numeric(data["longitude"], errors="coerce")
@@ -263,7 +316,12 @@ def make_map(data, cfg, type_local, out_path):
             cid = int(row.get("cluster", -1))
             color = price_color(row["prix_m2"])
             zone_label = f"Micro-marché {cid}" if cid >= 0 else "Isolé"
-            surface_s = f"{row['surface_reelle_bati']:.0f} m²" if pd.notna(row.get("surface_reelle_bati")) else "—"
+            if type_local == "Maison":
+                st = row.get("surface_terrain")
+                surface_s = f"{float(st):.0f} m² terrain" if pd.notna(st) and float(st) > 0 else "—"
+            else:
+                sb = row.get("surface_reelle_bati")
+                surface_s = f"{float(sb):.0f} m²" if pd.notna(sb) and float(sb) > 0 else "—"
             prix_m2_s = f"{row['prix_m2']:,.0f} €/m²" if pd.notna(row.get("prix_m2")) else "—"
             adresse = " ".join(filter(lambda x: x and str(x) != "nan", [
                 str(row.get("adresse_numero","") or ""),

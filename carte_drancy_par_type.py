@@ -1,8 +1,7 @@
 """
-Trois cartes HDBSCAN avec jitter sur les points superposés :
-  1. Appartements
-  2. Maisons (pavillons)
-  3. Commerces / Locaux d'activités / Entrepôts
+Pipeline HDBSCAN — Carte foncière Drancy (93029)
+Génère carte_appartements.html, carte_maisons.html, carte_commerces.html + index.html
+Usage: python carte_drancy_par_type.py
 """
 import pandas as pd
 import numpy as np
@@ -13,6 +12,11 @@ from scipy.spatial import ConvexHull
 import branca.colormap as cm
 import os
 
+COMMUNE_CODE = "93029"
+COMMUNE_NOM  = "Drancy"
+OUT_DIR      = f"/home/user/maps_{COMMUNE_CODE}"
+COLOR        = "#00d4ff"
+
 def aggregate_mutations(data):
     """Une ligne par mutation :
     - Exclut les mutations mixtes (plusieurs type_local différents)
@@ -21,7 +25,6 @@ def aggregate_mutations(data):
     """
     if "id_mutation" not in data.columns:
         return data
-    # 1. Exclure mutations mixtes
     if "type_local" in data.columns:
         n_types = data.groupby("id_mutation")["type_local"].apply(
             lambda x: x.dropna().nunique()
@@ -31,7 +34,6 @@ def aggregate_mutations(data):
         if n_mixed > 0:
             print(f"  Mutations mixtes exclues : {n_mixed}")
         data = data[data["id_mutation"].isin(pure_ids)].copy()
-    # 2. Agréger surfaces par mutation
     agg_dict = {}
     for col in ["surface_terrain", "surface_reelle_bati"]:
         if col in data.columns:
@@ -49,30 +51,20 @@ def aggregate_mutations(data):
     return data_dedup
 
 # ── 1. Chargement & nettoyage ─────────────────────────────────────────────────
-years = [2020, 2021, 2022, 2023, 2024, 2025]
-frames = []
-for y in years:
-    try:
-        df = pd.read_csv(f"/home/user/dvf_92078_{y}.csv", low_memory=False)
-        df["annee"] = y
-        frames.append(df)
-    except Exception as e:
-        print(f"Skip {y}: {e}")
-
-raw = pd.concat(frames, ignore_index=True)
+raw = pd.read_csv(f"/home/user/dvf_{COMMUNE_CODE}.csv", low_memory=False)
 raw = raw.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
 raw = raw[raw["valeur_fonciere"] > 0]
 raw = raw.drop_duplicates(subset=["id_mutation", "id_parcelle"])  # doublons bruts
 # Exclusion des caves et dépendances
 raw = raw[raw["type_local"] != "Dépendance"]
-# Exclusion des VEFA maisons uniquement : prix total programme promoteur
-# (ex: LIDL 11.82M€ classé Maison dans DVF). VEFA appartements/commerces conservées.
+# Exclusion des VEFA maisons
 raw = raw[~((raw["nature_mutation"] == "Vente en l'état futur d'achèvement") &
             (raw["type_local"] == "Maison"))]
 raw["valeur_fonciere"]     = pd.to_numeric(raw["valeur_fonciere"],     errors="coerce")
 raw["surface_reelle_bati"] = pd.to_numeric(raw["surface_reelle_bati"], errors="coerce")
 raw["surface_terrain"]     = pd.to_numeric(raw["surface_terrain"],     errors="coerce")
 raw["date_mutation"]       = pd.to_datetime(raw["date_mutation"],       errors="coerce")
+raw["annee"] = raw["date_mutation"].dt.year.fillna(2024).astype(int)
 # Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
 raw = aggregate_mutations(raw)
 # Prix/m² : surface Carrez pour appartements (agrégée), surface parcelle pour maisons (agrégée)
@@ -91,7 +83,7 @@ raw["prix_m2"] = np.where(
 )
 raw = raw.dropna(subset=["valeur_fonciere"])
 
-# Suppression des outliers DVF aberrants par type (données manifestement erronées)
+# Suppression des outliers DVF aberrants
 SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
                  "Local industriel. commercial ou assimilé": 12000}
 for tl, seuil in SEUIL_PRIX_M2.items():
@@ -101,19 +93,16 @@ for tl, seuil in SEUIL_PRIX_M2.items():
         print(f"Suppression {n} outliers {tl} > {seuil} €/m²")
     raw = raw[~mask]
 
-# ── 2. Jitter sur les coordonnées dupliquées ──────────────────────────────────
-# Décale les points superposés en spirale (rayon ~12 m max)
+# ── 2. Jitter ─────────────────────────────────────────────────────────────────
 def apply_jitter(df, radius_deg=0.0001):
     df = df.copy()
     df["lat_j"] = df["latitude"].astype(float)
     df["lon_j"] = df["longitude"].astype(float)
     groups = df.groupby(["latitude", "longitude"])
-    rng = np.random.default_rng(42)
     for (lat, lon), idx in groups.groups.items():
         n = len(idx)
         if n == 1:
             continue
-        # Disposition en spirale régulière
         angles = np.linspace(0, 2 * np.pi * (1 + n // 8), n, endpoint=False)
         radii  = np.linspace(radius_deg * 0.3, radius_deg, n)
         df.loc[idx, "lat_j"] = lat + radii * np.sin(angles)
@@ -165,17 +154,15 @@ copyright_div = '<div id="copyright-banner">© 2026 Samuel Bruno — Tous droits
 
 # ── 4. Génération d'une carte ─────────────────────────────────────────────────
 def build_map(data, title, subtitle, min_cluster_size, out_path,
-              cluster_selection_method="eom", min_samples=2,
+              cluster_selection_method="eom", min_samples=3,
               surface_col="surface_reelle_bati", surface_label="m² Carrez",
               colormap_caption="Prix au m² (€)"):
     if data.empty:
         print(f"Aucune donnée pour {title}, skip.")
         return
 
-    # Jitter
     data = apply_jitter(data)
 
-    # HDBSCAN sur coordonnées originales (pas jittées)
     coords = np.radians(data[["latitude", "longitude"]].values)
     cl = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
@@ -189,7 +176,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     n_noise    = int((data["cluster"] == -1).sum())
     print(f"\n{title} → {len(data)} tx | Clusters: {n_clusters} | Isolés: {n_noise}")
 
-    # Palette prix/m²
     valid = data["prix_m2"].dropna()
     if len(valid) > 0:
         p5, p95 = valid.quantile(0.05), valid.quantile(0.95)
@@ -203,7 +189,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
         if pd.isna(v): return "#aaaaaa"
         return colormap(max(p5, min(p95, v)))
 
-    # Stats
     total_tx  = len(data)
     med_prix  = data["valeur_fonciere"].median()
     med_m2    = data["prix_m2"].median()
@@ -240,7 +225,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
 
     med_m2_display = f"{med_m2:,.0f}€" if pd.notna(med_m2) else "—"
 
-    # Carte
     center = [data["latitude"].mean(), data["longitude"].mean()]
     m = folium.Map(location=center, zoom_start=14, tiles=None, prefer_canvas=True)
     folium.TileLayer(
@@ -254,7 +238,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     Fullscreen(position="topright").add_to(m)
     MiniMap(position="bottomleft", tile_layer="CartoDB dark_matter", zoom_level_offset=-5).add_to(m)
 
-    # Heatmap (intensité = prix/m², cohérent avec la coloration des marqueurs)
     heat_w = data[["latitude","longitude","prix_m2"]].dropna(subset=["prix_m2"]).copy()
     if len(heat_w) > 0:
         p75_h = valid.quantile(0.75)
@@ -268,7 +251,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
         ).add_to(hfg)
         hfg.add_to(m)
 
-    # Polygones HDBSCAN (sur coords originales)
     pfg = folium.FeatureGroup(name="🗺️ Zones HDBSCAN", show=True)
     for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
         pts = data[data["cluster"] == cid][["latitude","longitude"]].values
@@ -304,8 +286,8 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             pass
     pfg.add_to(m)
 
-    # Points par année (positions jittées)
-    for year in years:
+    years_in_data = sorted(data["annee"].dropna().unique().astype(int).tolist())
+    for year in years_in_data:
         fg = folium.FeatureGroup(name=f"{YEAR_ICONS.get(year,'•')} {year}", show=True)
         subset = data[data["annee"] == year]
         for _, row in subset.iterrows():
@@ -314,7 +296,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             zone_label = f"Zone {cid}" if cid >= 0 else "Isolé"
             surf_val   = row.get(surface_col)
             surface_s  = f"{float(surf_val):.0f} {surface_label}" if pd.notna(surf_val) and float(surf_val) > 0 else "—"
-            prix_m2_s  = f"{row['prix_m2']:,.0f} €/m²"         if pd.notna(row["prix_m2"])            else "—"
+            prix_m2_s  = f"{row['prix_m2']:,.0f} €/m²" if pd.notna(row["prix_m2"]) else "—"
             adresse = " ".join(filter(lambda x: x and str(x) != "nan", [
                 str(row.get("adresse_numero","") or ""),
                 str(row.get("adresse_nom_voie","") or ""),
@@ -324,7 +306,6 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             pieces  = row.get("nombre_pieces_principales","")
             pieces_s = f"{int(pieces)} pce{'s' if pieces > 1 else ''}" if pd.notna(pieces) and pieces > 0 else ""
 
-            # Badge jitter
             jitter_note = ""
             if abs(row["lat_j"] - row["latitude"]) > 1e-8 or abs(row["lon_j"] - row["longitude"]) > 1e-8:
                 jitter_note = "<div style='font-size:10px;color:#f90;margin-top:4px;'>⚠️ Position légèrement décalée (adresse groupée)</div>"
@@ -363,10 +344,9 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     colormap.add_to(m)
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
 
-    # Dashboard
     dashboard = f"""
 <style>
-  #vlg-dashboard {{
+  #drancy-dashboard {{
     position:fixed;top:10px;left:10px;z-index:9999;
     background:linear-gradient(135deg,rgba(10,10,30,0.97),rgba(20,20,50,0.97));
     color:#e8e8f0;font-family:'Segoe UI',Arial,sans-serif;
@@ -374,13 +354,13 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     box-shadow:0 8px 32px rgba(0,0,0,0.6);
     border:1px solid rgba(255,255,255,0.1);overflow:hidden;
   }}
-  #vlg-header {{
+  #drancy-header {{
     background:linear-gradient(90deg,#00d4ff22,#ff005522);
     padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.1);
   }}
-  #vlg-header h2 {{margin:0;font-size:15px;font-weight:700;color:#fff;letter-spacing:.5px;}}
-  #vlg-header p  {{margin:4px 0 0;font-size:11px;color:rgba(255,255,255,.55);}}
-  #vlg-body {{padding:14px 18px;}}
+  #drancy-header h2 {{margin:0;font-size:15px;font-weight:700;color:#fff;letter-spacing:.5px;}}
+  #drancy-header p  {{margin:4px 0 0;font-size:11px;color:rgba(255,255,255,.55);}}
+  #drancy-body {{padding:14px 18px;}}
   .kpi-grid {{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}}
   .kpi {{background:rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(255,255,255,0.08);}}
   .kpi .val {{font-size:18px;font-weight:800;color:#00d4ff;line-height:1.1;}}
@@ -391,21 +371,21 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
   .year-table td {{padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);color:#ccc;}}
   .year-table td:not(:first-child) {{text-align:right;color:#fff;}}
   .badge {{display:inline-block;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;margin:2px;}}
-  #vlg-toggle {{position:absolute;top:8px;right:12px;cursor:pointer;color:rgba(255,255,255,.5);font-size:18px;user-select:none;}}
-  #vlg-toggle:hover {{color:#fff;}}
+  #drancy-toggle {{position:absolute;top:8px;right:12px;cursor:pointer;color:rgba(255,255,255,.5);font-size:18px;user-select:none;}}
+  #drancy-toggle:hover {{color:#fff;}}
 </style>
-<div id="vlg-dashboard">
-  <div id="vlg-header">
-    <span id="vlg-toggle" onclick="
-      var b=document.getElementById('vlg-body');
-      var t=document.getElementById('vlg-toggle');
+<div id="drancy-dashboard">
+  <div id="drancy-header">
+    <span id="drancy-toggle" onclick="
+      var b=document.getElementById('drancy-body');
+      var t=document.getElementById('drancy-toggle');
       if(b.style.display==='none'){{b.style.display='block';t.textContent='▲'}}
       else{{b.style.display='none';t.textContent='▼'}}
     ">▲</span>
     <h2>{title}</h2>
     <p>{subtitle}</p>
   </div>
-  <div id="vlg-body">
+  <div id="drancy-body">
     <div class="kpi-grid">
       <div class="kpi"><div class="val">{total_tx:,}</div><div class="lbl">Transactions</div></div>
       <div class="kpi"><div class="val">{n_clusters}</div><div class="lbl">Zones HDBSCAN</div></div>
@@ -444,36 +424,146 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     print(f"✅ {out_path} ({size_mb:.1f} MB)")
 
 
-# ── 5. Génération des trois cartes ────────────────────────────────────────────
-build_map(
-    data=raw[raw["type_local"] == "Appartement"].copy(),
-    title="Appartements",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
-    min_cluster_size=31,   # ≈8% × 386 tx → 6 zones
-    min_samples=3,
-    cluster_selection_method="eom",
-    out_path="/home/user/carte_vlg_appartements.html",
-)
+def make_index(stats):
+    total_tx = stats["total"]
+    med_m2   = stats["med_m2"]
+    cards = ""
+    TYPE_CONFIG = {
+        "Appartement":      {"emoji": "🏢", "label": "Appartements",          "file": "carte_appartements.html"},
+        "Maison":           {"emoji": "🏠", "label": "Maisons / Pavillons",    "file": "carte_maisons.html"},
+        "Local commercial": {"emoji": "🏭", "label": "Commerces & Locaux",     "file": "carte_commerces.html"},
+    }
+    for tl, tc in TYPE_CONFIG.items():
+        n = stats["by_type"].get(tl, 0)
+        n_cl = stats["clusters_by_type"].get(tl, 0)
+        if n == 0: continue
+        cards += f"""
+    <a href="{tc['file']}" class="card">
+      <div class="card-icon">{tc['emoji']}</div>
+      <div class="card-body">
+        <div class="card-title">{tc['label']}</div>
+        <div class="card-desc">{n:,} transactions · {n_cl} micro-marchés</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>"""
 
-build_map(
-    data=raw[raw["type_local"] == "Maison"].copy(),
-    title="Maisons / Pavillons",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
-    min_cluster_size=6,    # leaf : distingue Sorbiers vs Bouleaux Blancs (~150m)
-    min_samples=2,
-    cluster_selection_method="leaf",
-    surface_col="surface_terrain",
-    surface_label="m² terrain",
-    colormap_caption="Prix au m² terrain (€)",
-    out_path="/home/user/carte_vlg_maisons.html",
-)
+    html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analyse Foncière · {COMMUNE_NOM} ({COMMUNE_CODE})</title>
+  <meta name="description" content="Carte interactive du marché immobilier à {COMMUNE_NOM} · {total_tx:,} transactions DVF 2020-2025 · datamerry">
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0a0a1e 0%, #0d1b2a 50%, #0a0a1e 100%); min-height: 100vh; color: #e8e8f0; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }}
+    .header {{ text-align: center; margin-bottom: 50px; }}
+    .tag {{ display: inline-block; background: {COLOR}22; color: {COLOR}; border: 1px solid {COLOR}55; border-radius: 20px; padding: 4px 16px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }}
+    .header h1 {{ font-size: clamp(28px, 5vw, 48px); font-weight: 800; background: linear-gradient(90deg, #00d4ff, #ffffff, {COLOR}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2; margin-bottom: 16px; }}
+    .header p {{ font-size: 16px; color: rgba(255,255,255,0.5); max-width: 520px; margin: 0 auto; line-height: 1.6; }}
+    .stats-bar {{ display: flex; gap: 40px; justify-content: center; margin-bottom: 50px; flex-wrap: wrap; }}
+    .stat {{ text-align: center; }}
+    .stat .val {{ font-size: 30px; font-weight: 800; color: {COLOR}; }}
+    .stat .lbl {{ font-size: 11px; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }}
+    .cards {{ display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 600px; }}
+    .card {{ display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px 24px; text-decoration: none; color: inherit; transition: all 0.2s ease; cursor: pointer; }}
+    .card:hover {{ background: {COLOR}11; border-color: {COLOR}44; transform: translateY(-2px); box-shadow: 0 8px 32px {COLOR}22; }}
+    .card-icon {{ font-size: 30px; flex-shrink: 0; }}
+    .card-body {{ flex: 1; }}
+    .card-title {{ font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 3px; }}
+    .card-desc {{ font-size: 13px; color: rgba(255,255,255,0.45); }}
+    .card-arrow {{ font-size: 18px; color: {COLOR}66; flex-shrink: 0; }}
+    .card:hover .card-arrow {{ color: {COLOR}; }}
+    .footer {{ margin-top: 50px; text-align: center; font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.8; }}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="tag">Analyse Foncière · {COMMUNE_NOM}</div>
+    <h1>Marché Immobilier<br>{COMMUNE_NOM}</h1>
+    <p>Cartographie interactive des transactions immobilières<br>2020 – 2025 · Source : Demandes de Valeurs Foncières</p>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="val">{total_tx:,}</div><div class="lbl">Transactions</div></div>
+    <div class="stat"><div class="val">2020–25</div><div class="lbl">Période</div></div>
+    <div class="stat"><div class="val">{med_m2:,.0f}€</div><div class="lbl">Prix médian/m²</div></div>
+  </div>
+  <div class="cards">{cards}</div>
+  <a href="https://datamerry.com" style="margin-top:30px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);text-decoration:none;font-size:13px;">← Retour sur datamerry.com</a>
+  <div class="footer">
+    © 2026 Samuel Bruno · Analyse Foncière · {COMMUNE_NOM} ({COMMUNE_CODE})<br>
+    Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>
+  </div>
+</body>
+</html>"""
+    out = os.path.join(OUT_DIR, "index.html")
+    with open(out, "w") as f:
+        f.write(html)
+    print(f"  ✅ {out}")
 
-build_map(
-    data=raw[raw["type_local"] == "Local industriel. commercial ou assimilé"].copy(),
-    title="Commerces / Locaux d'activités / Entrepôts",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
-    min_cluster_size=5,    # ≈8% × 45 tx, plancher 5
-    min_samples=2,
-    cluster_selection_method="eom",
-    out_path="/home/user/carte_vlg_commerces.html",
-)
+
+# ── 5. Génération des cartes ──────────────────────────────────────────────────
+os.makedirs(OUT_DIR, exist_ok=True)
+
+stats = {"total": 0, "med_m2": 0, "by_type": {}, "clusters_by_type": {}}
+
+# Appartements
+data_appt = raw[raw["type_local"] == "Appartement"].copy()
+if len(data_appt) >= 50:
+    min_cs = max(15, len(data_appt) // 50)
+    build_map(
+        data=data_appt,
+        title="Appartements",
+        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        min_cluster_size=min_cs,
+        min_samples=3,
+        cluster_selection_method="eom",
+        surface_col="surface_reelle_bati",
+        surface_label="m² Carrez",
+        out_path=os.path.join(OUT_DIR, "carte_appartements.html"),
+    )
+    stats["by_type"]["Appartement"] = len(data_appt)
+
+# Maisons
+data_mais = raw[raw["type_local"] == "Maison"].copy()
+if len(data_mais) >= 50:
+    min_cs = max(10, len(data_mais) // 50)
+    build_map(
+        data=data_mais,
+        title="Maisons / Pavillons",
+        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        min_cluster_size=min_cs,
+        min_samples=3,
+        cluster_selection_method="eom",
+        surface_col="surface_terrain",
+        surface_label="m² terrain",
+        colormap_caption="Prix au m² terrain (€)",
+        out_path=os.path.join(OUT_DIR, "carte_maisons.html"),
+    )
+    stats["by_type"]["Maison"] = len(data_mais)
+
+# Commerces
+data_com = raw[raw["type_local"] == "Local industriel. commercial ou assimilé"].copy()
+if len(data_com) >= 20:
+    min_cs = max(5, len(data_com) // 30)
+    build_map(
+        data=data_com,
+        title="Commerces / Locaux d'activités",
+        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        min_cluster_size=min_cs,
+        min_samples=2,
+        cluster_selection_method="eom",
+        out_path=os.path.join(OUT_DIR, "carte_commerces.html"),
+    )
+    stats["by_type"]["Local commercial"] = len(data_com)
+
+stats["total"] = sum(stats["by_type"].values())
+stats["med_m2"] = raw["prix_m2"].median() if raw["prix_m2"].notna().any() else 0
+
+# Reconstruct clusters_by_type from files (approximation)
+for tl in ["Appartement", "Maison", "Local commercial"]:
+    stats["clusters_by_type"][tl] = 0  # index page will show 0 if not computed
+
+make_index(stats)
+print(f"\n✅ Pipeline terminé pour {COMMUNE_NOM} ({COMMUNE_CODE})")
+print(f"   Fichiers dans : {OUT_DIR}")

@@ -4,6 +4,7 @@ Trois cartes HDBSCAN avec jitter sur les points superposés :
   2. Maisons (pavillons)
   3. Commerces / Locaux d'activités / Entrepôts
 """
+import json
 import pandas as pd
 import numpy as np
 import folium
@@ -55,15 +56,62 @@ def aggregate_mutations(data):
     return data_dedup, mixed_data
 
 
-def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
+def run_preliminary_clustering(pure_data, min_cluster_size=8, min_samples=2):
+    """Clustering HDBSCAN préliminaire sur toutes les ventes pures pour définir les zones de référence."""
+    if pure_data.empty or len(pure_data) < min_cluster_size:
+        return np.full(len(pure_data), -1, dtype=int)
+    coords = np.radians(pure_data[["latitude", "longitude"]].values)
+    cl = hdbscan.HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        metric="haversine",
+        cluster_selection_method="eom",
+    )
+    labels = cl.fit_predict(coords)
+    n_clusters = int(np.unique(labels[labels >= 0]).size)
+    print(f"  Clustering préliminaire (référence ventilation) : {n_clusters} zones sur {len(pure_data)} tx pures")
+    return labels
+
+
+def assign_cluster_to_mixed(mixed_data, pure_data, pure_cluster_labels):
+    """Affecte chaque mutation mixte à la zone HDBSCAN la plus proche (par centroïde lat/lon)."""
+    mixed_data = mixed_data.copy()
+    pure_cl = pure_data.copy()
+    pure_cl["_ref_cluster"] = pure_cluster_labels
+    centroids = (
+        pure_cl[pure_cl["_ref_cluster"] >= 0]
+        .groupby("_ref_cluster")[["latitude", "longitude"]]
+        .mean()
+    )
+    if centroids.empty:
+        mixed_data["ref_cluster"] = -1
+        return mixed_data
+
+    centroid_arr = centroids[["latitude", "longitude"]].values
+    centroid_ids = centroids.index.tolist()
+
+    id_to_cluster = {}
+    for id_mut, grp in mixed_data.groupby("id_mutation"):
+        lat = float(grp["latitude"].iloc[0])
+        lon = float(grp["longitude"].iloc[0])
+        dists = np.sqrt((centroid_arr[:, 0] - lat) ** 2 + (centroid_arr[:, 1] - lon) ** 2)
+        id_to_cluster[id_mut] = centroid_ids[int(np.argmin(dists))]
+
+    mixed_data["ref_cluster"] = mixed_data["id_mutation"].map(id_to_cluster).fillna(-1).astype(int)
+    return mixed_data
+
+
+def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
+                               median_m2_by_parcelle_type, global_median_m2_by_type,
+                               min_parcelle_tx=5):
     """Ventile le prix total de chaque mutation mixte entre ses composantes.
 
-    Pour chaque (id_mutation, type_local) :
-      - Agrège les surfaces du même type au sein de la mutation
-      - Estime la valeur théorique = surface × prix_médian/m² du type
-      - Attribue une part du prix total proportionnelle à cette valeur théorique
-      - Fallback : répartition égale si les surfaces/médians sont inconnus
+    Référence de prix (par ordre de priorité) pour chaque composante (type_local) :
+      1. Médiane de la parcelle (si ≥ min_parcelle_tx ventes pures du même type sur la parcelle)
+      2. Médiane du micromarché = zone HDBSCAN préliminaire pour ce type
+      3. Médiane globale commune (fallback)
 
+    Formule : Part(type) = Prix_total × (S_type × P_réf_type) / Σ(S_i × P_réf_i)
     Retourne un DataFrame avec une ligne par composante ventilée.
     """
     if mixed_data.empty:
@@ -73,42 +121,73 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
 
     for id_mut, group in mixed_data.groupby("id_mutation"):
         total_val = float(group["valeur_fonciere"].iloc[0])
+        ref_cluster = int(group["ref_cluster"].iloc[0]) if "ref_cluster" in group.columns else -1
+        id_parcelle = str(group["id_parcelle"].iloc[0]) if "id_parcelle" in group.columns else None
+
         type_groups = []
 
         for tl, tl_grp in group.groupby("type_local", dropna=False):
             template = tl_grp.iloc[0].copy()
 
-            # Sommer les surfaces du même type au sein de la mutation
             surf_bati    = tl_grp["surface_reelle_bati"].sum() if "surface_reelle_bati" in tl_grp.columns else np.nan
             surf_terrain = tl_grp["surface_terrain"].sum()     if "surface_terrain"     in tl_grp.columns else np.nan
 
             template["surface_reelle_bati"] = surf_bati    if (pd.notna(surf_bati)    and surf_bati    > 0) else np.nan
             template["surface_terrain"]     = surf_terrain if (pd.notna(surf_terrain) and surf_terrain > 0) else np.nan
 
-            surf   = surf_bati if (pd.notna(surf_bati) and surf_bati > 0) else np.nan
-            m2_med = median_m2_by_type.get(tl, np.nan)
-            theorique = float(surf) * float(m2_med) if (pd.notna(surf) and pd.notna(m2_med)) else np.nan
+            surf = surf_bati if (pd.notna(surf_bati) and surf_bati > 0) else np.nan
+
+            # Choix de la référence de prix par ordre de priorité
+            parcelle_info = median_m2_by_parcelle_type.get(id_parcelle, {}).get(tl, {})
+            if parcelle_info.get("count", 0) >= min_parcelle_tx and pd.notna(parcelle_info.get("median")):
+                m2_ref = parcelle_info["median"]
+                ref_source = "parcelle"
+            elif ref_cluster >= 0 and tl in median_m2_by_cluster_type.get(ref_cluster, {}):
+                m2_ref = median_m2_by_cluster_type[ref_cluster][tl]
+                ref_source = f"zone_{ref_cluster}"
+            else:
+                m2_ref = global_median_m2_by_type.get(tl, np.nan)
+                ref_source = "global"
+
+            theorique = float(surf) * float(m2_ref) if (pd.notna(surf) and pd.notna(m2_ref)) else np.nan
 
             type_groups.append({
                 "row": template, "type_local": tl,
-                "surface": surf, "m2_med": m2_med, "theorique": theorique,
+                "surface": surf, "m2_ref": m2_ref,
+                "theorique": theorique, "ref_source": ref_source,
             })
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
 
+        # Pré-calcul des valeurs ventilées pour le JSON de détail
+        breakdown = []
         for c in type_groups:
-            new_row = c["row"].copy()
             if total_theorique > 0 and pd.notna(c["theorique"]):
-                new_row["valeur_fonciere"] = total_val * (c["theorique"] / total_theorique)
+                ventile_val = total_val * (c["theorique"] / total_theorique)
             else:
-                new_row["valeur_fonciere"] = total_val / len(type_groups)
+                ventile_val = total_val / len(type_groups)
+            breakdown.append({
+                "type": str(c["type_local"]),
+                "surface": float(c["surface"]) if pd.notna(c["surface"]) else None,
+                "m2_ref": float(c["m2_ref"]) if pd.notna(c["m2_ref"]) else None,
+                "theorique": float(c["theorique"]) if pd.notna(c["theorique"]) else None,
+                "ventile": ventile_val,
+                "ref_source": c["ref_source"],
+            })
+        breakdown_str = json.dumps(breakdown, ensure_ascii=False)
 
-            new_row["is_ventile"]             = True
-            new_row["valeur_fonciere_totale"] = total_val
+        for c, b in zip(type_groups, breakdown):
+            new_row = c["row"].copy()
+            new_row["valeur_fonciere"]         = b["ventile"]
+            new_row["is_ventile"]              = True
+            new_row["valeur_fonciere_totale"]  = total_val
             surf = c["surface"]
-            new_row["prix_m2"] = (new_row["valeur_fonciere"] / float(surf)
+            new_row["prix_m2"] = (b["ventile"] / float(surf)
                                   if pd.notna(surf) and float(surf) > 0 else np.nan)
-            new_row["prix_m2_median_ventil"]  = c["m2_med"]
+            new_row["prix_m2_median_ventil"]   = c["m2_ref"]
+            new_row["ventil_ref_source"]       = c["ref_source"]
+            new_row["ventil_breakdown"]        = breakdown_str
+            new_row["ventil_total_theorique"]  = total_theorique if total_theorique > 0 else np.nan
             results.append(new_row)
 
     if not results:
@@ -169,17 +248,56 @@ for tl, seuil in SEUIL_PRIX_M2.items():
     raw = raw[~mask]
 
 # ── Ventilation des mutations mixtes ──────────────────────────────────────────
-# Calcul des prix médians/m² par type depuis les ventes pures (après nettoyage)
-median_m2_by_type = {}
+# Clustering préliminaire sur les ventes pures pour définir les micromarchés de référence
+pure_cluster_labels = run_preliminary_clustering(raw, min_cluster_size=8, min_samples=2)
+
+# Médiane par micromarché (zone) ET type (référence principale)
+median_m2_by_cluster_type = {}
+raw_for_ref = raw.copy()
+raw_for_ref["_ref_cluster"] = pure_cluster_labels
+for cid in np.unique(pure_cluster_labels[pure_cluster_labels >= 0]):
+    subset_c = raw_for_ref[
+        (raw_for_ref["_ref_cluster"] == cid)
+        & raw_for_ref["prix_m2"].notna()
+        & (raw_for_ref["prix_m2"] > 0)
+    ]
+    median_m2_by_cluster_type[int(cid)] = {}
+    for tl in subset_c["type_local"].dropna().unique():
+        vals = subset_c[subset_c["type_local"] == tl]["prix_m2"]
+        if len(vals) >= 3:
+            median_m2_by_cluster_type[int(cid)][tl] = float(vals.median())
+            print(f"  Zone {cid} · {tl}: {median_m2_by_cluster_type[int(cid)][tl]:,.0f} €/m² ({len(vals)} tx)")
+
+# Médiane par parcelle ET type (référence si parcelle isolée avec beaucoup de ventes)
+median_m2_by_parcelle_type = {}
+for (id_parc, tl), grp in raw.groupby(["id_parcelle", "type_local"]):
+    vals = grp["prix_m2"].dropna()
+    vals = vals[vals > 0]
+    if id_parc not in median_m2_by_parcelle_type:
+        median_m2_by_parcelle_type[id_parc] = {}
+    median_m2_by_parcelle_type[id_parc][tl] = {
+        "median": float(vals.median()) if len(vals) > 0 else np.nan,
+        "count": len(vals),
+    }
+
+# Médiane globale par type (fallback si ni parcelle ni zone disponibles)
+global_median_m2_by_type = {}
 for tl in raw["type_local"].dropna().unique():
     subset = raw[(raw["type_local"] == tl) & raw["prix_m2"].notna() & (raw["prix_m2"] > 0)]
     if len(subset) > 0:
-        median_m2_by_type[tl] = subset["prix_m2"].median()
-        print(f"  Médiane {tl}: {median_m2_by_type[tl]:,.0f} €/m²")
+        global_median_m2_by_type[tl] = float(subset["prix_m2"].median())
+        print(f"  Médiane globale {tl}: {global_median_m2_by_type[tl]:,.0f} €/m²")
 
-# Ventiler les mutations mixtes et les ajouter au dataset
+# Affecter chaque mutation mixte à sa zone de référence puis ventiler
 if not mixed_raw.empty:
-    ventile_df = ventiler_mutations_mixtes(mixed_raw, median_m2_by_type)
+    mixed_raw = assign_cluster_to_mixed(mixed_raw, raw, pure_cluster_labels)
+    ventile_df = ventiler_mutations_mixtes(
+        mixed_raw,
+        median_m2_by_cluster_type,
+        median_m2_by_parcelle_type,
+        global_median_m2_by_type,
+        min_parcelle_tx=5,
+    )
     if not ventile_df.empty:
         raw = pd.concat([raw, ventile_df], ignore_index=True)
         print(f"  Total après ventilation : {len(raw)} transactions")
@@ -417,18 +535,67 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             val_totale = row.get("valeur_fonciere_totale", np.nan)
             ventile_note = ""
             if is_ventile and pd.notna(val_totale):
-                surf_ventil = row.get(surface_col, np.nan)
-                m2_med_ventil = row.get("prix_m2_median_ventil", np.nan)
-                surf_ventil_s = f"{float(surf_ventil):.0f} m²" if pd.notna(surf_ventil) and float(surf_ventil) > 0 else "—"
-                m2_med_s = f"{float(m2_med_ventil):,.0f} €/m²" if pd.notna(m2_med_ventil) else "—"
+                ref_source = str(row.get("ventil_ref_source", "global"))
+                total_theo = row.get("ventil_total_theorique", np.nan)
+                breakdown_str = row.get("ventil_breakdown", "")
+
+                if ref_source == "parcelle":
+                    source_label = "médiane de la parcelle"
+                elif ref_source.startswith("zone_"):
+                    source_label = f"médiane Zone {ref_source.split('_')[1]} (micromarché)"
+                else:
+                    source_label = "médiane globale commune (fallback)"
+
+                # Tableau de détail par composante
+                comp_rows = ""
+                try:
+                    components = json.loads(breakdown_str)
+                    for comp in components:
+                        tl_disp = str(comp.get("type", ""))
+                        if len(tl_disp) > 22:
+                            tl_disp = tl_disp[:20] + "…"
+                        s_v = comp.get("surface")
+                        p_v = comp.get("m2_ref")
+                        t_v = comp.get("theorique")
+                        r_v = comp.get("ventile")
+                        s_s = f"{s_v:.0f} m²"   if s_v is not None else "—"
+                        p_s = f"{p_v:,.0f} €/m²" if p_v is not None else "—"
+                        t_s = f"{t_v:,.0f} €"   if t_v is not None else "—"
+                        r_s = f"{r_v:,.0f} €"   if r_v is not None else "—"
+                        comp_rows += (
+                            f"<tr>"
+                            f"<td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>{tl_disp}</td>"
+                            f"<td style='padding:2px 4px;text-align:right;'>{s_s}</td>"
+                            f"<td style='padding:2px 4px;text-align:right;'>{p_s}</td>"
+                            f"<td style='padding:2px 4px;text-align:right;color:#bbb;'>{t_s}</td>"
+                            f"<td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>{r_s}</td>"
+                            f"</tr>"
+                        )
+                except Exception:
+                    pass
+
+                total_theo_s = f"{total_theo:,.0f} €" if pd.notna(total_theo) else "—"
                 ventile_note = (
                     f"<div style='font-size:10px;color:#ff9900;margin-top:6px;"
-                    f"background:rgba(255,153,0,0.08);padding:5px 8px;border-radius:4px;"
-                    f"border-left:3px solid #ff9900;line-height:1.5;'>"
-                    f"<b>⚖️ Vente mixte</b><br>"
-                    f"Prix total DVF&nbsp;: <b>{float(val_totale):,.0f} €</b><br>"
-                    f"Ventilé au prorata des surfaces × prix médian :<br>"
-                    f"&nbsp;&nbsp;{m2_med_s} médian × {surf_ventil_s} = <b>{row['valeur_fonciere']:,.0f} €</b>"
+                    f"background:rgba(255,153,0,0.08);padding:6px 8px;border-radius:4px;"
+                    f"border-left:3px solid #ff9900;line-height:1.6;'>"
+                    f"<b>⚖️ Vente mixte</b> — Prix total DVF&nbsp;: <b>{float(val_totale):,.0f} €</b><br>"
+                    f"<span style='color:#aaa;font-style:italic;'>Réf.&nbsp;: {source_label}</span>"
+                    f"<table style='width:100%;border-collapse:collapse;margin-top:5px;font-size:9.5px;color:#bbb;'>"
+                    f"<tr style='border-bottom:1px solid rgba(255,153,0,0.3);'>"
+                    f"<th style='text-align:left;padding:2px 4px;font-weight:600;'>Type</th>"
+                    f"<th style='text-align:right;padding:2px 4px;font-weight:600;'>Surface</th>"
+                    f"<th style='text-align:right;padding:2px 4px;font-weight:600;'>€/m² réf.</th>"
+                    f"<th style='text-align:right;padding:2px 4px;font-weight:600;'>Valeur théor.</th>"
+                    f"<th style='text-align:right;padding:2px 4px;font-weight:600;'>Part ventilée</th>"
+                    f"</tr>"
+                    f"{comp_rows}"
+                    f"<tr style='border-top:1px solid rgba(255,153,0,0.3);color:#aaa;'>"
+                    f"<td colspan='3' style='padding:2px 4px;'>Total théorique</td>"
+                    f"<td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>{total_theo_s}</td>"
+                    f"<td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>{float(val_totale):,.0f} €</td>"
+                    f"</tr>"
+                    f"</table>"
                     f"</div>"
                 )
 

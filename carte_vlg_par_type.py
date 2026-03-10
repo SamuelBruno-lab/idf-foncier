@@ -108,6 +108,7 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
             surf = c["surface"]
             new_row["prix_m2"] = (new_row["valeur_fonciere"] / float(surf)
                                   if pd.notna(surf) and float(surf) > 0 else np.nan)
+            new_row["prix_m2_median_ventil"]  = c["m2_med"]
             results.append(new_row)
 
     if not results:
@@ -132,7 +133,7 @@ for y in years:
 raw = pd.concat(frames, ignore_index=True)
 raw = raw.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
 raw = raw[raw["valeur_fonciere"] > 0]
-raw = raw.drop_duplicates(subset=["id_mutation", "id_parcelle"])  # doublons bruts
+raw = raw.drop_duplicates(subset=["id_mutation", "id_parcelle", "type_local", "surface_reelle_bati"])  # doublons bruts (conserver les lots distincts par type/surface)
 # Exclusion des caves et dépendances
 raw = raw[raw["type_local"] != "Dépendance"]
 # Exclusion des VEFA maisons uniquement : prix total programme promoteur
@@ -416,11 +417,19 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             val_totale = row.get("valeur_fonciere_totale", np.nan)
             ventile_note = ""
             if is_ventile and pd.notna(val_totale):
+                surf_ventil = row.get(surface_col, np.nan)
+                m2_med_ventil = row.get("prix_m2_median_ventil", np.nan)
+                surf_ventil_s = f"{float(surf_ventil):.0f} m²" if pd.notna(surf_ventil) and float(surf_ventil) > 0 else "—"
+                m2_med_s = f"{float(m2_med_ventil):,.0f} €/m²" if pd.notna(m2_med_ventil) else "—"
                 ventile_note = (
-                    f"<div style='font-size:10px;color:#ff9900;margin-top:4px;"
-                    f"background:rgba(255,153,0,0.1);padding:3px 7px;border-radius:4px;"
-                    f"border-left:3px solid #ff9900;'>"
-                    f"⚖️ Vente mixte ventilée · Prix total acte : {float(val_totale):,.0f} €</div>"
+                    f"<div style='font-size:10px;color:#ff9900;margin-top:6px;"
+                    f"background:rgba(255,153,0,0.08);padding:5px 8px;border-radius:4px;"
+                    f"border-left:3px solid #ff9900;line-height:1.5;'>"
+                    f"<b>⚖️ Vente mixte</b><br>"
+                    f"Prix total DVF&nbsp;: <b>{float(val_totale):,.0f} €</b><br>"
+                    f"Ventilé au prorata des surfaces × prix médian :<br>"
+                    f"&nbsp;&nbsp;{m2_med_s} médian × {surf_ventil_s} = <b>{row['valeur_fonciere']:,.0f} €</b>"
+                    f"</div>"
                 )
 
             popup_html = f"""

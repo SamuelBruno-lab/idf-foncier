@@ -175,7 +175,7 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
             surf   = surf_bati if (pd.notna(surf_bati) and surf_bati > 0) else np.nan
             m2_med = median_m2_by_type.get(tl, np.nan)
             theorique = float(surf) * float(m2_med) if (pd.notna(surf) and pd.notna(m2_med)) else np.nan
-            type_groups.append({"row": template, "type_local": tl, "theorique": theorique, "surface": surf})
+            type_groups.append({"row": template, "type_local": tl, "theorique": theorique, "surface": surf, "m2_med": m2_med})
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
         for c in type_groups:
@@ -189,6 +189,7 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
             surf = c["surface"]
             new_row["prix_m2"] = (new_row["valeur_fonciere"] / float(surf)
                                   if pd.notna(surf) and float(surf) > 0 else np.nan)
+            new_row["prix_m2_median_ventil"]  = c["m2_med"]
             results.append(new_row)
 
     if not results:
@@ -238,7 +239,7 @@ def load_data(cfg):
     if "type_local" in data.columns:
         data = data[data["type_local"] != "Dépendance"]
     if "id_mutation" in data.columns and "id_parcelle" in data.columns:
-        data = data.drop_duplicates(subset=["id_mutation", "id_parcelle"])
+        data = data.drop_duplicates(subset=["id_mutation", "id_parcelle", "type_local", "surface_reelle_bati"])  # conserver les lots distincts par type/surface
     # Exclusion VEFA maisons (prix total promoteur)
     if "nature_mutation" in data.columns and "type_local" in data.columns:
         data = data[~((data["nature_mutation"] == "Vente en l'état futur d'achèvement") &
@@ -432,11 +433,19 @@ def make_map(data, cfg, type_local, out_path):
             val_totale = row.get("valeur_fonciere_totale", np.nan)
             ventile_note = ""
             if is_ventile and pd.notna(val_totale):
+                m2_med_ventil = row.get("prix_m2_median_ventil", np.nan)
+                surf_ventil = row.get("surface_reelle_bati", np.nan)
+                surf_ventil_s = f"{float(surf_ventil):.0f} m²" if pd.notna(surf_ventil) and float(surf_ventil) > 0 else "—"
+                m2_med_s = f"{float(m2_med_ventil):,.0f} €/m²" if pd.notna(m2_med_ventil) else "—"
                 ventile_note = (
-                    f"<div style='font-size:10px;color:#ff9900;margin-top:4px;"
-                    f"background:rgba(255,153,0,0.1);padding:3px 7px;border-radius:4px;"
-                    f"border-left:3px solid #ff9900;'>"
-                    f"⚖️ Vente mixte ventilée · Prix total acte : {float(val_totale):,.0f} €</div>"
+                    f"<div style='font-size:10px;color:#ff9900;margin-top:6px;"
+                    f"background:rgba(255,153,0,0.08);padding:5px 8px;border-radius:4px;"
+                    f"border-left:3px solid #ff9900;line-height:1.5;'>"
+                    f"<b>⚖️ Vente mixte</b><br>"
+                    f"Prix total DVF&nbsp;: <b>{float(val_totale):,.0f} €</b><br>"
+                    f"Ventilé au prorata des surfaces × prix médian :<br>"
+                    f"&nbsp;&nbsp;{m2_med_s} médian × {surf_ventil_s} = <b>{row['valeur_fonciere']:,.0f} €</b>"
+                    f"</div>"
                 )
             jitter_note = ""
             if abs(row.get("lat_j", row["latitude"]) - row["latitude"]) > 1e-8 or abs(row.get("lon_j", row["longitude"]) - row["longitude"]) > 1e-8:

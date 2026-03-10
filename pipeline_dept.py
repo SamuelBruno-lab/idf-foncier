@@ -312,12 +312,8 @@ def make_map(data, cfg, type_local, out_path):
             cid = int(row.get("cluster", -1))
             color = price_color(row["prix_m2"])
             zone_label = f"Micro-marché {cid}" if cid >= 0 else "Isolé"
-            if type_local == "Maison":
-                st = row.get("surface_terrain")
-                surface_s = f"{float(st):.0f} m² terrain" if pd.notna(st) and float(st) > 0 else "—"
-            else:
-                sb = row.get("surface_reelle_bati")
-                surface_s = f"{float(sb):.0f} m²" if pd.notna(sb) and float(sb) > 0 else "—"
+            sb = row.get("surface_reelle_bati")
+            surface_s = f"{float(sb):.0f} m² bâti" if pd.notna(sb) and float(sb) > 0 else "—"
             prix_m2_s = f"{row['prix_m2']:,.0f} €/m²" if pd.notna(row.get("prix_m2")) else "—"
             adresse = " ".join(filter(lambda x: x and str(x) != "nan", [
                 str(row.get("adresse_numero","") or ""),

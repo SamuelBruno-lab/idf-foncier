@@ -458,9 +458,9 @@ build_map(
     min_cluster_size=6,    # leaf : distingue Sorbiers vs Bouleaux Blancs (~150m)
     min_samples=2,
     cluster_selection_method="leaf",
-    surface_col="surface_terrain",
-    surface_label="m² terrain",
-    colormap_caption="Prix au m² terrain (€)",
+    surface_col="surface_reelle_bati",
+    surface_label="m² bâti",
+    colormap_caption="Prix au m² bâti (€)",
     out_path="/home/user/carte_vlg_maisons.html",
 )
 

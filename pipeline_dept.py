@@ -181,19 +181,15 @@ def load_data(cfg):
     data["date_mutation"] = pd.to_datetime(data.get("date_mutation", pd.Series(dtype=str)), errors="coerce")
     # Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
     data = aggregate_mutations(data)
-    # Prix/m² : surface Carrez pour appartements, surface parcelle pour maisons
+    # Prix/m² : surface bâtie pour appartements et maisons
     if "surface_terrain" in data.columns and "type_local" in data.columns:
         data["prix_m2"] = np.where(
-            (data["type_local"] == "Appartement") & (data["surface_reelle_bati"] > 0),
+            (data["type_local"].isin(["Appartement", "Maison"])) & (data["surface_reelle_bati"] > 0),
             data["valeur_fonciere"] / data["surface_reelle_bati"],
             np.where(
-                (data["type_local"] == "Maison") & (data["surface_terrain"] > 0),
-                data["valeur_fonciere"] / data["surface_terrain"],
-                np.where(
-                    data["surface_reelle_bati"] > 0,
-                    data["valeur_fonciere"] / data["surface_reelle_bati"],
-                    np.nan,
-                ),
+                data["surface_reelle_bati"] > 0,
+                data["valeur_fonciere"] / data["surface_reelle_bati"],
+                np.nan,
             ),
         )
     else:
@@ -550,9 +546,15 @@ def main():
     }
 
     print("\n[2/3] Génération des cartes par type...")
-    # Normaliser type_local pour grouper "Local commercial" et "Local industriel"
+    # Normaliser type_local : le libellé DVF réel est "Local industriel, commercial ou assimilé"
+    # "Dépendance" (caves, parkings ~30K€) est exclu pour ne pas fausser la médiane commerces
+    COMMERCIAL_TYPES = {
+        "Local commercial",
+        "Local industriel, commercial ou assimilé",
+        "Local industriel. commercial ou assimilé",  # variante avec point (certains exports DVF)
+    }
     all_data["type_local_norm"] = all_data["type_local"].apply(
-        lambda x: "Local commercial" if str(x) in ("Local commercial", "Local industriel", "Dépendance") else str(x)
+        lambda x: "Local commercial" if str(x) in COMMERCIAL_TYPES else str(x)
     )
 
     for type_local in ["Appartement", "Maison", "Local commercial"]:

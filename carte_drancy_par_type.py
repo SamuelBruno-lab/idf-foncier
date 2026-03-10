@@ -67,18 +67,14 @@ raw["date_mutation"]       = pd.to_datetime(raw["date_mutation"],       errors="
 raw["annee"] = raw["date_mutation"].dt.year.fillna(2024).astype(int)
 # Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
 raw = aggregate_mutations(raw)
-# Prix/m² : surface Carrez pour appartements (agrégée), surface parcelle pour maisons (agrégée)
+# Prix/m² : surface bâtie pour appartements et maisons (agrégée)
 raw["prix_m2"] = np.where(
-    (raw["type_local"] == "Appartement") & (raw["surface_reelle_bati"] > 0),
+    (raw["type_local"].isin(["Appartement", "Maison"])) & (raw["surface_reelle_bati"] > 0),
     raw["valeur_fonciere"] / raw["surface_reelle_bati"],
     np.where(
-        (raw["type_local"] == "Maison") & (raw["surface_terrain"] > 0),
-        raw["valeur_fonciere"] / raw["surface_terrain"],
-        np.where(
-            raw["surface_reelle_bati"] > 0,
-            raw["valeur_fonciere"] / raw["surface_reelle_bati"],
-            np.nan,
-        ),
+        raw["surface_reelle_bati"] > 0,
+        raw["valeur_fonciere"] / raw["surface_reelle_bati"],
+        np.nan,
     ),
 )
 raw = raw.dropna(subset=["valeur_fonciere"])

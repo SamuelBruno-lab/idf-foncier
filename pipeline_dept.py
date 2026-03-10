@@ -62,7 +62,7 @@ DEPT_CONFIG = {
         "nom": "Hauts-de-Seine", "code": "92",
         "gradient": ("90deg", "#00d4ff", "#ffffff", "#ff6600"),
         "color": "#00d4ff",
-        "csv_years": {y: f"/home/user/dvf_92_{y}.csv" for y in range(2020, 2025)},
+        "csv_years": {},  # global CSV uniquement (yearly = fichiers HTML trop grands)
         "csv_global": "/home/user/dvf_92.csv",
         "zoom": 12, "repo": "hauts-de-seine-foncier",
     },
@@ -78,7 +78,7 @@ DEPT_CONFIG = {
         "nom": "Val-de-Marne", "code": "94",
         "gradient": ("90deg", "#00d4ff", "#ffffff", "#a78bfa"),
         "color": "#a78bfa",
-        "csv_years": {y: f"/home/user/dvf_94_{y}.csv" for y in range(2020, 2025)},
+        "csv_years": {},  # global CSV uniquement (yearly = fichiers HTML trop grands)
         "csv_global": "/home/user/dvf_94.csv",
         "zoom": 12, "repo": "val-de-marne-foncier",
     },
@@ -109,39 +109,94 @@ def c_color(cid):
     return CLUSTER_COLORS[int(cid) % len(CLUSTER_COLORS)] if cid >= 0 else "#666666"
 
 def aggregate_mutations(data):
-    """Une ligne par mutation :
-    - Exclut les mutations mixtes (plusieurs type_local différents)
+    """Une ligne par mutation pour les mutations pures :
+    - Sépare les mutations mixtes (plusieurs type_local) pour ventilation ultérieure
     - Agrège surface_terrain (somme des parcelles) pour les maisons
     - Agrège surface_reelle_bati (somme Carrez) pour les appartements
+    Retourne : (pure_dedup, mixed_raw)
     """
     if "id_mutation" not in data.columns:
-        return data
-    # 1. Exclure mutations mixtes
+        return data, pd.DataFrame()
+    # 1. Séparer mutations pures / mixtes
     if "type_local" in data.columns:
         n_types = data.groupby("id_mutation")["type_local"].apply(
             lambda x: x.dropna().nunique()
         )
-        pure_ids = n_types[n_types <= 1].index
-        n_mixed = int((n_types > 1).sum())
+        pure_ids  = n_types[n_types <= 1].index
+        mixed_ids = n_types[n_types > 1].index
+        n_mixed = len(mixed_ids)
         if n_mixed > 0:
-            print(f"  Mutations mixtes exclues : {n_mixed}")
-        data = data[data["id_mutation"].isin(pure_ids)].copy()
-    # 2. Agréger surfaces par mutation
+            print(f"  Mutations mixtes détectées : {n_mixed} (seront ventilées)")
+        pure_data  = data[data["id_mutation"].isin(pure_ids)].copy()
+        mixed_data = data[data["id_mutation"].isin(mixed_ids)].copy()
+    else:
+        pure_data  = data.copy()
+        mixed_data = pd.DataFrame()
+    # 2. Agréger surfaces pour mutations pures
     agg_dict = {}
     for col in ["surface_terrain", "surface_reelle_bati"]:
         if col in data.columns:
             agg_dict[col] = "sum"
     if agg_dict:
-        agg_df = data.groupby("id_mutation").agg(agg_dict).reset_index()
+        agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
         for col in agg_dict:
             agg_df[col] = agg_df[col].replace(0, np.nan)
-        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
         data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
         data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
     else:
-        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
-    print(f"  Mutations agrégées : {len(data_dedup)}")
-    return data_dedup
+        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+    print(f"  Mutations pures agrégées : {len(data_dedup)}")
+    return data_dedup, mixed_data
+
+
+def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
+    """Ventile le prix total de chaque mutation mixte entre ses composantes.
+
+    Pour chaque (id_mutation, type_local) :
+      - Agrège les surfaces du même type au sein de la mutation
+      - Estime la valeur théorique = surface × prix_médian/m² du type
+      - Attribue une part du prix total proportionnelle à cette valeur théorique
+      - Fallback : répartition égale si les surfaces/médians sont inconnus
+    """
+    if mixed_data.empty:
+        return pd.DataFrame()
+
+    results = []
+    for id_mut, group in mixed_data.groupby("id_mutation"):
+        total_val = float(group["valeur_fonciere"].iloc[0])
+        type_groups = []
+        for tl, tl_grp in group.groupby("type_local", dropna=False):
+            template = tl_grp.iloc[0].copy()
+            surf_bati    = tl_grp["surface_reelle_bati"].sum() if "surface_reelle_bati" in tl_grp.columns else np.nan
+            surf_terrain = tl_grp["surface_terrain"].sum()     if "surface_terrain"     in tl_grp.columns else np.nan
+            template["surface_reelle_bati"] = surf_bati    if (pd.notna(surf_bati)    and surf_bati    > 0) else np.nan
+            template["surface_terrain"]     = surf_terrain if (pd.notna(surf_terrain) and surf_terrain > 0) else np.nan
+            surf   = surf_bati if (pd.notna(surf_bati) and surf_bati > 0) else np.nan
+            m2_med = median_m2_by_type.get(tl, np.nan)
+            theorique = float(surf) * float(m2_med) if (pd.notna(surf) and pd.notna(m2_med)) else np.nan
+            type_groups.append({"row": template, "type_local": tl, "theorique": theorique, "surface": surf})
+
+        total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
+        for c in type_groups:
+            new_row = c["row"].copy()
+            if total_theorique > 0 and pd.notna(c["theorique"]):
+                new_row["valeur_fonciere"] = total_val * (c["theorique"] / total_theorique)
+            else:
+                new_row["valeur_fonciere"] = total_val / len(type_groups)
+            new_row["is_ventile"]             = True
+            new_row["valeur_fonciere_totale"] = total_val
+            surf = c["surface"]
+            new_row["prix_m2"] = (new_row["valeur_fonciere"] / float(surf)
+                                  if pd.notna(surf) and float(surf) > 0 else np.nan)
+            results.append(new_row)
+
+    if not results:
+        return pd.DataFrame()
+    ventile_df = pd.DataFrame(results)
+    n_mut = mixed_data["id_mutation"].nunique()
+    print(f"  Mutations mixtes ventilées : {n_mut} mutations → {len(ventile_df)} composantes")
+    return ventile_df
 
 def load_data(cfg):
     frames = []
@@ -179,8 +234,17 @@ def load_data(cfg):
     if "surface_terrain" in data.columns:
         data["surface_terrain"] = pd.to_numeric(data["surface_terrain"], errors="coerce")
     data["date_mutation"] = pd.to_datetime(data.get("date_mutation", pd.Series(dtype=str)), errors="coerce")
-    # Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
-    data = aggregate_mutations(data)
+    # Exclusion caves/dépendances et doublons bruts
+    if "type_local" in data.columns:
+        data = data[data["type_local"] != "Dépendance"]
+    if "id_mutation" in data.columns and "id_parcelle" in data.columns:
+        data = data.drop_duplicates(subset=["id_mutation", "id_parcelle"])
+    # Exclusion VEFA maisons (prix total promoteur)
+    if "nature_mutation" in data.columns and "type_local" in data.columns:
+        data = data[~((data["nature_mutation"] == "Vente en l'état futur d'achèvement") &
+                      (data["type_local"] == "Maison"))]
+    # Agréger par mutation : séparation pures/mixtes + somme surfaces parcelles/Carrez
+    data, mixed_raw = aggregate_mutations(data)
     # Prix/m² : surface bâtie pour appartements et maisons
     if "surface_terrain" in data.columns and "type_local" in data.columns:
         data["prix_m2"] = np.where(
@@ -199,6 +263,29 @@ def load_data(cfg):
             np.nan,
         )
     data = data.dropna(subset=["valeur_fonciere"])
+    # Suppression des outliers DVF aberrants par type
+    SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
+                     "Local industriel. commercial ou assimilé": 12000,
+                     "Local commercial": 12000}
+    if "type_local" in data.columns:
+        for tl, seuil in SEUIL_PRIX_M2.items():
+            mask = (data["type_local"] == tl) & (data["prix_m2"] > seuil)
+            n = mask.sum()
+            if n:
+                print(f"  Suppression {n} outliers {tl} > {seuil} €/m²")
+            data = data[~mask]
+    # Ventilation des mutations mixtes
+    median_m2_by_type = {}
+    if "type_local" in data.columns:
+        for tl in data["type_local"].dropna().unique():
+            subset = data[(data["type_local"] == tl) & data["prix_m2"].notna() & (data["prix_m2"] > 0)]
+            if len(subset) > 0:
+                median_m2_by_type[tl] = subset["prix_m2"].median()
+    if not mixed_raw.empty:
+        ventile_df = ventiler_mutations_mixtes(mixed_raw, median_m2_by_type)
+        if not ventile_df.empty:
+            data = pd.concat([data, ventile_df], ignore_index=True)
+            print(f"  Total après ventilation : {len(data)} transactions")
     data["latitude"] = pd.to_numeric(data["latitude"], errors="coerce")
     data["longitude"] = pd.to_numeric(data["longitude"], errors="coerce")
     data = data.dropna(subset=["latitude", "longitude"])
@@ -222,6 +309,22 @@ def run_hdbscan(data, min_cluster_size=15):
     print(f"  Micro-marchés : {n_clusters}")
     return data
 
+def apply_jitter(df, radius_deg=0.0001):
+    df = df.copy()
+    df["lat_j"] = df["latitude"].astype(float)
+    df["lon_j"] = df["longitude"].astype(float)
+    groups = df.groupby(["latitude", "longitude"])
+    for (lat, lon), idx in groups.groups.items():
+        n = len(idx)
+        if n == 1:
+            continue
+        angles = np.linspace(0, 2 * np.pi * (1 + n // 8), n, endpoint=False)
+        radii  = np.linspace(radius_deg * 0.3, radius_deg, n)
+        df.loc[idx, "lat_j"] = lat + radii * np.sin(angles)
+        df.loc[idx, "lon_j"] = lon + radii * np.cos(angles)
+    return df
+
+
 def make_map(data, cfg, type_local, out_path):
     tc = TYPE_CONFIG.get(type_local, {"emoji": "📍", "label": type_local, "color": "#00d4ff"})
     dept_nom = cfg["nom"]
@@ -237,6 +340,8 @@ def make_map(data, cfg, type_local, out_path):
     def price_color(prix_m2):
         if pd.isna(prix_m2): return "#aaaaaa"
         return colormap(max(p5, min(p95, prix_m2)))
+
+    data = apply_jitter(data)
 
     center = [data["latitude"].mean(), data["longitude"].mean()]
     m = folium.Map(location=center, zoom_start=cfg["zoom"], tiles=None, prefer_canvas=True)
@@ -259,7 +364,7 @@ def make_map(data, cfg, type_local, out_path):
             heat_data["w"] = (heat_data["prix_m2"] - vmin_h) / (vmax_h - vmin_h)
         else:
             heat_data["w"] = 1.0
-        hm_fg = folium.FeatureGroup(name="🌡️ Heatmap", show=False)
+        hm_fg = folium.FeatureGroup(name="🌡️ pression foncière : densité des transactions", show=False)
         HeatMap(
             data=heat_data[["latitude", "longitude", "w"]].values.tolist(),
             radius=20, blur=15, min_opacity=0.3,
@@ -323,6 +428,19 @@ def make_map(data, cfg, type_local, out_path):
             type_s = str(row.get("type_local","") or "—")
             pieces = row.get("nombre_pieces_principales", None)
             pieces_s = f"{int(pieces)} pce{'s' if pieces > 1 else ''}" if pieces and pd.notna(pieces) and pieces > 0 else ""
+            is_ventile = bool(row.get("is_ventile", False))
+            val_totale = row.get("valeur_fonciere_totale", np.nan)
+            ventile_note = ""
+            if is_ventile and pd.notna(val_totale):
+                ventile_note = (
+                    f"<div style='font-size:10px;color:#ff9900;margin-top:4px;"
+                    f"background:rgba(255,153,0,0.1);padding:3px 7px;border-radius:4px;"
+                    f"border-left:3px solid #ff9900;'>"
+                    f"⚖️ Vente mixte ventilée · Prix total acte : {float(val_totale):,.0f} €</div>"
+                )
+            jitter_note = ""
+            if abs(row.get("lat_j", row["latitude"]) - row["latitude"]) > 1e-8 or abs(row.get("lon_j", row["longitude"]) - row["longitude"]) > 1e-8:
+                jitter_note = "<div style='font-size:10px;color:#f90;margin-top:4px;'>⚠️ Position légèrement décalée (adresse groupée)</div>"
             popup_html = f"""
             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">
               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">
@@ -337,10 +455,12 @@ def make_map(data, cfg, type_local, out_path):
                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">{date_s}</td></tr>
                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:{color};">{zone_label}</td></tr>
                 </table>
+                {ventile_note}
+                {jitter_note}
               </div>
             </div>"""
             folium.CircleMarker(
-                location=[row["latitude"], row["longitude"]],
+                location=[row.get("lat_j", row["latitude"]), row.get("lon_j", row["longitude"])],
                 radius=5, color="#ffffff22", fill=True,
                 fill_color=color, fill_opacity=0.85, weight=0.5,
                 popup=folium.Popup(popup_html, max_width=270),

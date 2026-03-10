@@ -18,37 +18,82 @@ OUT_DIR      = f"/home/user/maps_{COMMUNE_CODE}"
 COLOR        = "#00d4ff"
 
 def aggregate_mutations(data):
-    """Une ligne par mutation :
-    - Exclut les mutations mixtes (plusieurs type_local différents)
+    """Une ligne par mutation pour les mutations pures :
+    - Sépare les mutations mixtes (plusieurs type_local) pour ventilation ultérieure
     - Agrège surface_terrain (somme des parcelles) pour les maisons
     - Agrège surface_reelle_bati (somme Carrez) pour les appartements
+    Retourne : (pure_dedup, mixed_raw)
     """
     if "id_mutation" not in data.columns:
-        return data
+        return data, pd.DataFrame()
     if "type_local" in data.columns:
         n_types = data.groupby("id_mutation")["type_local"].apply(
             lambda x: x.dropna().nunique()
         )
-        pure_ids = n_types[n_types <= 1].index
-        n_mixed = int((n_types > 1).sum())
+        pure_ids  = n_types[n_types <= 1].index
+        mixed_ids = n_types[n_types > 1].index
+        n_mixed = len(mixed_ids)
         if n_mixed > 0:
-            print(f"  Mutations mixtes exclues : {n_mixed}")
-        data = data[data["id_mutation"].isin(pure_ids)].copy()
+            print(f"  Mutations mixtes détectées : {n_mixed} (seront ventilées)")
+        pure_data  = data[data["id_mutation"].isin(pure_ids)].copy()
+        mixed_data = data[data["id_mutation"].isin(mixed_ids)].copy()
+    else:
+        pure_data  = data.copy()
+        mixed_data = pd.DataFrame()
     agg_dict = {}
     for col in ["surface_terrain", "surface_reelle_bati"]:
         if col in data.columns:
             agg_dict[col] = "sum"
     if agg_dict:
-        agg_df = data.groupby("id_mutation").agg(agg_dict).reset_index()
+        agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
         for col in agg_dict:
             agg_df[col] = agg_df[col].replace(0, np.nan)
-        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
         data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
         data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
     else:
-        data_dedup = data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
-    print(f"  Mutations agrégées : {len(data_dedup)}")
-    return data_dedup
+        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+    print(f"  Mutations pures agrégées : {len(data_dedup)}")
+    return data_dedup, mixed_data
+
+
+def ventiler_mutations_mixtes(mixed_data, median_m2_by_type):
+    """Ventile le prix total de chaque mutation mixte entre ses composantes."""
+    if mixed_data.empty:
+        return pd.DataFrame()
+    results = []
+    for id_mut, group in mixed_data.groupby("id_mutation"):
+        total_val = float(group["valeur_fonciere"].iloc[0])
+        type_groups = []
+        for tl, tl_grp in group.groupby("type_local", dropna=False):
+            template = tl_grp.iloc[0].copy()
+            surf_bati    = tl_grp["surface_reelle_bati"].sum() if "surface_reelle_bati" in tl_grp.columns else np.nan
+            surf_terrain = tl_grp["surface_terrain"].sum()     if "surface_terrain"     in tl_grp.columns else np.nan
+            template["surface_reelle_bati"] = surf_bati    if (pd.notna(surf_bati)    and surf_bati    > 0) else np.nan
+            template["surface_terrain"]     = surf_terrain if (pd.notna(surf_terrain) and surf_terrain > 0) else np.nan
+            surf   = surf_bati if (pd.notna(surf_bati) and surf_bati > 0) else np.nan
+            m2_med = median_m2_by_type.get(tl, np.nan)
+            theorique = float(surf) * float(m2_med) if (pd.notna(surf) and pd.notna(m2_med)) else np.nan
+            type_groups.append({"row": template, "type_local": tl, "theorique": theorique, "surface": surf})
+        total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
+        for c in type_groups:
+            new_row = c["row"].copy()
+            if total_theorique > 0 and pd.notna(c["theorique"]):
+                new_row["valeur_fonciere"] = total_val * (c["theorique"] / total_theorique)
+            else:
+                new_row["valeur_fonciere"] = total_val / len(type_groups)
+            new_row["is_ventile"]             = True
+            new_row["valeur_fonciere_totale"] = total_val
+            surf = c["surface"]
+            new_row["prix_m2"] = (new_row["valeur_fonciere"] / float(surf)
+                                  if pd.notna(surf) and float(surf) > 0 else np.nan)
+            results.append(new_row)
+    if not results:
+        return pd.DataFrame()
+    ventile_df = pd.DataFrame(results)
+    n_mut = mixed_data["id_mutation"].nunique()
+    print(f"  Mutations mixtes ventilées : {n_mut} mutations → {len(ventile_df)} composantes")
+    return ventile_df
 
 # ── 1. Chargement & nettoyage ─────────────────────────────────────────────────
 raw = pd.read_csv(f"/home/user/dvf_{COMMUNE_CODE}.csv", low_memory=False)
@@ -65,8 +110,8 @@ raw["surface_reelle_bati"] = pd.to_numeric(raw["surface_reelle_bati"], errors="c
 raw["surface_terrain"]     = pd.to_numeric(raw["surface_terrain"],     errors="coerce")
 raw["date_mutation"]       = pd.to_datetime(raw["date_mutation"],       errors="coerce")
 raw["annee"] = raw["date_mutation"].dt.year.fillna(2024).astype(int)
-# Agréger par mutation : exclusion mixtes + somme surfaces parcelles/Carrez
-raw = aggregate_mutations(raw)
+# Agréger par mutation : séparation pures/mixtes + somme surfaces parcelles/Carrez
+raw, mixed_raw = aggregate_mutations(raw)
 # Prix/m² : surface bâtie pour appartements et maisons (agrégée)
 raw["prix_m2"] = np.where(
     (raw["type_local"].isin(["Appartement", "Maison"])) & (raw["surface_reelle_bati"] > 0),
@@ -88,6 +133,20 @@ for tl, seuil in SEUIL_PRIX_M2.items():
     if n:
         print(f"Suppression {n} outliers {tl} > {seuil} €/m²")
     raw = raw[~mask]
+
+# ── Ventilation des mutations mixtes ──────────────────────────────────────────
+median_m2_by_type = {}
+for tl in raw["type_local"].dropna().unique():
+    subset = raw[(raw["type_local"] == tl) & raw["prix_m2"].notna() & (raw["prix_m2"] > 0)]
+    if len(subset) > 0:
+        median_m2_by_type[tl] = subset["prix_m2"].median()
+        print(f"  Médiane {tl}: {median_m2_by_type[tl]:,.0f} €/m²")
+
+if not mixed_raw.empty:
+    ventile_df = ventiler_mutations_mixtes(mixed_raw, median_m2_by_type)
+    if not ventile_df.empty:
+        raw = pd.concat([raw, ventile_df], ignore_index=True)
+        print(f"  Total après ventilation : {len(raw)} transactions")
 
 # ── 2. Jitter ─────────────────────────────────────────────────────────────────
 def apply_jitter(df, radius_deg=0.0001):
@@ -239,7 +298,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
         p75_h = valid.quantile(0.75)
         vmin_h, vmax_h = p5, p75_h
         heat_w["w"] = (heat_w["prix_m2"].clip(vmin_h, vmax_h) - vmin_h) / (vmax_h - vmin_h + 1)
-        hfg = folium.FeatureGroup(name="🌡️ Heatmap (intensité prix/m²)", show=False)
+        hfg = folium.FeatureGroup(name="🌡️ pression foncière : densité des transactions", show=False)
         HeatMap(
             heat_w[["latitude","longitude","w"]].values.tolist(),
             radius=20, blur=15, min_opacity=0.3,
@@ -247,7 +306,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
         ).add_to(hfg)
         hfg.add_to(m)
 
-    pfg = folium.FeatureGroup(name="🗺️ Zones HDBSCAN", show=True)
+    pfg = folium.FeatureGroup(name="🗺️ Micromarchés", show=True)
     for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
         pts = data[data["cluster"] == cid][["latitude","longitude"]].values
         if len(pts) < 3:
@@ -306,6 +365,17 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
             if abs(row["lat_j"] - row["latitude"]) > 1e-8 or abs(row["lon_j"] - row["longitude"]) > 1e-8:
                 jitter_note = "<div style='font-size:10px;color:#f90;margin-top:4px;'>⚠️ Position légèrement décalée (adresse groupée)</div>"
 
+            is_ventile = bool(row.get("is_ventile", False))
+            val_totale = row.get("valeur_fonciere_totale", np.nan)
+            ventile_note = ""
+            if is_ventile and pd.notna(val_totale):
+                ventile_note = (
+                    f"<div style='font-size:10px;color:#ff9900;margin-top:4px;"
+                    f"background:rgba(255,153,0,0.1);padding:3px 7px;border-radius:4px;"
+                    f"border-left:3px solid #ff9900;'>"
+                    f"⚖️ Vente mixte ventilée · Prix total acte : {float(val_totale):,.0f} €</div>"
+                )
+
             popup_html = f"""
             <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:220px;color:#222;">
               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">
@@ -318,8 +388,9 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">
                 <table style="width:100%;font-size:12px;color:#555;">
                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">{date_s}</td></tr>
-                  <tr><td>Cluster</td><td style="text-align:right;font-weight:600;color:{color};">{zone_label}</td></tr>
+                  <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:{color};">{zone_label}</td></tr>
                 </table>
+                {ventile_note}
                 {jitter_note}
               </div>
             </div>"""
@@ -384,7 +455,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
   <div id="drancy-body">
     <div class="kpi-grid">
       <div class="kpi"><div class="val">{total_tx:,}</div><div class="lbl">Transactions</div></div>
-      <div class="kpi"><div class="val">{n_clusters}</div><div class="lbl">Zones HDBSCAN</div></div>
+      <div class="kpi"><div class="val">{n_clusters}</div><div class="lbl">Micromarchés</div></div>
       <div class="kpi"><div class="val">{med_prix/1000:.0f}k€</div><div class="lbl">Prix médian</div></div>
       <div class="kpi"><div class="val">{med_m2_display}</div><div class="lbl">Médiane/m²</div></div>
     </div>

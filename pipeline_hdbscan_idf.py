@@ -110,7 +110,7 @@ def load_csv_dept(dept: str, csv_path: Path) -> pd.DataFrame:
 
     # Nettoyage de base
     df = df.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
-    df = df[pd.to_numeric(df["valeur_fonciere"], errors="coerce") > 0]
+    df = df[pd.to_numeric(df["valeur_fonciere"], errors="coerce") > 1]
     df = df.drop_duplicates(subset=["id_mutation", "id_parcelle"])
 
     # Exclusion VEFA Maisons (prix promoteur gonflé)

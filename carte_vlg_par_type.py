@@ -211,7 +211,7 @@ for y in years:
 
 raw = pd.concat(frames, ignore_index=True)
 raw = raw.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
-raw = raw[raw["valeur_fonciere"] > 0]
+raw = raw[raw["valeur_fonciere"] > 1]
 raw = raw.drop_duplicates(subset=["id_mutation", "id_parcelle", "type_local", "surface_reelle_bati"])  # doublons bruts (conserver les lots distincts par type/surface)
 # Exclusion des caves et dépendances
 raw = raw[raw["type_local"] != "Dépendance"]

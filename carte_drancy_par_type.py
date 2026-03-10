@@ -189,7 +189,7 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
 # ── 1. Chargement & nettoyage ─────────────────────────────────────────────────
 raw = pd.read_csv(f"/home/user/dvf_{COMMUNE_CODE}.csv", low_memory=False)
 raw = raw.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
-raw = raw[raw["valeur_fonciere"] > 0]
+raw = raw[raw["valeur_fonciere"] > 1]
 raw = raw.drop_duplicates(subset=["id_mutation", "id_parcelle", "type_local", "surface_reelle_bati"])  # conserver les lots distincts par type/surface
 # Exclusion des caves et dépendances
 raw = raw[raw["type_local"] != "Dépendance"]

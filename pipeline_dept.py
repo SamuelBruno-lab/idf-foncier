@@ -309,7 +309,7 @@ def load_data(cfg):
         raise RuntimeError("Aucune donnée chargée")
     data = pd.concat(frames, ignore_index=True)
     data = data.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
-    data = data[data["valeur_fonciere"] > 0]
+    data = data[data["valeur_fonciere"] > 1]
     data["valeur_fonciere"] = pd.to_numeric(data["valeur_fonciere"], errors="coerce")
     data["surface_reelle_bati"] = pd.to_numeric(data.get("surface_reelle_bati", pd.Series(dtype=float)), errors="coerce")
     if "surface_terrain" in data.columns:

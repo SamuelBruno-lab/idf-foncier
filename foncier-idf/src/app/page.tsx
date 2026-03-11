@@ -54,7 +54,6 @@ export default function HomePage() {
   const [zoom] = useState(10);
   const [showHero, setShowHero] = useState(true);
   const [showLeadModal, setShowLeadModal] = useState(false);
-  const [colorBy, setColorBy] = useState<"prix" | "rendement">("rendement");
   const didCheckModal = useRef(false);
 
   // Recherche commune
@@ -146,7 +145,6 @@ export default function HomePage() {
         mode={mode}
         filters={filters}
         isLoading={isLoading}
-        colorBy={colorBy}
         onCommuneClick={(code) => window.open(`/analyse/${code}`, "_blank")}
       />
 
@@ -157,8 +155,6 @@ export default function HomePage() {
           onFiltersChange={setFilters}
           mode={mode}
           onModeChange={setMode}
-          colorBy={colorBy}
-          onColorByChange={setColorBy}
           onLeadClick={() => setShowLeadModal(true)}
           totalTx={totalTx}
         />

@@ -19,15 +19,6 @@ const INITIAL_VIEW = {
   bearing: 0,
 };
 
-// Gradient couleur rendement brut (gris→rouge→orange→vert)
-function rendementColor(r: number | null | undefined): [number, number, number, number] {
-  if (r == null) return [100, 100, 120, 120];
-  if (r < 3) return [255, 60, 60, 200];
-  if (r < 5) return [255, 160, 0, 200];
-  if (r < 7) return [50, 220, 100, 200];
-  return [0, 255, 120, 220];
-}
-
 // Gradient couleur prix/m²  (bleu→vert→jaune→orange→rouge)
 function priceColor(prix_m2: number | null, min: number, max: number): [number, number, number, number] {
   if (!prix_m2) return [150, 150, 150, 180];
@@ -56,11 +47,10 @@ interface Props {
   mode: "clusters" | "heatmap";
   filters: DvfFilters;
   isLoading: boolean;
-  colorBy: "prix" | "rendement";
   onCommuneClick?: (code: string, nom: string) => void;
 }
 
-export default function DvfMap({ points, clusters, mode, filters, isLoading, colorBy, onCommuneClick }: Props) {
+export default function DvfMap({ points, clusters, mode, filters, isLoading, onCommuneClick }: Props) {
   const [hovered, setHovered] = useState<DvfPoint | DvfCluster | null>(null);
   const [cursor, setCursor] = useState("grab");
 
@@ -106,10 +96,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
           getPosition: (d) => [d.lon, d.lat],
           getRadius: (d) => Math.min(Math.max(Math.sqrt(d.count) * 3, 5), 55),
           radiusUnits: "pixels",
-          getFillColor: (d) =>
-            colorBy === "rendement"
-              ? rendementColor(d.rendement_brut)
-              : priceColor(d.prix_m2_median, priceRange[0], priceRange[1]),
+          getFillColor: (d) => priceColor(d.prix_m2_median, priceRange[0], priceRange[1]),
           getLineColor: [255, 255, 255, 80],
           lineWidthMinPixels: 1,
           pickable: true,
@@ -131,7 +118,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
     }
 
     return [];
-  }, [points, clusters, mode, priceRange, colorBy]);
+  }, [points, clusters, mode, priceRange]);
 
   const renderTooltip = useCallback(() => {
     if (!hovered) return null;
@@ -172,11 +159,6 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
                 <div style={{ color: "#88ffcc" }}>
                   Loyer médian : {(hovered as DvfCluster).loyer_median_m2?.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/m²/mois
                 </div>
-                {(hovered as DvfCluster).rendement_brut != null && (
-                  <div style={{ color: "#ffaa44", fontWeight: 600, marginTop: 2 }}>
-                    Rendement brut : {(hovered as DvfCluster).rendement_brut?.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
-                  </div>
-                )}
               </div>
             )}
           </>
@@ -245,38 +227,6 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, col
 
       {renderTooltip()}
 
-      {/* Légende rendement */}
-      {colorBy === "rendement" && mode === "clusters" && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 36,
-            left: 12,
-            zIndex: 500,
-            background: "rgba(10,10,30,0.9)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontFamily: "Segoe UI, Arial, sans-serif",
-          }}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
-            Rendement brut
-          </div>
-          {[
-            { color: "#00ff78", label: "> 7%" },
-            { color: "#32dc64", label: "5 – 7%" },
-            { color: "#ffa000", label: "3 – 5%" },
-            { color: "#ff3c3c", label: "< 3%" },
-            { color: "rgba(100,100,120,0.6)", label: "N/A" },
-          ].map(({ color, label }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-              <div style={{ width: 11, height: 11, borderRadius: "50%", background: color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#bbb" }}>{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

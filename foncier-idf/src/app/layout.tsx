@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ShareButton from "@/components/ShareButton";
 
 export const metadata: Metadata = {
   title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
@@ -45,6 +46,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className="antialiased">
         {children}
+        <ShareButton />
       </body>
     </html>
   );

@@ -13,7 +13,7 @@ const ARTICLES = [
     tag: "Projet pilote",
     tagColor: "#00ff88",
     title: "Villeneuve-la-Garenne : premier territoire cartographié par IA",
-    summary: "Datamerry a cartographié l'intégralité du marché immobilier de Villeneuve-la-Garenne (92), commune de 25 000 habitants en bord de Seine. Micro-marchés identifiés par clustering HDBSCAN, évolution 2025, typologies de biens, rendements locatifs.",
+    summary: "Datamerry a cartographié l'intégralité du marché immobilier de Villeneuve-la-Garenne (92), commune de 25 000 habitants en bord de Seine. Micro-marchés identifiés par IA, évolution 2025, typologies de biens.",
     mapUrl: "https://samuelbruno-lab.github.io/vlg-foncier/",
     stats: [
       { val: "2 800+", label: "transactions analysées" },
@@ -28,7 +28,7 @@ const ARTICLES = [
     tag: "Couverture régionale",
     tagColor: "#00d4ff",
     title: "1,2 million de transactions IDF cartographiées",
-    summary: "L'Île-de-France complète est désormais couverte : 8 départements + l'Oise. Chaque commune est accessible avec ses données DVF, ses loyers médians et son rendement brut calculé par l'IA.",
+    summary: "L'Île-de-France complète est désormais couverte : 8 départements + l'Oise. Chaque commune est accessible avec ses données DVF et ses analyses de marché calculées par l'IA.",
     mapUrl: "https://datamerry.com",
     stats: [
       { val: "1,2M", label: "transactions" },
@@ -48,7 +48,6 @@ const ARTICLES = [
     stats: [
       { val: "36", label: "communes analysées" },
       { val: "7 200€", label: "prix médian/m²" },
-      { val: "4,2%", label: "rendement médian" },
     ],
     featured: false,
   },
@@ -57,13 +56,12 @@ const ARTICLES = [
     date: "Octobre 2024",
     tag: "Analyse départementale",
     tagColor: "#a78bfa",
-    title: "Val-de-Marne (94) : rendement locatif surprenant",
-    summary: "Le Val-de-Marne affiche des rendements bruts parmi les plus élevés d'IDF sur certaines communes. L'analyse DVF révèle des micro-marchés à fort potentiel encore méconnus des investisseurs.",
+    title: "Val-de-Marne (94) : micro-marchés à fort potentiel",
+    summary: "Le Val-de-Marne présente des dynamiques de marché parmi les plus intéressantes d'IDF sur certaines communes. L'analyse DVF révèle des micro-marchés encore méconnus des investisseurs.",
     mapUrl: "https://datamerry.com/dept/94",
     stats: [
       { val: "47", label: "communes analysées" },
       { val: "5 800€", label: "prix médian/m²" },
-      { val: "5,1%", label: "rendement médian" },
     ],
     featured: false,
   },

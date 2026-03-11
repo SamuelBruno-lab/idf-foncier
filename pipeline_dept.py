@@ -685,7 +685,7 @@ def make_map(data, cfg, type_local, out_path):
       else{{b.style.display='none';t.textContent='▼'}}
     ">▲</span>
     <h2>{tc["emoji"]} {tc["label"]} · {dept_nom} ({dept_code})</h2>
-    <p>2020 – 2025 · Source DVF data.gouv.fr</p>
+    <p>2025 · Source DVF data.gouv.fr</p>
   </div>
   <div id="dash{dept_code}-body">
     <div class="kpi-grid">
@@ -749,7 +749,7 @@ def make_index(cfg, stats, out_dir):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analyse Foncière · {dept_nom} ({dept_code})</title>
-  <meta name="description" content="Carte interactive du marché immobilier en {dept_nom} · {total_tx:,} transactions DVF 2020-2025 · Micro-marchés HDBSCAN · datamerry">
+  <meta name="description" content="Carte interactive du marché immobilier en {dept_nom} · {total_tx:,} transactions DVF 2025 · Micro-marchés HDBSCAN · datamerry">
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0a0a1e 0%, #0d1b2a 50%, #0a0a1e 100%); min-height: 100vh; color: #e8e8f0; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }}

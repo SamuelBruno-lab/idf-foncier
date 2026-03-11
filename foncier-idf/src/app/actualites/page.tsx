@@ -13,7 +13,7 @@ const ARTICLES = [
     tag: "Projet pilote",
     tagColor: "#00ff88",
     title: "Villeneuve-la-Garenne : premier territoire cartographié par IA",
-    summary: "Datamerry a cartographié l'intégralité du marché immobilier de Villeneuve-la-Garenne (92), commune de 25 000 habitants en bord de Seine. Micro-marchés identifiés par clustering HDBSCAN, évolution 2020–2025, typologies de biens, rendements locatifs.",
+    summary: "Datamerry a cartographié l'intégralité du marché immobilier de Villeneuve-la-Garenne (92), commune de 25 000 habitants en bord de Seine. Micro-marchés identifiés par clustering HDBSCAN, évolution 2025, typologies de biens, rendements locatifs.",
     mapUrl: "https://samuelbruno-lab.github.io/vlg-foncier/",
     stats: [
       { val: "2 800+", label: "transactions analysées" },

@@ -379,7 +379,7 @@ def build_map(data, title, subtitle, min_cluster_size, prix_m2_label, out_path):
 build_map(
     data=data_log,
     title="Logements — Appartements & Maisons",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · 2025",
     min_cluster_size=10,
     prix_m2_label="Prix/m² bâti",
     out_path="/home/user/carte_vlg_logements.html",
@@ -388,7 +388,7 @@ build_map(
 build_map(
     data=data_aut,
     title="Commerce / Activités / Dépendances",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · 2025",
     min_cluster_size=5,
     prix_m2_label="Prix/m² bâti",
     out_path="/home/user/carte_vlg_autres.html",
@@ -397,7 +397,7 @@ build_map(
 build_map(
     data=data_terr,
     title="Terrains & Parcelles",
-    subtitle="Villeneuve-la-Garenne · Parcelles sans bâti · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · Parcelles sans bâti · 2025",
     min_cluster_size=10,
     prix_m2_label="Prix/m² terrain",
     out_path="/home/user/carte_vlg_terrains.html",

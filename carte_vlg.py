@@ -72,7 +72,7 @@ title_html = """
      z-index: 1000; background: white; padding: 10px 20px; border-radius: 8px;
      box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-family: Arial; text-align:center;">
   <b style="font-size:16px;">Transactions immobilières — Villeneuve-la-Garenne</b><br>
-  <span style="font-size:12px; color:#555;">2020–2025 · Clustering DBSCAN (rayon 100 m, min 3 points)</span>
+  <span style="font-size:12px; color:#555;">2025 · Clustering DBSCAN (rayon 100 m, min 3 points)</span>
 </div>
 """
 m.get_root().html.add_child(folium.Element(title_html))

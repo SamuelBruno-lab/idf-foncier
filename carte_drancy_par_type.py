@@ -704,7 +704,7 @@ def make_index(stats):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analyse Foncière · {COMMUNE_NOM} ({COMMUNE_CODE})</title>
-  <meta name="description" content="Carte interactive du marché immobilier à {COMMUNE_NOM} · {total_tx:,} transactions DVF 2020-2025 · datamerry">
+  <meta name="description" content="Carte interactive du marché immobilier à {COMMUNE_NOM} · {total_tx:,} transactions DVF 2025 · datamerry">
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0a0a1e 0%, #0d1b2a 50%, #0a0a1e 100%); min-height: 100vh; color: #e8e8f0; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }}
@@ -732,7 +732,7 @@ def make_index(stats):
   <div class="header">
     <div class="tag">Analyse Foncière · {COMMUNE_NOM}</div>
     <h1>Marché Immobilier<br>{COMMUNE_NOM}</h1>
-    <p>Cartographie interactive des transactions immobilières<br>2020 – 2025 · Source : Demandes de Valeurs Foncières</p>
+    <p>Cartographie interactive des transactions immobilières<br>2025 · Source : Demandes de Valeurs Foncières</p>
   </div>
   <div class="stats-bar">
     <div class="stat"><div class="val">{total_tx:,}</div><div class="lbl">Transactions</div></div>
@@ -765,7 +765,7 @@ if len(data_appt) >= 50:
     build_map(
         data=data_appt,
         title="Appartements",
-        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        subtitle=f"{COMMUNE_NOM} · 2025",
         min_cluster_size=min_cs,
         min_samples=3,
         cluster_selection_method="eom",
@@ -782,7 +782,7 @@ if len(data_mais) >= 50:
     build_map(
         data=data_mais,
         title="Maisons / Pavillons",
-        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        subtitle=f"{COMMUNE_NOM} · 2025",
         min_cluster_size=min_cs,
         min_samples=3,
         cluster_selection_method="eom",
@@ -800,7 +800,7 @@ if len(data_com) >= 20:
     build_map(
         data=data_com,
         title="Commerces / Locaux d'activités",
-        subtitle=f"{COMMUNE_NOM} · 2020–2025",
+        subtitle=f"{COMMUNE_NOM} · 2025",
         min_cluster_size=min_cs,
         min_samples=2,
         cluster_selection_method="eom",

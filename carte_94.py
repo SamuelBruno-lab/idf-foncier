@@ -299,7 +299,7 @@ dashboard = f"""
       else{{b.style.display='none';t.textContent='▼'}}
     ">▲</span>
     <h2>Analyse Foncière · Val-de-Marne (94)</h2>
-    <p>2020 – 2025 · Données DVF open data</p>
+    <p>2025 · Données DVF open data</p>
   </div>
   <div id="dash94-body">
     <div class="kpi-grid">

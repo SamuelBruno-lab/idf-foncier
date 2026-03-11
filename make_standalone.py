@@ -171,7 +171,7 @@ index_html = f"""<!DOCTYPE html>
     <div class="tag">Service Foncier · 92078</div>
     <h1>Analyse Foncière<br>Villeneuve-la-Garenne</h1>
     <p>Cartographie interactive des transactions immobilières<br>
-       2020 – 2025 · Source : Demandes de Valeurs Foncières</p>
+       2025 · Source : Demandes de Valeurs Foncières</p>
   </div>
 
   <div class="stats-bar">

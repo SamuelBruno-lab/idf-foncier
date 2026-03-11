@@ -309,7 +309,7 @@ dashboard = f"""
       else{{b.style.display='none';t.textContent='▼'}}
     ">▲</span>
     <h2>Marché Immobilier</h2>
-    <p>Villeneuve-la-Garenne · 2020–2025</p>
+    <p>Villeneuve-la-Garenne · 2025</p>
   </div>
   <div id="vlg-body">
     <div class="kpi-grid">

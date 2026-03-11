@@ -719,7 +719,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
 build_map(
     data=raw[raw["type_local"] == "Appartement"].copy(),
     title="Appartements",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · 2025",
     min_cluster_size=31,   # ≈8% × 386 tx → 6 zones
     min_samples=3,
     cluster_selection_method="eom",
@@ -729,7 +729,7 @@ build_map(
 build_map(
     data=raw[raw["type_local"] == "Maison"].copy(),
     title="Maisons / Pavillons",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · 2025",
     min_cluster_size=6,    # leaf : distingue Sorbiers vs Bouleaux Blancs (~150m)
     min_samples=2,
     cluster_selection_method="leaf",
@@ -742,7 +742,7 @@ build_map(
 build_map(
     data=raw[raw["type_local"] == "Local industriel. commercial ou assimilé"].copy(),
     title="Commerces / Locaux d'activités / Entrepôts",
-    subtitle="Villeneuve-la-Garenne · 2020–2025",
+    subtitle="Villeneuve-la-Garenne · 2025",
     min_cluster_size=5,    # ≈8% × 45 tx, plancher 5
     min_samples=2,
     cluster_selection_method="eom",

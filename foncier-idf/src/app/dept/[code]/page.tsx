@@ -113,12 +113,21 @@ export default function DeptPage() {
 
       {/* === CARTE : iframe statique OU DvfMap dynamique === */}
       {staticMapUrl ? (
-        <iframe
-          src={staticMapUrl}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", zIndex: 1 }}
-          title={`Carte foncière ${dept.nomFull}`}
-          allowFullScreen
-        />
+        <>
+          <iframe
+            src={staticMapUrl}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", zIndex: 1 }}
+            title={`Carte foncière ${dept.nomFull}`}
+            allowFullScreen
+          />
+          {/* Masque pour cacher les boutons Partager/Autres depts de l'iframe */}
+          <div style={{
+            position: "absolute", top: 0, right: 0, zIndex: 2,
+            width: 340, height: 70,
+            background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
+            pointerEvents: "none",
+          }} />
+        </>
       ) : (
         <DvfMap
           points={points}

@@ -57,8 +57,6 @@ export default function DeptPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [zoom] = useState(11);
   const [showLeadModal, setShowLeadModal] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showNav, setShowNav] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CommuneSuggestion[]>([]);
@@ -109,17 +107,6 @@ export default function DeptPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalTx = mode === "heatmap" ? points.length : clusters.reduce((s, c) => s + c.count, 0);
-
-  const handleShare = async () => {
-    const url = `https://datamerry.com/dept/${code}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      window.prompt("Copier ce lien :", url);
-    }
-  };
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>
@@ -218,60 +205,6 @@ export default function DeptPage() {
             </div>
           )}
 
-          {/* Bouton partager */}
-          <button onClick={handleShare} style={{
-            padding: "9px 16px", borderRadius: 10,
-            border: `1px solid ${dept.color}55`, background: "rgba(10,10,30,0.9)",
-            color: copied ? "#00ff88" : dept.color,
-            fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Segoe UI, sans-serif",
-            transition: "all 0.2s", whiteSpace: "nowrap",
-          }}>
-            {copied ? "✓ Copié !" : "↗ Partager"}
-          </button>
-
-          {/* Selector depts */}
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setShowNav(v => !v)} style={{
-              padding: "9px 14px", borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.15)", background: "rgba(10,10,30,0.9)",
-              color: "rgba(255,255,255,0.6)", fontSize: 12, cursor: "pointer", fontFamily: "Segoe UI, sans-serif",
-            }}>
-              Autres depts ▾
-            </button>
-            {showNav && (
-              <div style={{
-                position: "absolute", top: "calc(100% + 6px)", right: 0,
-                background: "#0d0d2b", border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 12, overflow: "hidden", zIndex: 2000,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)", minWidth: 200,
-              }}>
-                {DEPT_ORDER.map((d) => {
-                  const di = DEPT_INFO[d];
-                  return (
-                    <Link key={d} href={`/dept/${d}`} style={{ textDecoration: "none" }}
-                      onClick={() => setShowNav(false)}>
-                      <div style={{
-                        padding: "10px 16px", cursor: "pointer",
-                        background: d === code ? `${di.color}18` : "transparent",
-                        borderBottom: "1px solid rgba(255,255,255,0.05)",
-                        display: "flex", alignItems: "center", gap: 10,
-                        transition: "background 0.1s",
-                      }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = `${di.color}18`)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = d === code ? `${di.color}18` : "transparent")}
-                      >
-                        <span style={{ fontSize: 14 }}>{di.emoji}</span>
-                        <span style={{ color: d === code ? di.color : "#fff", fontFamily: "Segoe UI, sans-serif", fontSize: 13 }}>
-                          {di.nomFull}
-                        </span>
-                        <span style={{ marginLeft: "auto", color: di.color, fontSize: 11, fontWeight: 700 }}>{d}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

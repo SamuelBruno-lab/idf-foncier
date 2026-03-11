@@ -215,7 +215,7 @@ export default function HomePage() {
               maxWidth: 800,
             }}
           >
-            Trouvez les zones à fort
+            Explorez les prix de
             <br />
             <span
               style={{
@@ -225,7 +225,7 @@ export default function HomePage() {
                 backgroundClip: "text",
               }}
             >
-              rendement locatif
+              l&apos;immobilier
             </span>{" "}
             en IDF
           </h1>
@@ -242,8 +242,8 @@ export default function HomePage() {
               lineHeight: 1.6,
             }}
           >
-            1,2 million de ventes DVF croisées avec les loyers médians · Rendement brut
-            par commune, cartographié et analysé par IA
+            1,2 million de ventes DVF · Prix au m² par commune,
+            cartographié et analysé commune par commune
           </p>
 
           {/* Stats */}
@@ -259,7 +259,7 @@ export default function HomePage() {
             {[
               { val: "9 depts", label: "IDF + Oise" },
               { val: "2025", label: "Période" },
-              { val: "jusqu'à 8%", label: "Rendement brut" },
+              { val: "1 200+", label: "Communes" },
             ].map(({ val, label }) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>

@@ -1,6 +1,6 @@
 """
 Carte foncière — Val-de-Marne (94)
-Dark theme · Micro-marchés (HDBSCAN) · Heatmap · Filtres par année · Stats dashboard
+Dark theme · Micro-marchés · Heatmap · Filtres par année · Stats dashboard
 """
 import pandas as pd
 import numpy as np

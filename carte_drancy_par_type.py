@@ -656,7 +656,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
     </table>
     <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);
       font-size:10px;color:rgba(255,255,255,.3);text-align:center;">
-      Source : DVF · data.gouv.fr · HDBSCAN min_cluster_size={min_cluster_size}
+      Source : DVF · data.gouv.fr
     </div>
   </div>
 </div>

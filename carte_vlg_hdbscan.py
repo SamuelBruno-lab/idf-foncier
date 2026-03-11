@@ -1,6 +1,6 @@
 """
 Carte premium : Transactions immobilières — Villeneuve-la-Garenne
-Dark theme · HDBSCAN clusters · Heatmap · Filtres par année · Stats dashboard
+Dark theme · Micro-marchés · Heatmap · Filtres par année · Stats dashboard
 """
 import pandas as pd
 import numpy as np
@@ -50,7 +50,7 @@ data["cluster"] = clusterer.fit_predict(coords)
 
 n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique())
 n_noise    = int((data["cluster"] == -1).sum())
-print(f"Clusters HDBSCAN: {n_clusters}, Isolés: {n_noise}")
+print(f"Micro-marchés: {n_clusters}, Isolés: {n_noise}")
 
 # ── 3. Couleur par prix/m² (gradient) ───────────────────────────────────────
 p5  = data["prix_m2"].quantile(0.05)
@@ -143,7 +143,7 @@ CLUSTER_COLORS = [
 def c_color(cid):
     return CLUSTER_COLORS[cid % len(CLUSTER_COLORS)] if cid >= 0 else "#666666"
 
-poly_fg = folium.FeatureGroup(name="🗺️ Zones HDBSCAN", show=True)
+poly_fg = folium.FeatureGroup(name="🗺️ Micro-marchés", show=True)
 for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
     pts = data[data["cluster"] == cid][["latitude", "longitude"]].values
     if len(pts) < 3:
@@ -319,7 +319,7 @@ dashboard = f"""
       </div>
       <div class="kpi">
         <div class="val">{n_clusters}</div>
-        <div class="lbl">Zones HDBSCAN</div>
+        <div class="lbl">Micro-marchés</div>
       </div>
       <div class="kpi">
         <div class="val">{med_prix/1000:.0f}k€</div>
@@ -352,7 +352,7 @@ dashboard = f"""
 
     <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);
       font-size:10px;color:rgba(255,255,255,.3);text-align:center;">
-      Source : DVF · data.gouv.fr · HDBSCAN min_cluster_size=10
+      Source : DVF · data.gouv.fr
     </div>
   </div>
 </div>
@@ -409,7 +409,7 @@ html = html.replace("</body>", copyright_div + "\n</body>")
 with open(out, "w") as f:
     f.write(html)
 
-print(f"\n✅ Carte HDBSCAN : {out}")
+print(f"\n✅ Carte générée : {out}")
 import os
 size_mb = os.path.getsize(out) / 1024 / 1024
 print(f"   Taille : {size_mb:.1f} MB")

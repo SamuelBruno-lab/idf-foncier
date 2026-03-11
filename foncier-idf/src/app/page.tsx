@@ -199,7 +199,7 @@ export default function HomePage() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#00d4ff", display: "inline-block", animation: "pulse 2s infinite" }} />
-            Île-de-France + Oise · 2020–2025
+            Île-de-France + Oise · 2025
           </div>
 
           {/* Titre principal */}
@@ -258,7 +258,7 @@ export default function HomePage() {
           >
             {[
               { val: "9 depts", label: "IDF + Oise" },
-              { val: "5 ans", label: "2020 → 2025" },
+              { val: "2025", label: "Période" },
               { val: "jusqu'à 8%", label: "Rendement brut" },
             ].map(({ val, label }) => (
               <div key={label} style={{ textAlign: "center" }}>

@@ -212,7 +212,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const dept = data?.dept ?? "";
   return {
     title: `Marché immobilier ${nom} (${dept}) — Prix, loyers, rendement | datamerry`,
-    description: `Analyse DVF de ${nom} : prix médian au m², loyer médian, rendement locatif brut, évolution 2020–2025 et micro-marchés identifiés par IA.`,
+    description: `Analyse DVF de ${nom} : prix médian au m², loyer médian, rendement locatif brut, évolution 2025 et micro-marchés identifiés par IA.`,
   };
 }
 

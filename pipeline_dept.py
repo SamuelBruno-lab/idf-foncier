@@ -749,7 +749,7 @@ def make_index(cfg, stats, out_dir):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analyse Foncière · {dept_nom} ({dept_code})</title>
-  <meta name="description" content="Carte interactive du marché immobilier en {dept_nom} · {total_tx:,} transactions DVF 2025 · Micro-marchés HDBSCAN · datamerry">
+  <meta name="description" content="Carte interactive du marché immobilier en {dept_nom} · {total_tx:,} transactions DVF 2025 · Micro-marchés · datamerry">
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0a0a1e 0%, #0d1b2a 50%, #0a0a1e 100%); min-height: 100vh; color: #e8e8f0; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }}
@@ -791,7 +791,7 @@ def make_index(cfg, stats, out_dir):
   </div>
   <div class="cards">{cards}</div>
   <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
-  <div class="method-badge">Algorithme · <span>HDBSCAN</span> · Géospatial · Données DVF open data</div>
+  <div class="method-badge">Analyse géospatiale · <span>Micro-marchés</span> · Données DVF open data</div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>
     Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>

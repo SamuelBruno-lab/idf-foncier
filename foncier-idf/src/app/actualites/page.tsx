@@ -173,19 +173,19 @@ export default function ActualitesPage() {
           textAlign: "center",
         }}>
           <h3 style={{ margin: "0 0 12px", fontSize: 20, fontWeight: 700, color: "#fff" }}>
-            Votre commune n'est pas encore analysée ?
+            Vous avez une idée à développer ?
           </h3>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "rgba(255,255,255,0.45)" }}>
-            Demandez l'analyse de votre ville — générée en 72h, puis disponible gratuitement pour tous.
+            Contactez-nous pour la réaliser — nous accompagnons les collectivités et acteurs du territoire dans leurs projets data & IA.
           </p>
-          <Link href="/" style={{
+          <a href="mailto:contact@datamerry.com" style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "12px 28px", borderRadius: 10,
             background: "linear-gradient(135deg, #00d4ff, #0099cc)",
             color: "#000", fontSize: 14, fontWeight: 700, textDecoration: "none",
           }}>
-            Rechercher ma commune →
-          </Link>
+            Contactez-nous →
+          </a>
         </div>
 
         {/* Footer */}

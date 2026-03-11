@@ -57,7 +57,6 @@ export default function DeptPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [zoom] = useState(11);
   const [showLeadModal, setShowLeadModal] = useState(false);
-  const [colorBy, setColorBy] = useState<"prix" | "rendement">("rendement");
   const [copied, setCopied] = useState(false);
   const [showNav, setShowNav] = useState(false);
 
@@ -140,7 +139,6 @@ export default function DeptPage() {
           mode={mode}
           filters={filters}
           isLoading={isLoading}
-          colorBy={colorBy}
           onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
         />
       )}
@@ -284,8 +282,6 @@ export default function DeptPage() {
           onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
           mode={mode}
           onModeChange={setMode}
-          colorBy={colorBy}
-          onColorByChange={setColorBy}
           onLeadClick={() => setShowLeadModal(true)}
           totalTx={totalTx}
         />

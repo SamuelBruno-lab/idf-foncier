@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import Map, { NavigationControl, ScaleControl } from "react-map-gl/mapbox";
+import { useState, useCallback, useMemo, useRef } from "react";
+import Map, { NavigationControl, ScaleControl, Marker } from "react-map-gl/mapbox";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
@@ -17,6 +17,7 @@ const INITIAL_VIEW = {
   zoom: 10,
   pitch: 0,
   bearing: 0,
+  transitionDuration: 0,
 };
 
 // Gradient couleur prix/m²  (bleu→vert→jaune→orange→rouge)
@@ -53,6 +54,34 @@ interface Props {
 export default function DvfMap({ points, clusters, mode, filters, isLoading, onCommuneClick }: Props) {
   const [hovered, setHovered] = useState<DvfPoint | DvfCluster | null>(null);
   const [cursor, setCursor] = useState("grab");
+  const [viewState, setViewState] = useState(INITIAL_VIEW);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchPin, setSearchPin] = useState<{ lat: number; lon: number; label: string } | null>(null);
+  const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "notfound">("idle");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const handleSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearchStatus("loading");
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=fr&limit=1`,
+        { headers: { "Accept-Language": "fr" } }
+      );
+      const data = await res.json();
+      if (!data.length) { setSearchStatus("notfound"); setTimeout(() => setSearchStatus("idle"), 2500); return; }
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      const label = data[0].display_name.split(",").slice(0, 2).join(", ");
+      setSearchPin({ lat, lon, label });
+      setViewState(v => ({ ...v, latitude: lat, longitude: lon, zoom: 15, transitionDuration: 800 }));
+      setSearchStatus("idle");
+    } catch {
+      setSearchStatus("notfound");
+      setTimeout(() => setSearchStatus("idle"), 2500);
+    }
+  }, [searchQuery]);
 
   const priceRange = useMemo(() => {
     // En mode clusters, utiliser les prix des clusters ; sinon utiliser les points bruts
@@ -188,11 +217,60 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* Barre de recherche d'adresse */}
+      <div style={{
+        position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+        zIndex: 1000, display: "flex", gap: 6, alignItems: "center",
+      }}>
+        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+          <input
+            ref={searchRef}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            placeholder="Rechercher une adresse..."
+            style={{
+              width: 260, padding: "8px 40px 8px 14px",
+              borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(10,10,30,0.92)", color: "#e8e8f0",
+              fontSize: 13, fontFamily: "Segoe UI, Arial, sans-serif",
+              outline: "none", backdropFilter: "blur(8px)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            }}
+          />
+          <button
+            onClick={handleSearch}
+            style={{
+              position: "absolute", right: 6,
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 15, color: "#00d4ff", padding: "2px 4px",
+            }}
+          >
+            {searchStatus === "loading" ? "⏳" : "🔍"}
+          </button>
+        </div>
+        {searchStatus === "notfound" && (
+          <span style={{ fontSize: 12, color: "#ff6060", background: "rgba(10,10,30,0.9)", padding: "6px 12px", borderRadius: 12 }}>
+            Adresse non trouvée
+          </span>
+        )}
+        {searchPin && searchStatus === "idle" && (
+          <button
+            onClick={() => setSearchPin(null)}
+            style={{
+              background: "rgba(10,10,30,0.9)", border: "1px solid rgba(255,255,255,0.15)",
+              color: "rgba(255,255,255,0.5)", borderRadius: 20, padding: "6px 10px",
+              fontSize: 11, cursor: "pointer",
+            }}
+          >✕ Effacer</button>
+        )}
+      </div>
+
       {isLoading && (
         <div
           style={{
             position: "absolute",
-            top: 12,
+            top: 56,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 999,
@@ -210,7 +288,8 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
       )}
 
       <DeckGL
-        initialViewState={INITIAL_VIEW}
+        viewState={viewState}
+        onViewStateChange={({ viewState: vs }) => setViewState(vs as typeof INITIAL_VIEW)}
         controller={{ dragPan: true, scrollZoom: true, doubleClickZoom: true }}
         layers={layers}
         getCursor={() => cursor}
@@ -222,6 +301,21 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
         >
           <NavigationControl position="top-right" />
           <ScaleControl position="bottom-right" />
+          {searchPin && (
+            <Marker latitude={searchPin.lat} longitude={searchPin.lon} anchor="bottom">
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{
+                  background: "rgba(10,10,30,0.92)", color: "#fff", fontSize: 11,
+                  padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap",
+                  border: "1px solid rgba(255,255,255,0.2)", marginBottom: 4,
+                  maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {searchPin.label}
+                </div>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#ff4444", border: "3px solid #fff", boxShadow: "0 2px 8px rgba(0,0,0,0.5)" }} />
+              </div>
+            </Marker>
+          )}
         </Map>
       </DeckGL>
 

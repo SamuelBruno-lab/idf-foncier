@@ -781,11 +781,11 @@ def make_index(cfg, stats, out_dir):
   <div class="header">
     <div class="tag">Analyse Foncière · Département {dept_code}</div>
     <h1>Marché Immobilier<br>{dept_nom}</h1>
-    <p>Cartographie interactive des transactions immobilières<br>2020 – 2025 · Source : Demandes de Valeurs Foncières</p>
+    <p>Cartographie interactive des transactions immobilières<br>2025 · Source : Demandes de Valeurs Foncières</p>
   </div>
   <div class="stats-bar">
     <div class="stat"><div class="val">{total_tx:,}</div><div class="lbl">Transactions</div></div>
-    <div class="stat"><div class="val">2020–25</div><div class="lbl">Période</div></div>
+    <div class="stat"><div class="val">2025</div><div class="lbl">Période</div></div>
     <div class="stat"><div class="val">{med_m2:,.0f}€</div><div class="lbl">Prix médian/m²</div></div>
     <div class="stat"><div class="val">{n_communes}</div><div class="lbl">Communes</div></div>
   </div>

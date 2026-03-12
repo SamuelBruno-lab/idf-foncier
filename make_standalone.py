@@ -12,9 +12,9 @@ OUT_DIR = Path("/home/user/vlg_pages")
 OUT_DIR.mkdir(exist_ok=True)
 
 MAPS = [
-    ("carte_vlg_appartements.html", "🏢 Appartements",    "390 transactions · 15 zones HDBSCAN"),
-    ("carte_vlg_maisons.html",      "🏠 Maisons / Pavillons", "69 transactions · 6 zones HDBSCAN"),
-    ("carte_vlg_commerces.html",    "🏭 Commerces & Locaux", "51 transactions · 5 zones HDBSCAN"),
+    ("carte_vlg_appartements.html", "🏢 Appartements",    "390 transactions · 15 micro-marchés"),
+    ("carte_vlg_maisons.html",      "🏠 Maisons / Pavillons", "69 transactions · 6 micro-marchés"),
+    ("carte_vlg_commerces.html",    "🏭 Commerces & Locaux", "51 transactions · 5 micro-marchés"),
 ]
 
 CACHE = {}
@@ -177,7 +177,7 @@ index_html = f"""<!DOCTYPE html>
   <div class="stats-bar">
     <div class="stat"><div class="val">510</div><div class="lbl">Transactions</div></div>
     <div class="stat"><div class="val">2020–25</div><div class="lbl">Période</div></div>
-    <div class="stat"><div class="val">26</div><div class="lbl">Zones HDBSCAN</div></div>
+    <div class="stat"><div class="val">26</div><div class="lbl">Micro-marchés</div></div>
     <div class="stat"><div class="val">3</div><div class="lbl">Typologies</div></div>
   </div>
 
@@ -186,7 +186,7 @@ index_html = f"""<!DOCTYPE html>
   </div>
 
   <div class="method-badge">
-    Algorithme de clustering · <span>HDBSCAN</span> · Python · Données DVF open data
+    Analyse géospatiale · <span>Micro-marchés</span> · Données DVF open data
   </div>
 
   <div class="footer">

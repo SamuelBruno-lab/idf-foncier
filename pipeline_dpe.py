@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 Pipeline DPE — Carte des Diagnostics de Performance Énergétique par département
-Génère carte_dpe.html + index_dpe.html pour chaque département IDF
+Fusionne 3 sources : Logements existants, Logements neufs, Tertiaire
+Génère carte_dpe.html pour chaque département IDF
 
-Source : API ADEME (data.ademe.fr) — dataset dpe03existant
+Source : API ADEME (data.ademe.fr)
 Usage : python pipeline_dpe.py <CODE_DEPT>
 Ex :    python pipeline_dpe.py 92
 """
@@ -15,6 +16,7 @@ from folium.plugins import HeatMap, MiniMap, Fullscreen
 import hdbscan
 from scipy.spatial import ConvexHull
 import requests
+from urllib.parse import urlparse, parse_qs
 
 # ── Config par département ─────────────────────────────────────────────────
 DEPT_CONFIG = {
@@ -40,66 +42,89 @@ DEPT_CONFIG = {
 
 # Couleurs DPE officielles
 DPE_COLORS = {
-    "A": "#319834",  # vert foncé
-    "B": "#33cc31",  # vert clair
-    "C": "#cbfc34",  # jaune-vert
-    "D": "#fbfe06",  # jaune
-    "E": "#fbcc05",  # orange clair
-    "F": "#f58221",  # orange
-    "G": "#ef1d29",  # rouge
+    "A": "#319834", "B": "#33cc31", "C": "#cbfc34",
+    "D": "#fbfe06", "E": "#fbcc05", "F": "#f58221", "G": "#ef1d29",
 }
-
 DPE_LABELS = ["A", "B", "C", "D", "E", "F", "G"]
 
-CLUSTER_COLORS = [
-    "#00d4ff", "#00ff88", "#ff6600", "#ff0055", "#cc00ff",
-    "#ffdd00", "#00ffcc", "#ff3399", "#66ff00", "#0099ff",
-    "#ff9900", "#ff00aa", "#00ff44", "#aa00ff", "#ffcc00",
-    "#00ccff", "#ff4400", "#44ffaa", "#ff44cc", "#aaff00",
-]
+# ── 3 sources ADEME ───────────────────────────────────────────────────────
+DATASETS = {
+    "existant": {
+        "id": "dpe03existant",
+        "label": "Logement existant",
+        "fields": "_geopoint,etiquette_dpe,etiquette_ges,surface_habitable_logement,"
+                  "type_batiment,date_reception_dpe,nom_commune_ban,code_postal_ban,"
+                  "adresse_ban,periode_construction,type_energie_principale_chauffage,"
+                  "conso_5_usages_par_m2_ep,emission_ges_5_usages_par_m2,_rand",
+        "max_records": 50000,
+        "sort": "_rand",  # random sampling — no temporal/spatial bias
+        "conso_field": "conso_5_usages_par_m2_ep",
+        "ges_field": "emission_ges_5_usages_par_m2",
+        "surface_field": "surface_habitable_logement",
+    },
+    "neuf": {
+        "id": "g3cgx7jb3cmys5voxz1mrm22",
+        "label": "Logement neuf",
+        "fields": "_geopoint,etiquette_dpe,etiquette_ges,surface_habitable_logement,"
+                  "type_batiment,date_reception_dpe,nom_commune_ban,code_postal_ban,"
+                  "adresse_ban,periode_construction,type_energie_principale_chauffage,"
+                  "conso_5_usages_par_m2_ep,emission_ges_5_usages_par_m2,_rand",
+        "max_records": 100000,  # take all (usually < 60K per dept)
+        "sort": "_rand",
+        "conso_field": "conso_5_usages_par_m2_ep",
+        "ges_field": "emission_ges_5_usages_par_m2",
+        "surface_field": "surface_habitable_logement",
+    },
+    "tertiaire": {
+        "id": "j9ol0fwjqckyf49vr29nknbu",
+        "label": "Tertiaire",
+        "fields": "_geopoint,etiquette_dpe,etiquette_ges,surface_utile,"
+                  "date_reception_dpe,nom_commune_ban,code_postal_ban,"
+                  "adresse_ban,secteur_activite,"
+                  "conso_kwhep_m2_an,emission_ges_kg_co2_m2_an,_rand",
+        "max_records": 100000,  # take all (usually < 40K per dept)
+        "sort": "_rand",
+        "conso_field": "conso_kwhep_m2_an",
+        "ges_field": "emission_ges_kg_co2_m2_an",
+        "surface_field": "surface_utile",
+    },
+}
 
-
-def c_color(cid):
-    return CLUSTER_COLORS[int(cid) % len(CLUSTER_COLORS)] if cid >= 0 else "#666666"
-
-
-# ── Fetching DPE data from ADEME API ──────────────────────────────────────
-API_BASE = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines"
-FIELDS = (
-    "_geopoint,etiquette_dpe,etiquette_ges,surface_habitable_logement,"
-    "type_batiment,date_reception_dpe,nom_commune_ban,code_postal_ban,"
-    "adresse_ban,periode_construction,type_energie_principale_chauffage,"
-    "conso_5_usages_par_m2_ep,emission_ges_5_usages_par_m2"
-)
 PAGE_SIZE = 1000
-MAX_RECORDS = 10000  # sample cap per department (keeps HTML < 35 MB)
 
 
-def fetch_dpe_dept(dept_code, max_records=MAX_RECORDS):
-    """Fetch DPE data for a department from ADEME API, sorted by most recent."""
-    print(f"  Fetching DPE data for dept {dept_code} (max {max_records})...")
+# ── Fetching ──────────────────────────────────────────────────────────────
+def fetch_dpe(dataset_key, dept_code):
+    """Fetch DPE data from ADEME API with random sampling."""
+    ds = DATASETS[dataset_key]
+    api_url = f"https://data.ademe.fr/data-fair/api/v1/datasets/{ds['id']}/lines"
+    max_records = ds["max_records"]
+    print(f"  [{dataset_key}] Fetching (max {max_records})...")
+
     records = []
     after = None
     while len(records) < max_records:
         params = {
             "size": PAGE_SIZE,
-            "select": FIELDS,
+            "select": ds["fields"],
             "qs": f"code_departement_ban:{dept_code}",
-            "sort": "-date_reception_dpe",
+            "sort": ds["sort"],
         }
         if after:
             params["after"] = after
+        ok = False
         for attempt in range(4):
             try:
-                resp = requests.get(API_BASE, params=params, timeout=30)
+                resp = requests.get(api_url, params=params, timeout=30)
                 resp.raise_for_status()
+                ok = True
                 break
             except Exception as e:
                 wait = 2 ** (attempt + 1)
                 print(f"    Retry {attempt+1}/4 after {wait}s: {e}")
                 time.sleep(wait)
-        else:
-            print(f"    Failed after 4 retries, stopping at {len(records)} records")
+        if not ok:
+            print(f"    Failed after 4 retries, stopping at {len(records)}")
             break
         data = resp.json()
         results = data.get("results", [])
@@ -109,19 +134,20 @@ def fetch_dpe_dept(dept_code, max_records=MAX_RECORDS):
         next_url = data.get("next")
         if not next_url:
             break
-        # Extract 'after' cursor from next URL
-        from urllib.parse import urlparse, parse_qs
         parsed = parse_qs(urlparse(next_url).query)
         after = parsed.get("after", [None])[0]
         if not after:
             break
-        print(f"    Fetched {len(records)} records...", end="\r")
-    print(f"  Fetched {len(records)} DPE records for dept {dept_code}")
-    return records
+        if len(records) % 5000 == 0:
+            print(f"    {len(records)} records...", end="\r")
+
+    print(f"  [{dataset_key}] {len(records)} DPE fetched for dept {dept_code}")
+    return records, dataset_key
 
 
-def records_to_dataframe(records):
-    """Convert API records to a clean DataFrame."""
+def records_to_dataframe(records, dataset_key):
+    """Convert API records to a clean DataFrame with unified columns."""
+    ds = DATASETS[dataset_key]
     df = pd.DataFrame(records)
     if df.empty:
         return df
@@ -130,21 +156,33 @@ def records_to_dataframe(records):
     df.loc[gp.index, "latitude"] = pd.to_numeric(gp[0], errors="coerce")
     df.loc[gp.index, "longitude"] = pd.to_numeric(gp[1], errors="coerce")
     df = df.dropna(subset=["latitude", "longitude", "etiquette_dpe"])
-    # Filter valid DPE labels
     df = df[df["etiquette_dpe"].isin(DPE_LABELS)].copy()
-    # Numeric conversions
-    df["surface_habitable_logement"] = pd.to_numeric(df.get("surface_habitable_logement"), errors="coerce")
-    df["conso_5_usages_par_m2_ep"] = pd.to_numeric(df.get("conso_5_usages_par_m2_ep"), errors="coerce")
-    df["emission_ges_5_usages_par_m2"] = pd.to_numeric(df.get("emission_ges_5_usages_par_m2"), errors="coerce")
+
+    # Unified columns
+    df["source"] = dataset_key
+    df["source_label"] = ds["label"]
+    df["conso_m2"] = pd.to_numeric(df.get(ds["conso_field"]), errors="coerce")
+    df["ges_m2"] = pd.to_numeric(df.get(ds["ges_field"]), errors="coerce")
+    df["surface"] = pd.to_numeric(df.get(ds["surface_field"]), errors="coerce")
     df["date_reception_dpe"] = pd.to_datetime(df.get("date_reception_dpe"), errors="coerce")
-    # DPE numeric score (A=1, G=7) for clustering analysis
+    df["adresse"] = df.get("adresse_ban", "").fillna("").astype(str)
+    df["commune"] = df.get("nom_commune_ban", "").fillna("").astype(str)
+    df["ges_label"] = df.get("etiquette_ges", "").fillna("").astype(str)
+
+    # Type info
+    if "type_batiment" in df.columns:
+        df["type_info"] = df["type_batiment"].fillna("").astype(str)
+    elif "secteur_activite" in df.columns:
+        df["type_info"] = df["secteur_activite"].fillna("").astype(str)
+    else:
+        df["type_info"] = ""
+
     dpe_score = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
     df["dpe_score"] = df["etiquette_dpe"].map(dpe_score)
-    print(f"  Clean DataFrame: {len(df)} rows")
     return df
 
 
-# ── HDBSCAN clustering ────────────────────────────────────────────────────
+# ── HDBSCAN ───────────────────────────────────────────────────────────────
 def run_hdbscan(data, min_cluster_size=30):
     coords = np.radians(data[["latitude", "longitude"]].values)
     clusterer = hdbscan.HDBSCAN(
@@ -155,8 +193,8 @@ def run_hdbscan(data, min_cluster_size=30):
     )
     data = data.copy()
     data["cluster"] = clusterer.fit_predict(coords)
-    n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique())
-    print(f"  Micro-zones DPE : {n_clusters}")
+    n = int(data[data["cluster"] >= 0]["cluster"].nunique())
+    print(f"  Micro-zones DPE : {n}")
     return data
 
 
@@ -164,10 +202,9 @@ def apply_jitter(df, radius_deg=0.00008):
     df = df.copy()
     df["lat_j"] = df["latitude"].astype(float)
     df["lon_j"] = df["longitude"].astype(float)
-    groups = df.groupby(["latitude", "longitude"])
-    for (lat, lon), idx in groups.groups.items():
+    for (lat, lon), idx in df.groupby(["latitude", "longitude"]).groups.items():
         n = len(idx)
-        if n == 1:
+        if n <= 1:
             continue
         angles = np.linspace(0, 2 * np.pi * (1 + n // 8), n, endpoint=False)
         radii = np.linspace(radius_deg * 0.3, radius_deg, n)
@@ -176,26 +213,23 @@ def apply_jitter(df, radius_deg=0.00008):
     return df
 
 
-# ── Cluster stats ─────────────────────────────────────────────────────────
+# ── Cluster helpers ───────────────────────────────────────────────────────
 def cluster_dpe_distribution(sub):
-    """Return DPE distribution string for a cluster."""
     dist = sub["etiquette_dpe"].value_counts()
     total = len(sub)
     parts = []
-    for label in DPE_LABELS:
-        n = dist.get(label, 0)
+    for lb in DPE_LABELS:
+        n = dist.get(lb, 0)
         if n > 0:
-            pct = n / total * 100
-            parts.append(f"<span style='color:{DPE_COLORS[label]};font-weight:700;'>{label}</span>: {pct:.0f}%")
-    return " · ".join(parts)
+            parts.append(f"<span style='color:{DPE_COLORS[lb]};font-weight:700;'>{lb}</span>:{n/total*100:.0f}%")
+    return " ".join(parts)
 
 
 def dominant_dpe(sub):
-    """Return the most frequent DPE label."""
     return sub["etiquette_dpe"].mode().iloc[0] if len(sub) > 0 else "D"
 
 
-# ── Map generation ────────────────────────────────────────────────────────
+# ── GeoJSON-based map generation (5x more efficient) ─────────────────────
 def make_dpe_map(data, cfg, out_path):
     dept_nom = cfg["nom"]
     dept_code = cfg["code"]
@@ -216,14 +250,13 @@ def make_dpe_map(data, cfg, out_path):
     Fullscreen(position="topright").add_to(m)
     MiniMap(position="bottomleft", tile_layer="CartoDB dark_matter", zoom_level_offset=-5).add_to(m)
 
-    # ── Heatmap: consommation énergie (kWh/m²/an) ──
-    heat_data = data[["latitude", "longitude", "conso_5_usages_par_m2_ep"]].dropna().copy()
+    # ── Heatmap: consommation énergie ──
+    heat_data = data[["latitude", "longitude", "conso_m2"]].dropna().copy()
     if len(heat_data) > 0:
-        vmin_h = heat_data["conso_5_usages_par_m2_ep"].quantile(0.05)
-        vmax_h = heat_data["conso_5_usages_par_m2_ep"].quantile(0.95)
+        vmin_h = heat_data["conso_m2"].quantile(0.05)
+        vmax_h = heat_data["conso_m2"].quantile(0.95)
         if vmin_h < vmax_h:
-            heat_data["w"] = (heat_data["conso_5_usages_par_m2_ep"] - vmin_h) / (vmax_h - vmin_h)
-            heat_data["w"] = heat_data["w"].clip(0, 1)
+            heat_data["w"] = ((heat_data["conso_m2"] - vmin_h) / (vmax_h - vmin_h)).clip(0, 1)
         else:
             heat_data["w"] = 0.5
         hm_fg = folium.FeatureGroup(name="🌡️ Heatmap conso. énergie (kWh/m²/an)", show=False)
@@ -246,81 +279,111 @@ def make_dpe_map(data, cfg, out_path):
             hull_pts.append(hull_pts[0])
             sub = data[data["cluster"] == cid]
             dom = dominant_dpe(sub)
-            color = DPE_COLORS.get(dom, "#666666")
+            color = DPE_COLORS.get(dom, "#666")
             dist_html = cluster_dpe_distribution(sub)
-            med_conso = sub["conso_5_usages_par_m2_ep"].median()
-            med_conso_s = f"{med_conso:.0f} kWh/m²/an" if pd.notna(med_conso) else "—"
-            med_ges = sub["emission_ges_5_usages_par_m2"].median()
-            med_ges_s = f"{med_ges:.1f} kgCO₂/m²/an" if pd.notna(med_ges) else "—"
-
-            popup_html = f"""
-            <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:240px; color:#222;">
-              <div style="background:{color};color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">
-                Micro-zone {cid} · DPE dominant : {dom}
-              </div>
-              <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">
-                <div style="font-size:12px;margin-bottom:8px;">{dist_html}</div>
-                <table style="width:100%;font-size:13px;border-collapse:collapse;">
-                  <tr><td style="color:#666;padding:3px 0;">DPE diagnostiqués</td><td style="font-weight:600;text-align:right;">{len(sub)}</td></tr>
-                  <tr><td style="color:#666;padding:3px 0;">Conso. médiane</td><td style="font-weight:600;text-align:right;">{med_conso_s}</td></tr>
-                  <tr><td style="color:#666;padding:3px 0;">GES médian</td><td style="font-weight:600;text-align:right;">{med_ges_s}</td></tr>
-                </table>
-              </div>
-            </div>"""
+            mc = sub["conso_m2"].median()
+            mc_s = f"{mc:.0f}" if pd.notna(mc) else "—"
+            mg = sub["ges_m2"].median()
+            mg_s = f"{mg:.1f}" if pd.notna(mg) else "—"
+            # Count sources
+            src_counts = sub["source_label"].value_counts()
+            src_s = " · ".join(f"{v} {k}" for k, v in src_counts.items())
+            popup_html = (
+                f"<div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'>"
+                f"<div style='background:{color};color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>"
+                f"Zone {cid} · DPE {dom}</div>"
+                f"<div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'>"
+                f"<div style='font-size:11px;margin-bottom:6px;'>{dist_html}</div>"
+                f"<div style='font-size:12px;color:#555;'>"
+                f"{len(sub)} diagnostics · {mc_s} kWh/m²/an · {mg_s} kgCO₂/m²/an<br>"
+                f"<span style='font-size:10px;color:#888;'>{src_s}</span>"
+                f"</div></div></div>"
+            )
             folium.Polygon(
                 locations=hull_pts, color=color,
                 fill=True, fill_color=color, fill_opacity=0.12, weight=2,
                 popup=folium.Popup(popup_html, max_width=280),
-                tooltip=f"<b style='color:{color}'>Zone {cid}</b> · DPE {dom} · {len(sub)} diag.",
+                tooltip=f"<b style='color:{color}'>Zone {cid}</b> · DPE {dom} · {len(sub)}",
             ).add_to(poly_fg)
         except Exception:
             pass
     poly_fg.add_to(m)
 
-    # ── Points par étiquette DPE ──
+    # ── Points via GeoJSON (much more efficient than individual CircleMarkers) ──
+    # Build GeoJSON features per DPE label
+    dpe_colors_js = json.dumps(DPE_COLORS)
+
     for label in DPE_LABELS:
-        sub_label = data[data["etiquette_dpe"] == label]
-        if len(sub_label) == 0:
+        sub = data[data["etiquette_dpe"] == label]
+        if len(sub) == 0:
             continue
         color = DPE_COLORS[label]
-        fg = folium.FeatureGroup(name=f"🏷️ DPE {label} ({len(sub_label)})", show=(label in ["F", "G"]))  # show passoires by default
-        for _, row in sub_label.iterrows():
-            cid = int(row.get("cluster", -1))
-            zone_label = f"Micro-zone {cid}" if cid >= 0 else "Isolé"
-            adresse = str(row.get("adresse_ban", "")) or "Adresse inconnue"
-            commune = str(row.get("nom_commune_ban", "")) or ""
-            surface = row.get("surface_habitable_logement")
-            surface_s = f"{float(surface):.0f} m²" if pd.notna(surface) else "—"
-            type_bat = str(row.get("type_batiment", "")) or "—"
-            periode = str(row.get("periode_construction", "")) or "—"
-            chauffage = str(row.get("type_energie_principale_chauffage", "")) or "—"
-            conso = row.get("conso_5_usages_par_m2_ep")
-            conso_s = f"{float(conso):.0f} kWh/m²/an" if pd.notna(conso) else "—"
-            ges = row.get("emission_ges_5_usages_par_m2")
-            ges_s = f"{float(ges):.1f} kgCO₂/m²/an" if pd.notna(ges) else "—"
-            ges_label = str(row.get("etiquette_ges", "")) or "—"
-            date_dpe = row.get("date_reception_dpe")
-            date_s = date_dpe.strftime("%d/%m/%Y") if pd.notna(date_dpe) else "—"
 
-            popup_html = (
-                f"<div style='font-family:Segoe UI,sans-serif;min-width:200px;color:#222;'>"
-                f"<div style='background:#1a1a2e;color:#fff;padding:8px 12px;border-radius:6px 6px 0 0;'>"
-                f"<b style='font-size:13px;'>{adresse[:50]}</b><br>"
-                f"<span style='font-size:11px;opacity:.7;'>{commune} · {type_bat}</span></div>"
-                f"<div style='padding:10px 12px;background:#fdfdfd;border-radius:0 0 6px 6px;'>"
-                f"<span style='font-size:26px;font-weight:900;color:{color};'>{label}</span>"
-                f" <span style='color:#888;'>GES {ges_label}</span> · {surface_s}<br>"
-                f"<span style='font-size:12px;color:#555;'>{conso_s} · {ges_s}<br>"
-                f"{periode} · {chauffage}<br>{date_s} · {zone_label}</span></div></div>"
-            )
-            folium.CircleMarker(
-                location=[row.get("lat_j", row["latitude"]), row.get("lon_j", row["longitude"])],
-                radius=4, color="#ffffff22", fill=True,
-                fill_color=color, fill_opacity=0.85, weight=0.5,
-                popup=folium.Popup(popup_html, max_width=270),
-                tooltip=f"<span style='font-size:12px;'><b style='color:{color}'>DPE {label}</b> · {surface_s} · {conso_s}</span>",
-            ).add_to(fg)
+        # Build GeoJSON FeatureCollection
+        features = []
+        for _, row in sub.iterrows():
+            props = {
+                "d": label,  # dpe
+                "g": str(row.get("ges_label", "")),  # ges
+                "s": round(float(row["surface"]), 0) if pd.notna(row.get("surface")) else 0,
+                "c": round(float(row["conso_m2"]), 0) if pd.notna(row.get("conso_m2")) else 0,
+                "a": str(row.get("adresse", ""))[:45],  # truncated address
+                "m": str(row.get("commune", "")),
+                "t": str(row.get("type_info", "")),
+                "r": str(row.get("source_label", "")),
+            }
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        round(float(row.get("lon_j", row["longitude"])), 6),
+                        round(float(row.get("lat_j", row["latitude"])), 6),
+                    ],
+                },
+                "properties": props,
+            })
+
+        geojson = {"type": "FeatureCollection", "features": features}
+
+        # Use folium GeoJson with custom pointToLayer
+        show = label in ["F", "G"]  # passoires visible by default
+        fg = folium.FeatureGroup(
+            name=f"🏷️ DPE {label} ({len(sub):,})",
+            show=show,
+        )
+
+        folium.GeoJson(
+            geojson,
+            name=f"dpe_{label}",
+            point_to_layer=folium.JsCode(f"""
+                function(feature, latlng) {{
+                    return L.circleMarker(latlng, {{
+                        radius: 3.5, color: '#ffffff22', weight: 0.5,
+                        fillColor: '{color}', fillOpacity: 0.8
+                    }});
+                }}
+            """),
+            tooltip=folium.GeoJsonTooltip(
+                fields=["d", "s", "c"],
+                aliases=["DPE", "Surface m²", "kWh/m²/an"],
+                style="font-size:12px;",
+            ),
+            popup=folium.GeoJsonPopup(
+                fields=["a", "m", "d", "g", "s", "c", "t", "r"],
+                aliases=["Adresse", "Commune", "DPE", "GES", "Surface m²", "kWh/m²/an", "Type", "Source"],
+                style="font-size:12px;font-family:Segoe UI,sans-serif;",
+            ),
+        ).add_to(fg)
         fg.add_to(m)
+
+    # ── Layer for source type (logement existant / neuf / tertiaire) ──
+    for src_key, src_label in [("existant", "Logement existant"), ("neuf", "Logement neuf"), ("tertiaire", "Tertiaire")]:
+        sub_src = data[data["source"] == src_key]
+        if len(sub_src) == 0:
+            continue
+        # Just add as an empty toggle layer — points are already in DPE layers
+        # Users can see source in popup
 
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
 
@@ -329,16 +392,19 @@ def make_dpe_map(data, cfg, out_path):
     dpe_dist = data["etiquette_dpe"].value_counts()
     n_passoires = int(dpe_dist.get("F", 0) + dpe_dist.get("G", 0))
     pct_passoires = n_passoires / len(data) * 100 if len(data) > 0 else 0
-    med_conso = data["conso_5_usages_par_m2_ep"].median()
+    med_conso = data["conso_m2"].median()
     med_conso_s = f"{med_conso:.0f}" if pd.notna(med_conso) else "—"
 
-    # DPE distribution bar
+    # Source breakdown
+    src_counts = data["source_label"].value_counts()
+    src_lines = " + ".join(f"{v:,} {k}" for k, v in src_counts.items())
+
     dist_bar_parts = ""
-    for label in DPE_LABELS:
-        n = dpe_dist.get(label, 0)
+    for lb in DPE_LABELS:
+        n = dpe_dist.get(lb, 0)
         pct = n / len(data) * 100 if len(data) > 0 else 0
         if pct > 0:
-            dist_bar_parts += f'<div style="width:{pct}%;background:{DPE_COLORS[label]};height:100%;display:inline-block;" title="DPE {label}: {pct:.0f}%"></div>'
+            dist_bar_parts += f'<div style="width:{pct}%;background:{DPE_COLORS[lb]};height:100%;display:inline-block;" title="DPE {lb}: {pct:.0f}%"></div>'
 
     dashboard = f"""
 <style>
@@ -346,7 +412,7 @@ def make_dpe_map(data, cfg, out_path):
     position: fixed; top: 10px; left: 10px; z-index: 9999;
     background: linear-gradient(135deg, rgba(10,10,30,0.97), rgba(20,20,50,0.97));
     color: #e8e8f0; font-family: 'Segoe UI', Arial, sans-serif;
-    border-radius: 12px; padding: 0; width: 300px;
+    border-radius: 12px; padding: 0; width: 310px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     border: 1px solid rgba(255,255,255,0.1); overflow: hidden;
   }}
@@ -376,7 +442,7 @@ def make_dpe_map(data, cfg, out_path):
       else{{b.style.display='none';t.textContent='▼'}}
     ">▲</span>
     <h2>🏷️ DPE · {dept_nom} ({dept_code})</h2>
-    <p>Diagnostics de Performance Énergétique · Source ADEME</p>
+    <p>Logements existants + neufs + tertiaire · Source ADEME</p>
   </div>
   <div id="dashdpe{dept_code}-body">
     <div class="dpe-dist-bar">{dist_bar_parts}</div>
@@ -386,6 +452,7 @@ def make_dpe_map(data, cfg, out_path):
       <div class="dpe-kpi"><div class="val" style="color:#ef1d29;">{pct_passoires:.0f}%</div><div class="lbl">Passoires (F+G)</div></div>
       <div class="dpe-kpi"><div class="val">{med_conso_s}</div><div class="lbl">kWh/m²/an méd.</div></div>
     </div>
+    <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:8px;text-align:center;">{src_lines}</div>
     <a href="index.html" class="back-link">← Vue d'ensemble {dept_nom}</a>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
       © 2026 Samuel Bruno · datamerry.com
@@ -434,30 +501,39 @@ def main():
     print(f"  Sortie   : {out_dir}")
     print(f"{'='*60}")
 
-    # 1. Fetch
-    print("\n[1/3] Téléchargement DPE depuis ADEME...")
-    records = fetch_dpe_dept(dept_code)
-    if not records:
+    # 1. Fetch from all 3 sources
+    print("\n[1/3] Téléchargement DPE depuis ADEME (3 sources)...")
+    all_frames = []
+    for ds_key in ["existant", "neuf", "tertiaire"]:
+        try:
+            records, key = fetch_dpe(ds_key, dept_code)
+            if records:
+                df = records_to_dataframe(records, key)
+                if len(df) > 0:
+                    all_frames.append(df)
+                    print(f"    {ds_key}: {len(df)} DPE valides")
+        except Exception as e:
+            print(f"    {ds_key}: erreur — {e}")
+
+    if not all_frames:
         print("Aucune donnée DPE récupérée.")
         sys.exit(1)
 
-    # 2. Process
-    print("\n[2/3] Traitement et clustering...")
-    df = records_to_dataframe(records)
-    if len(df) < 50:
-        print(f"Trop peu de DPE ({len(df)}), abandon.")
-        sys.exit(1)
+    data = pd.concat(all_frames, ignore_index=True)
+    print(f"  Total combiné : {len(data)} DPE ({', '.join(f'{k}: {v}' for k, v in data['source'].value_counts().items())})")
 
-    min_cs = 30 if len(df) > 5000 else 15
-    df = run_hdbscan(df, min_cluster_size=min_cs)
+    # 2. Cluster
+    print("\n[2/3] Clustering HDBSCAN...")
+    min_cs = 50 if len(data) > 20000 else (30 if len(data) > 5000 else 15)
+    data = run_hdbscan(data, min_cluster_size=min_cs)
 
     # 3. Generate map
     print("\n[3/3] Génération de la carte DPE...")
     out_path = os.path.join(out_dir, "carte_dpe.html")
-    make_dpe_map(df, cfg, out_path)
+    make_dpe_map(data, cfg, out_path)
 
     print(f"\n✅ Pipeline DPE terminé pour {cfg['nom']} ({dept_code})")
-    print(f"   Fichiers dans : {out_dir}")
+    print(f"   {len(data):,} DPE · Fichiers dans : {out_dir}")
 
 
 if __name__ == "__main__":

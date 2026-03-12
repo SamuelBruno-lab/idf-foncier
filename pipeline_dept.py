@@ -791,7 +791,7 @@ def make_index(cfg, stats, out_dir):
   </div>
   <div class="cards">{cards}</div>
   <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
-  <div class="method-badge">Analyse géospatiale · <span>Micro-marchés</span> · Données DVF open data</div>
+  <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>
     Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>

@@ -484,7 +484,7 @@ def make_map(data, cfg, type_local, out_path):
             heat_data["w"] = (heat_data["prix_m2"] - vmin_h) / (vmax_h - vmin_h)
         else:
             heat_data["w"] = 1.0
-        hm_fg = folium.FeatureGroup(name="🌡️ pression foncière : densité des transactions", show=False)
+        hm_fg = folium.FeatureGroup(name="🌡️ Pression foncière: intensité prix/m²", show=False)
         HeatMap(
             data=heat_data[["latitude", "longitude", "w"]].values.tolist(),
             radius=20, blur=15, min_opacity=0.3,

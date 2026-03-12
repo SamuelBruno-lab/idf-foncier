@@ -484,7 +484,7 @@ def make_map(data, cfg, type_local, out_path):
             heat_data["w"] = (heat_data["prix_m2"] - vmin_h) / (vmax_h - vmin_h)
         else:
             heat_data["w"] = 1.0
-        hm_fg = folium.FeatureGroup(name="🌡️ pression foncière : densité des transactions", show=False)
+        hm_fg = folium.FeatureGroup(name="🌡️ Pression foncière: intensité prix/m²", show=False)
         HeatMap(
             data=heat_data[["latitude", "longitude", "w"]].values.tolist(),
             radius=20, blur=15, min_opacity=0.3,
@@ -709,8 +709,8 @@ def make_map(data, cfg, type_local, out_path):
     extra = """<style>
   .leaflet-popup-content-wrapper { border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }
   .leaflet-popup-content { margin:0!important; }
-  .leaflet-control-layers { background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; }
-  .leaflet-control-layers label { color:#ccc!important; }
+  .leaflet-control-layers { background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; max-width:none!important; }
+  .leaflet-control-layers label { color:#ccc!important; white-space:nowrap!important; }
   #copyright-banner { position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(10,10,20,0.75);color:rgba(255,255,255,0.7);font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(4px);pointer-events:none; }
 </style>"""
     html = html.replace("</head>", extra + "</head>")
@@ -791,7 +791,7 @@ def make_index(cfg, stats, out_dir):
   </div>
   <div class="cards">{cards}</div>
   <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
-  <div class="method-badge">Analyse géospatiale · <span>Micro-marchés</span> · Données DVF open data</div>
+  <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>
     Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>

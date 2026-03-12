@@ -429,7 +429,7 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
         p75_h = valid.quantile(0.75)
         vmin_h, vmax_h = p5, p75_h
         heat_w["w"] = (heat_w["prix_m2"].clip(vmin_h, vmax_h) - vmin_h) / (vmax_h - vmin_h + 1)
-        hfg = folium.FeatureGroup(name="🌡️ pression foncière : densité des transactions", show=False)
+        hfg = folium.FeatureGroup(name="🌡️ Pression foncière: intensité prix/m²", show=False)
         HeatMap(
             heat_w[["latitude","longitude","w"]].values.tolist(),
             radius=20, blur=15, min_opacity=0.3,

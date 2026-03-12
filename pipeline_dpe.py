@@ -229,7 +229,7 @@ def dominant_dpe(sub):
     return sub["etiquette_dpe"].mode().iloc[0] if len(sub) > 0 else "D"
 
 
-# ── GeoJSON-based map generation (5x more efficient) ─────────────────────
+# ── Compact map generation with filters, search, dynamic dashboard ────────
 def make_dpe_map(data, cfg, out_path):
     dept_nom = cfg["nom"]
     dept_code = cfg["code"]
@@ -259,7 +259,7 @@ def make_dpe_map(data, cfg, out_path):
             heat_data["w"] = ((heat_data["conso_m2"] - vmin_h) / (vmax_h - vmin_h)).clip(0, 1)
         else:
             heat_data["w"] = 0.5
-        hm_fg = folium.FeatureGroup(name="🌡️ Heatmap conso. énergie (kWh/m²/an)", show=False)
+        hm_fg = folium.FeatureGroup(name="🌡️ Heatmap conso. énergie", show=False)
         HeatMap(
             data=heat_data[["latitude", "longitude", "w"]].values.tolist(),
             radius=18, blur=14, min_opacity=0.3,
@@ -285,7 +285,6 @@ def make_dpe_map(data, cfg, out_path):
             mc_s = f"{mc:.0f}" if pd.notna(mc) else "—"
             mg = sub["ges_m2"].median()
             mg_s = f"{mg:.1f}" if pd.notna(mg) else "—"
-            # Count sources
             src_counts = sub["source_label"].value_counts()
             src_s = " · ".join(f"{v} {k}" for k, v in src_counts.items())
             popup_html = (
@@ -309,172 +308,392 @@ def make_dpe_map(data, cfg, out_path):
             pass
     poly_fg.add_to(m)
 
-    # ── Points via GeoJSON (much more efficient than individual CircleMarkers) ──
-    # Build GeoJSON features per DPE label
-    dpe_colors_js = json.dumps(DPE_COLORS)
+    folium.LayerControl(collapsed=True, position="topright").add_to(m)
 
-    for label in DPE_LABELS:
-        sub = data[data["etiquette_dpe"] == label]
-        if len(sub) == 0:
-            continue
-        color = DPE_COLORS[label]
+    # ── Build compact point data for JS ──
+    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx]
+    src_map = {"existant": 0, "neuf": 1, "tertiaire": 2}
+    dpe_map = {lb: i for i, lb in enumerate(DPE_LABELS)}
 
-        # Build GeoJSON FeatureCollection
-        features = []
-        for _, row in sub.iterrows():
-            props = {
-                "d": label,  # dpe
-                "g": str(row.get("ges_label", "")),  # ges
-                "s": round(float(row["surface"]), 0) if pd.notna(row.get("surface")) else 0,
-                "c": round(float(row["conso_m2"]), 0) if pd.notna(row.get("conso_m2")) else 0,
-                "a": str(row.get("adresse", ""))[:45],  # truncated address
-                "m": str(row.get("commune", "")),
-                "t": str(row.get("type_info", "")),
-                "r": str(row.get("source_label", "")),
-            }
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [
-                        round(float(row.get("lon_j", row["longitude"])), 6),
-                        round(float(row.get("lat_j", row["latitude"])), 6),
-                    ],
-                },
-                "properties": props,
-            })
+    # Build commune lookup
+    communes_list = sorted(data["commune"].dropna().unique().tolist())
+    commune_to_idx = {c: i for i, c in enumerate(communes_list)}
 
-        geojson = {"type": "FeatureCollection", "features": features}
+    # Commune bounding boxes
+    com_bboxes = []
+    for commune in communes_list:
+        csub = data[data["commune"] == commune]
+        com_bboxes.append([
+            round(float(csub["latitude"].min()), 4),
+            round(float(csub["longitude"].min()), 4),
+            round(float(csub["latitude"].max()), 4),
+            round(float(csub["longitude"].max()), 4),
+        ])
 
-        # Use folium GeoJson with custom pointToLayer
-        show = label in ["F", "G"]  # passoires visible by default
-        fg = folium.FeatureGroup(
-            name=f"🏷️ DPE {label} ({len(sub):,})",
-            show=show,
-        )
+    # Build compact point array
+    pts_data = []
+    for _, row in data.iterrows():
+        lat = round(float(row.get("lat_j", row["latitude"])), 4)
+        lon = round(float(row.get("lon_j", row["longitude"])), 4)
+        dpe_idx = dpe_map.get(row["etiquette_dpe"], 3)
+        src_idx = src_map.get(row.get("source", ""), 0)
+        surf = int(round(float(row["surface"]), 0)) if pd.notna(row.get("surface")) else 0
+        conso = int(round(float(row["conso_m2"]), 0)) if pd.notna(row.get("conso_m2")) else 0
+        com_idx = commune_to_idx.get(str(row.get("commune", "")), 0)
+        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx])
 
-        folium.GeoJson(
-            geojson,
-            name=f"dpe_{label}",
-            point_to_layer=folium.JsCode(f"""
-                function(feature, latlng) {{
-                    return L.circleMarker(latlng, {{
-                        radius: 3.5, color: '#ffffff22', weight: 0.5,
-                        fillColor: '{color}', fillOpacity: 0.8
-                    }});
-                }}
-            """),
-            tooltip=folium.GeoJsonTooltip(
-                fields=["d", "s", "c"],
-                aliases=["DPE", "Surface m²", "kWh/m²/an"],
-                style="font-size:12px;",
-            ),
-            popup=folium.GeoJsonPopup(
-                fields=["a", "m", "d", "g", "s", "c", "t", "r"],
-                aliases=["Adresse", "Commune", "DPE", "GES", "Surface m²", "kWh/m²/an", "Type", "Source"],
-                style="font-size:12px;font-family:Segoe UI,sans-serif;",
-            ),
-        ).add_to(fg)
-        fg.add_to(m)
-
-    # ── Layer for source type (logement existant / neuf / tertiaire) ──
-    for src_key, src_label in [("existant", "Logement existant"), ("neuf", "Logement neuf"), ("tertiaire", "Tertiaire")]:
-        sub_src = data[data["source"] == src_key]
-        if len(sub_src) == 0:
-            continue
-        # Just add as an empty toggle layer — points are already in DPE layers
-        # Users can see source in popup
-
-    folium.LayerControl(collapsed=False, position="topright").add_to(m)
-
-    # ── Dashboard overlay ──
+    # Stats for dashboard
     n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique()) if "cluster" in data.columns else 0
     dpe_dist = data["etiquette_dpe"].value_counts()
-    n_passoires = int(dpe_dist.get("F", 0) + dpe_dist.get("G", 0))
+    dpe_counts = [int(dpe_dist.get(lb, 0)) for lb in DPE_LABELS]
+    n_passoires = dpe_counts[5] + dpe_counts[6]
     pct_passoires = n_passoires / len(data) * 100 if len(data) > 0 else 0
     med_conso = data["conso_m2"].median()
     med_conso_s = f"{med_conso:.0f}" if pd.notna(med_conso) else "—"
+    src_counts = data["source"].value_counts()
+    src_totals = [int(src_counts.get(k, 0)) for k in ["existant", "neuf", "tertiaire"]]
 
-    # Source breakdown
-    src_counts = data["source_label"].value_counts()
-    src_lines = " + ".join(f"{v:,} {k}" for k, v in src_counts.items())
-
-    dist_bar_parts = ""
-    for lb in DPE_LABELS:
-        n = dpe_dist.get(lb, 0)
-        pct = n / len(data) * 100 if len(data) > 0 else 0
-        if pct > 0:
-            dist_bar_parts += f'<div style="width:{pct}%;background:{DPE_COLORS[lb]};height:100%;display:inline-block;" title="DPE {lb}: {pct:.0f}%"></div>'
-
-    dashboard = f"""
-<style>
-  #dashdpe{dept_code} {{
-    position: fixed; top: 10px; left: 10px; z-index: 9999;
-    background: linear-gradient(135deg, rgba(10,10,30,0.97), rgba(20,20,50,0.97));
-    color: #e8e8f0; font-family: 'Segoe UI', Arial, sans-serif;
-    border-radius: 12px; padding: 0; width: 310px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,255,255,0.1); overflow: hidden;
-  }}
-  #dashdpe{dept_code}-header {{
-    background: linear-gradient(90deg, {dept_color}22, rgba(255,255,255,0.03));
-    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
-  }}
-  #dashdpe{dept_code}-header h2 {{ margin: 0; font-size: 14px; font-weight: 700; color: #fff; }}
-  #dashdpe{dept_code}-header p {{ margin: 3px 0 0; font-size: 11px; color: rgba(255,255,255,.5); }}
-  #dashdpe{dept_code}-body {{ padding: 12px 16px; }}
-  .dpe-kpi-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }}
-  .dpe-kpi {{ background: rgba(255,255,255,0.06); border-radius: 8px; padding: 9px; text-align: center; border: 1px solid rgba(255,255,255,0.08); }}
-  .dpe-kpi .val {{ font-size: 16px; font-weight: 800; color: {dept_color}; }}
-  .dpe-kpi .lbl {{ font-size: 10px; color: rgba(255,255,255,.45); margin-top: 2px; text-transform:uppercase; letter-spacing:.5px; }}
-  .dpe-dist-bar {{ width: 100%; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,0.08); margin-bottom: 12px; display: flex; }}
-  #dashdpe{dept_code}-toggle {{ position: absolute; top: 8px; right: 12px; cursor: pointer; color: rgba(255,255,255,.5); font-size: 16px; user-select:none; }}
-  #dashdpe{dept_code}-toggle:hover {{ color: #fff; }}
-  .back-link {{ display:block; margin-top: 10px; padding: 7px 10px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 11px; text-decoration: none; text-align: center; transition: all 0.2s; }}
-  .back-link:hover {{ background: rgba(255,255,255,0.1); color: #fff; }}
-</style>
-<div id="dashdpe{dept_code}">
-  <div id="dashdpe{dept_code}-header">
-    <span id="dashdpe{dept_code}-toggle" onclick="
-      var b=document.getElementById('dashdpe{dept_code}-body');
-      var t=document.getElementById('dashdpe{dept_code}-toggle');
-      if(b.style.display==='none'){{b.style.display='block';t.textContent='▲'}}
-      else{{b.style.display='none';t.textContent='▼'}}
-    ">▲</span>
-    <h2>🏷️ DPE · {dept_nom} ({dept_code})</h2>
-    <p>Logements existants + neufs + tertiaire · Source ADEME</p>
-  </div>
-  <div id="dashdpe{dept_code}-body">
-    <div class="dpe-dist-bar">{dist_bar_parts}</div>
-    <div class="dpe-kpi-grid">
-      <div class="dpe-kpi"><div class="val">{len(data):,}</div><div class="lbl">Diagnostics</div></div>
-      <div class="dpe-kpi"><div class="val">{n_clusters}</div><div class="lbl">Micro-zones</div></div>
-      <div class="dpe-kpi"><div class="val" style="color:#ef1d29;">{pct_passoires:.0f}%</div><div class="lbl">Passoires (F+G)</div></div>
-      <div class="dpe-kpi"><div class="val">{med_conso_s}</div><div class="lbl">kWh/m²/an méd.</div></div>
-    </div>
-    <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:8px;text-align:center;">{src_lines}</div>
-    <a href="index.html" class="back-link">← Vue d'ensemble {dept_nom}</a>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
-      © 2026 Samuel Bruno · datamerry.com
-    </div>
-  </div>
-</div>"""
-
-    m.get_root().html.add_child(folium.Element(dashboard))
+    m.get_root().html.add_child(folium.Element("<div id='dpe-app'></div>"))
     m.save(out_path)
 
-    # Post-process CSS
+    # ── Post-process: inject compact data + full interactive system ──
     with open(out_path, "r") as f:
         html = f.read()
-    extra = """<style>
-  .leaflet-popup-content-wrapper { border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }
-  .leaflet-popup-content { margin:0!important; }
-  .leaflet-control-layers { background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; max-width:none!important; }
-  .leaflet-control-layers label { color:#ccc!important; white-space:nowrap!important; }
-  #copyright-banner { position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(10,10,20,0.75);color:rgba(255,255,255,0.7);font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(4px);pointer-events:none; }
+
+    # Find the Leaflet map variable name
+    import re
+    map_var_match = re.search(r'var (map_[a-f0-9]+)\s*=\s*L\.map', html)
+    map_var = map_var_match.group(1) if map_var_match else "map_unknown"
+
+    pts_json = json.dumps(pts_data, separators=(',', ':'))
+    communes_json = json.dumps(communes_list, separators=(',', ':'), ensure_ascii=False)
+    bboxes_json = json.dumps(com_bboxes, separators=(',', ':'))
+
+    custom_css = f"""<style>
+  .leaflet-popup-content-wrapper {{ border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }}
+  .leaflet-popup-content {{ margin:0!important; }}
+  .leaflet-control-layers {{ background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; }}
+  .leaflet-control-layers label {{ color:#ccc!important; white-space:nowrap!important; }}
+  #dpe-dash {{
+    position:fixed; top:10px; left:10px; z-index:9999; width:320px;
+    background:linear-gradient(135deg,rgba(10,10,30,0.97),rgba(20,20,50,0.97));
+    color:#e8e8f0; font-family:'Segoe UI',Arial,sans-serif;
+    border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+    border:1px solid rgba(255,255,255,0.1); overflow:hidden;
+    max-height:calc(100vh - 20px); overflow-y:auto;
+  }}
+  #dpe-dash::-webkit-scrollbar {{ width:4px; }}
+  #dpe-dash::-webkit-scrollbar-thumb {{ background:rgba(255,255,255,0.15); border-radius:2px; }}
+  .dpe-hdr {{
+    background:linear-gradient(90deg,{dept_color}22,rgba(255,255,255,0.03));
+    padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.1);
+    position:relative;
+  }}
+  .dpe-hdr h2 {{ margin:0; font-size:14px; font-weight:700; color:#fff; }}
+  .dpe-hdr p {{ margin:3px 0 0; font-size:11px; color:rgba(255,255,255,.5); }}
+  .dpe-toggle {{ position:absolute; top:8px; right:12px; cursor:pointer; color:rgba(255,255,255,.5); font-size:16px; user-select:none; }}
+  .dpe-toggle:hover {{ color:#fff; }}
+  .dpe-body {{ padding:12px 16px; }}
+  .dpe-section {{ margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06); }}
+  .dpe-section:last-child {{ border-bottom:none; margin-bottom:0; padding-bottom:0; }}
+  .dpe-section-title {{ font-size:10px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.35); margin-bottom:8px; font-weight:600; }}
+  .dpe-kpi-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }}
+  .dpe-kpi {{ background:rgba(255,255,255,0.06); border-radius:8px; padding:9px; text-align:center; border:1px solid rgba(255,255,255,0.08); }}
+  .dpe-kpi .val {{ font-size:16px; font-weight:800; color:{dept_color}; }}
+  .dpe-kpi .lbl {{ font-size:10px; color:rgba(255,255,255,.45); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }}
+  .dpe-dist-bar {{ width:100%; height:10px; border-radius:5px; overflow:hidden; background:rgba(255,255,255,0.08); display:flex; }}
+  .dpe-filter-row {{ display:flex; flex-wrap:wrap; gap:4px; }}
+  .dpe-chip {{
+    display:inline-flex; align-items:center; gap:3px; padding:4px 8px;
+    border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;
+    border:1.5px solid; transition:all 0.15s; user-select:none;
+  }}
+  .dpe-chip.active {{ opacity:1; }}
+  .dpe-chip.inactive {{ opacity:0.3; }}
+  .dpe-chip:hover {{ opacity:0.8; }}
+  .dpe-chip .dot {{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }}
+  .src-chip {{
+    display:inline-flex; align-items:center; gap:4px; padding:4px 8px;
+    border-radius:6px; cursor:pointer; font-size:11px; font-weight:500;
+    border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,.7);
+    transition:all 0.15s; user-select:none;
+  }}
+  .src-chip.active {{ background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); }}
+  .src-chip.inactive {{ opacity:0.3; }}
+  .dpe-search {{
+    width:100%; padding:7px 10px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06);
+    color:#fff; font-size:12px; font-family:'Segoe UI',sans-serif; outline:none;
+    box-sizing:border-box;
+  }}
+  .dpe-search:focus {{ border-color:{dept_color}66; }}
+  .dpe-search-results {{
+    max-height:120px; overflow-y:auto; margin-top:4px;
+  }}
+  .dpe-search-item {{
+    padding:6px 8px; cursor:pointer; font-size:12px; color:rgba(255,255,255,.7);
+    border-radius:4px; transition:background 0.1s;
+  }}
+  .dpe-search-item:hover {{ background:rgba(255,255,255,0.1); color:#fff; }}
+  .dpe-legend-row {{ display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:11px; }}
+  .dpe-legend-swatch {{ width:12px; height:12px; border-radius:3px; flex-shrink:0; }}
+  .back-link {{
+    display:block; margin-top:10px; padding:7px 10px; border-radius:7px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    color:rgba(255,255,255,0.5); font-size:11px; text-decoration:none; text-align:center;
+    transition:all 0.2s;
+  }}
+  .back-link:hover {{ background:rgba(255,255,255,0.1); color:#fff; }}
+  #copyright-banner {{
+    position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;
+    background:rgba(10,10,20,0.75);color:rgba(255,255,255,0.7);
+    font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:4px 12px;
+    border-radius:20px;border:1px solid rgba(255,255,255,0.1);
+    backdrop-filter:blur(4px);pointer-events:none;
+  }}
 </style>"""
-    html = html.replace("</head>", extra + "</head>")
-    html = html.replace("</body>", '<div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>\n</body>')
+
+    custom_js = f"""<script>
+(function() {{
+  var DPE_LABELS = ['A','B','C','D','E','F','G'];
+  var DPE_COLORS = ['#319834','#33cc31','#cbfc34','#fbfe06','#fbcc05','#f58221','#ef1d29'];
+  var DPE_THRESHOLDS = ['\\u226470','71-110','111-180','181-250','251-330','331-420','\\u2265421'];
+  var SRC_LABELS = ['Existant','Neuf','Tertiaire'];
+  var SRC_TOTALS = {json.dumps(src_totals)};
+  var DEPT_COLOR = '{dept_color}';
+
+  var PTS = {pts_json};
+  var COMMUNES = {communes_json};
+  var COM_BB = {bboxes_json};
+  var TOTAL = PTS.length;
+  var N_ZONES = {n_clusters};
+
+  var map = {map_var};
+  var currentLayer = null;
+
+  // Filter state: F+G checked by default
+  var fDpe = [false,false,false,false,false,true,true];
+  var fSrc = [true,true,true];
+
+  // ── Build dashboard HTML ──
+  var dash = document.getElementById('dpe-app');
+  dash.innerHTML = '<div id="dpe-dash">' +
+    '<div class="dpe-hdr">' +
+      '<span class="dpe-toggle" id="dpe-tog">\\u25B2</span>' +
+      '<h2>\\uD83C\\uDFF7\\uFE0F DPE \\u00B7 {dept_nom} ({dept_code})</h2>' +
+      '<p>Logements existants + neufs + tertiaire \\u00B7 ADEME</p>' +
+    '</div>' +
+    '<div class="dpe-body" id="dpe-body">' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-dist-bar" id="dpe-bar"></div>' +
+        '<div class="dpe-kpi-grid">' +
+          '<div class="dpe-kpi"><div class="val" id="kpi-diag">-</div><div class="lbl">Affich\\u00E9s</div></div>' +
+          '<div class="dpe-kpi"><div class="val">' + N_ZONES + '</div><div class="lbl">Micro-zones</div></div>' +
+          '<div class="dpe-kpi"><div class="val" id="kpi-fg" style="color:#ef1d29">-</div><div class="lbl">Passoires (F+G)</div></div>' +
+          '<div class="dpe-kpi"><div class="val" id="kpi-conso">-</div><div class="lbl">kWh/m\\u00B2/an m\\u00E9d.</div></div>' +
+        '</div>' +
+        '<div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:6px" id="kpi-src"></div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Filtres DPE</div>' +
+        '<div class="dpe-filter-row" id="dpe-filters"></div>' +
+        '<div style="display:flex;gap:6px;margin-top:6px">' +
+          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-all">Tout</span>' +
+          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-none">Aucun</span>' +
+          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-fg">F+G seul.</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Sources</div>' +
+        '<div class="dpe-filter-row" id="src-filters"></div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Chercher une commune</div>' +
+        '<input type="text" class="dpe-search" id="dpe-search" placeholder="Tapez un nom de commune...">' +
+        '<div class="dpe-search-results" id="dpe-search-res"></div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">L\\u00E9gende DPE (kWh/m\\u00B2/an)</div>' +
+        '<div id="dpe-legend"></div>' +
+      '</div>' +
+      '<a href="index.html" class="back-link">\\u2190 Vue d\\u2019ensemble {dept_nom}</a>' +
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center">' +
+        '\\u00A9 2026 Samuel Bruno \\u00B7 datamerry.com' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // ── Toggle collapse ──
+  document.getElementById('dpe-tog').onclick = function() {{
+    var b = document.getElementById('dpe-body');
+    if (b.style.display === 'none') {{ b.style.display = 'block'; this.textContent = '\\u25B2'; }}
+    else {{ b.style.display = 'none'; this.textContent = '\\u25BC'; }}
+  }};
+
+  // ── Build DPE filter chips ──
+  var filtersEl = document.getElementById('dpe-filters');
+  DPE_LABELS.forEach(function(lb, i) {{
+    var chip = document.createElement('span');
+    chip.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
+    chip.style.borderColor = DPE_COLORS[i];
+    chip.style.color = DPE_COLORS[i];
+    chip.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
+    chip.innerHTML = '<span class="dot" style="background:' + DPE_COLORS[i] + '"></span>' + lb;
+    chip.dataset.idx = i;
+    chip.onclick = function() {{
+      fDpe[i] = !fDpe[i];
+      this.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
+      this.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
+      applyFilters();
+    }};
+    filtersEl.appendChild(chip);
+  }});
+
+  // Quick select buttons
+  document.getElementById('dpe-all').onclick = function() {{ fDpe = [true,true,true,true,true,true,true]; syncChips(); applyFilters(); }};
+  document.getElementById('dpe-none').onclick = function() {{ fDpe = [false,false,false,false,false,false,false]; syncChips(); applyFilters(); }};
+  document.getElementById('dpe-fg').onclick = function() {{ fDpe = [false,false,false,false,false,true,true]; syncChips(); applyFilters(); }};
+
+  function syncChips() {{
+    var chips = filtersEl.querySelectorAll('.dpe-chip');
+    chips.forEach(function(c, i) {{
+      c.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
+      c.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
+    }});
+  }}
+
+  // ── Build source filter chips ──
+  var srcEl = document.getElementById('src-filters');
+  SRC_LABELS.forEach(function(lb, i) {{
+    if (SRC_TOTALS[i] === 0) return;
+    var chip = document.createElement('span');
+    chip.className = 'src-chip active';
+    chip.textContent = lb + ' (' + SRC_TOTALS[i].toLocaleString('fr') + ')';
+    chip.dataset.idx = i;
+    chip.onclick = function() {{
+      fSrc[i] = !fSrc[i];
+      this.className = 'src-chip ' + (fSrc[i] ? 'active' : 'inactive');
+      applyFilters();
+    }};
+    srcEl.appendChild(chip);
+  }});
+
+  // ── Build legend ──
+  var legEl = document.getElementById('dpe-legend');
+  DPE_LABELS.forEach(function(lb, i) {{
+    var row = document.createElement('div');
+    row.className = 'dpe-legend-row';
+    row.innerHTML = '<div class="dpe-legend-swatch" style="background:' + DPE_COLORS[i] + '"></div>' +
+      '<span style="font-weight:700;color:' + DPE_COLORS[i] + ';width:14px">' + lb + '</span>' +
+      '<span style="color:rgba(255,255,255,.5)">' + DPE_THRESHOLDS[i] + ' kWh/m\\u00B2/an</span>';
+    legEl.appendChild(row);
+  }});
+
+  // ── Commune search ──
+  var searchInput = document.getElementById('dpe-search');
+  var searchRes = document.getElementById('dpe-search-res');
+
+  searchInput.addEventListener('input', function() {{
+    var q = this.value.toLowerCase().trim();
+    searchRes.innerHTML = '';
+    if (q.length < 2) return;
+    var matches = [];
+    COMMUNES.forEach(function(c, i) {{
+      if (c.toLowerCase().indexOf(q) >= 0) matches.push(i);
+    }});
+    matches.slice(0, 8).forEach(function(ci) {{
+      var item = document.createElement('div');
+      item.className = 'dpe-search-item';
+      item.textContent = COMMUNES[ci];
+      item.onclick = function() {{
+        var bb = COM_BB[ci];
+        map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], {{padding: [30, 30], maxZoom: 15}});
+        searchRes.innerHTML = '';
+        searchInput.value = COMMUNES[ci];
+      }};
+      searchRes.appendChild(item);
+    }});
+  }});
+
+  // ── Render points ──
+  function applyFilters() {{
+    if (currentLayer) {{ map.removeLayer(currentLayer); currentLayer = null; }}
+    var group = L.layerGroup();
+    var count = 0;
+    var dpeCounts = [0,0,0,0,0,0,0];
+    var consoSum = 0, consoN = 0;
+    var srcCounts = [0,0,0];
+
+    for (var i = 0; i < PTS.length; i++) {{
+      var p = PTS[i];
+      var dpe = p[2], src = p[3];
+      if (!fDpe[dpe] || !fSrc[src]) continue;
+      count++;
+      dpeCounts[dpe]++;
+      srcCounts[src]++;
+      if (p[5] > 0) {{ consoSum += p[5]; consoN++; }}
+
+      var marker = L.circleMarker([p[0], p[1]], {{
+        radius: 3.5, color: '#ffffff22', weight: 0.5,
+        fillColor: DPE_COLORS[dpe], fillOpacity: 0.8
+      }});
+      marker.bindTooltip(
+        '<b style="color:' + DPE_COLORS[dpe] + '">DPE ' + DPE_LABELS[dpe] + '</b> · ' +
+        p[4] + ' m\\u00B2 · ' + p[5] + ' kWh/m\\u00B2/an',
+        {{direction: 'top', offset: [0, -6]}}
+      );
+      marker.bindPopup(
+        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:180px">' +
+        '<div style="font-size:15px;font-weight:800;color:' + DPE_COLORS[dpe] + ';margin-bottom:6px">DPE ' + DPE_LABELS[dpe] + '</div>' +
+        '<div style="font-size:12px;color:#555;line-height:1.7">' +
+        'Commune: <b>' + COMMUNES[p[6]] + '</b><br>' +
+        'Surface: <b>' + p[4] + ' m\\u00B2</b><br>' +
+        'Conso: <b>' + p[5] + ' kWh/m\\u00B2/an</b><br>' +
+        'Source: ' + SRC_LABELS[src] +
+        '</div></div>'
+      );
+      group.addLayer(marker);
+    }}
+    group.addTo(map);
+    currentLayer = group;
+
+    // Update KPIs
+    document.getElementById('kpi-diag').textContent = count.toLocaleString('fr') + ' / ' + TOTAL.toLocaleString('fr');
+    var nFG = dpeCounts[5] + dpeCounts[6];
+    var pctFG = count > 0 ? (nFG / count * 100).toFixed(0) : '0';
+    document.getElementById('kpi-fg').textContent = pctFG + '%';
+    // Median approximation: use mean for speed
+    var medConso = consoN > 0 ? Math.round(consoSum / consoN) : '\\u2014';
+    document.getElementById('kpi-conso').textContent = medConso;
+
+    // Source breakdown
+    var srcParts = [];
+    SRC_LABELS.forEach(function(lb, i) {{ if (srcCounts[i] > 0) srcParts.push(srcCounts[i].toLocaleString('fr') + ' ' + lb); }});
+    document.getElementById('kpi-src').textContent = srcParts.join(' + ');
+
+    // Update distribution bar
+    var barEl = document.getElementById('dpe-bar');
+    barEl.innerHTML = '';
+    DPE_LABELS.forEach(function(lb, i) {{
+      if (dpeCounts[i] <= 0 || count <= 0) return;
+      var pct = dpeCounts[i] / count * 100;
+      var seg = document.createElement('div');
+      seg.style.cssText = 'width:' + pct + '%;background:' + DPE_COLORS[i] + ';height:100%';
+      seg.title = 'DPE ' + lb + ': ' + pct.toFixed(0) + '% (' + dpeCounts[i].toLocaleString('fr') + ')';
+      barEl.appendChild(seg);
+    }});
+  }}
+
+  // Initial render
+  applyFilters();
+}})();
+</script>"""
+
+    html = html.replace("</head>", custom_css + "</head>")
+    html = html.replace("</body>",
+        '<div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>\n' +
+        custom_js + "\n</body>")
+
     with open(out_path, "w") as f:
         f.write(html)
     size_mb = os.path.getsize(out_path) / 1024 / 1024

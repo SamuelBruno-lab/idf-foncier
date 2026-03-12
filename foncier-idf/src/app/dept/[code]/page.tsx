@@ -130,8 +130,8 @@ export default function DeptPage() {
         />
       )}
 
-      {/* === HEADER OVERLAY === */}
-      <div style={{
+      {/* === HEADER OVERLAY (masqué pour les cartes statiques qui ont leur propre header) === */}
+      {!staticMapUrl && <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 900,
         background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
         padding: "14px 20px 60px",
@@ -206,7 +206,7 @@ export default function DeptPage() {
           )}
 
         </div>
-      </div>
+      </div>}
 
       {/* === FILTER PANEL (uniquement pour les depts dynamiques) === */}
       {!staticMapUrl && (

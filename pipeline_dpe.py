@@ -984,9 +984,10 @@ def main():
     if not dvf.empty:
         dvf = dvf_hdbscan(dvf, min_cluster_size=30)
 
-        # 4. Match DVF↔DPE by spatial proximity
+        # 4. Match DVF↔DPE by spatial proximity (residential DPE only)
         print("\n[4/5] Matching DVF↔DPE par proximité spatiale...")
-        dvf = match_dpe_dvf_proximity(data, dvf, radius_m=150)
+        dpe_residential = data[data["source"] != "tertiaire"]
+        dvf = match_dpe_dvf_proximity(dpe_residential, dvf, radius_m=150)
         dvf_zone_stats = compute_dvf_zone_stats(dvf)
 
         # 5. Assign each DPE point to nearest DVF zone

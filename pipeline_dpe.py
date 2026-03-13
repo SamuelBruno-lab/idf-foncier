@@ -341,6 +341,10 @@ def make_dpe_map(data, cfg, out_path):
     communes_list = sorted(data["commune"].dropna().unique().tolist())
     commune_to_idx = {c: i for i, c in enumerate(communes_list)}
 
+    # Build address lookup (indexed dict to save space)
+    adresses_list = sorted(data["adresse"].dropna().unique().tolist())
+    adresse_to_idx = {a: i for i, a in enumerate(adresses_list)}
+
     # Commune bounding boxes
     com_bboxes = []
     for commune in communes_list:
@@ -353,6 +357,7 @@ def make_dpe_map(data, cfg, out_path):
         ])
 
     # Build compact point array
+    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx, adresseIdx]
     pts_data = []
     for _, row in data.iterrows():
         lat = round(float(row.get("lat_j", row["latitude"])), 4)
@@ -362,7 +367,8 @@ def make_dpe_map(data, cfg, out_path):
         surf = int(round(float(row["surface"]), 0)) if pd.notna(row.get("surface")) else 0
         conso = int(round(float(row["conso_m2"]), 0)) if pd.notna(row.get("conso_m2")) else 0
         com_idx = commune_to_idx.get(str(row.get("commune", "")), 0)
-        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx])
+        adr_idx = adresse_to_idx.get(str(row.get("adresse", "")), 0)
+        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx, adr_idx])
 
     # Stats for dashboard
     n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique()) if "cluster" in data.columns else 0
@@ -389,6 +395,7 @@ def make_dpe_map(data, cfg, out_path):
 
     pts_json = json.dumps(pts_data, separators=(',', ':'))
     communes_json = json.dumps(communes_list, separators=(',', ':'), ensure_ascii=False)
+    adresses_json = json.dumps(adresses_list, separators=(',', ':'), ensure_ascii=False)
     bboxes_json = json.dumps(com_bboxes, separators=(',', ':'))
 
     custom_css = f"""<style>
@@ -486,6 +493,7 @@ def make_dpe_map(data, cfg, out_path):
 
   var PTS = {pts_json};
   var COMMUNES = {communes_json};
+  var ADRESSES = {adresses_json};
   var COM_BB = {bboxes_json};
   var TOTAL = PTS.length;
   var N_ZONES = {n_clusters};
@@ -665,9 +673,11 @@ def make_dpe_map(data, cfg, out_path):
         p[4] + ' m\\u00B2 · ' + p[5] + ' kWh/m\\u00B2/an',
         {{direction: 'top', offset: [0, -6]}}
       );
+      var addr = ADRESSES[p[7]] || '';
       marker.bindPopup(
-        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:180px">' +
+        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:200px">' +
         '<div style="font-size:15px;font-weight:800;color:' + DPE_COLORS[dpe] + ';margin-bottom:6px">DPE ' + DPE_LABELS[dpe] + '</div>' +
+        (addr ? '<div style="font-size:12px;color:#333;font-weight:600;margin-bottom:4px">' + addr + '</div>' : '') +
         '<div style="font-size:12px;color:#555;line-height:1.7">' +
         'Commune: <b>' + COMMUNES[p[6]] + '</b><br>' +
         'Surface: <b>' + p[4] + ' m\\u00B2</b><br>' +

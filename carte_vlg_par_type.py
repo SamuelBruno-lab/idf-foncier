@@ -159,6 +159,11 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
 
+        # Filtre : si le prix réel est < 20% de la valeur théorique, la vente est
+        # aberrante (vente familiale, judiciaire, viager…) → on l'exclut.
+        if total_theorique > 0 and total_val / total_theorique < 0.20:
+            continue
+
         # Pré-calcul des valeurs ventilées pour le JSON de détail
         breakdown = []
         for c in type_groups:
@@ -237,14 +242,22 @@ raw["prix_m2"] = np.where(
 )
 raw = raw.dropna(subset=["valeur_fonciere"])
 
-# Suppression des outliers DVF aberrants par type (données manifestement erronées)
-SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
-                 "Local industriel. commercial ou assimilé": 12000}
-for tl, seuil in SEUIL_PRIX_M2.items():
+# Suppression des outliers DVF aberrants par type (min et max)
+SEUIL_PRIX_M2_MAX = {"Maison": 9000, "Appartement": 12000,
+                     "Local industriel. commercial ou assimilé": 12000}
+SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
+                     "Local industriel. commercial ou assimilé": 200}
+for tl, seuil in SEUIL_PRIX_M2_MAX.items():
     mask = (raw["type_local"] == tl) & (raw["prix_m2"] > seuil)
     n = mask.sum()
     if n:
         print(f"Suppression {n} outliers {tl} > {seuil} €/m²")
+    raw = raw[~mask]
+for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+    mask = (raw["type_local"] == tl) & (raw["prix_m2"] < seuil)
+    n = mask.sum()
+    if n:
+        print(f"Suppression {n} outliers {tl} < {seuil} €/m²")
     raw = raw[~mask]
 
 # ── Ventilation des mutations mixtes ──────────────────────────────────────────
@@ -299,6 +312,14 @@ if not mixed_raw.empty:
         min_parcelle_tx=5,
     )
     if not ventile_df.empty:
+        # Appliquer les mêmes seuils min/max aux résultats ventilés
+        before = len(ventile_df)
+        for tl, seuil in SEUIL_PRIX_M2_MAX.items():
+            ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] > seuil))]
+        for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+            ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] < seuil))]
+        if len(ventile_df) < before:
+            print(f"  Suppression {before - len(ventile_df)} ventilations aberrantes (seuils min/max)")
         raw = pd.concat([raw, ventile_df], ignore_index=True)
         print(f"  Total après ventilation : {len(raw)} transactions")
 

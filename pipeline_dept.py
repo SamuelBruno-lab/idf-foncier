@@ -287,6 +287,11 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
 
+        # Filtre : si le prix réel est < 20% de la valeur théorique, la vente est
+        # aberrante (vente familiale, judiciaire, viager…) → on l'exclut.
+        if total_theorique > 0 and total_val / total_theorique < 0.20:
+            continue
+
         breakdown = []
         for c in type_groups:
             if total_theorique > 0 and pd.notna(c["theorique"]):
@@ -458,6 +463,15 @@ def load_data(cfg):
             min_parcelle_tx=5,
         )
         if not ventile_df.empty:
+            # Appliquer les mêmes seuils min/max aux résultats ventilés
+            before = len(ventile_df)
+            if "type_local" in ventile_df.columns:
+                for tl, seuil in SEUIL_PRIX_M2_MAX.items():
+                    ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] > seuil))]
+                for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+                    ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] < seuil))]
+            if len(ventile_df) < before:
+                print(f"  Suppression {before - len(ventile_df)} ventilations aberrantes (seuils min/max)")
             data = pd.concat([data, ventile_df], ignore_index=True)
             print(f"  Total après ventilation : {len(data)} transactions")
     data["latitude"] = pd.to_numeric(data["latitude"], errors="coerce")

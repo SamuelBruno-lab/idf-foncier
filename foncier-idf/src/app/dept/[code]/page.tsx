@@ -31,46 +31,12 @@ const DEPT_INFO: Record<string, { nom: string; nomFull: string; color: string; d
 
 const DEPT_ORDER = ["75", "92", "93", "94", "78", "95", "91", "77", "60"];
 
-// Repos GitHub Pages par département
-const DEPT_REPOS: Record<string, string> = {
-  "60": "oise-foncier",
-  "75": "paris-foncier",
-  "77": "seine-et-marne-foncier",
-  "78": "yvelines-foncier",
-  "91": "essonne-foncier",
-  "92": "hauts-de-seine-foncier",
-  "93": "seine-saint-denis-foncier",
-  "94": "val-de-marne-foncier",
-  "95": "val-d-oise-foncier",
-};
-
-const MAP_TABS = [
-  { key: "dpe-habitation", label: "DPE Habitation", emoji: "🏷️", file: "carte_dpe_habitation.html" },
-  { key: "dpe-tertiaire", label: "DPE Tertiaire", emoji: "🏢", file: "carte_dpe_tertiaire.html" },
-  { key: "appartements", label: "Appartements", emoji: "🏢", file: "carte_appartements.html" },
-  { key: "maisons", label: "Maisons", emoji: "🏠", file: "carte_maisons.html" },
-  { key: "commerces", label: "Commerces", emoji: "🏭", file: "carte_commerces.html" },
-] as const;
-
-function getStaticMapUrl(code: string, mapKey: string): string | undefined {
-  const repo = DEPT_REPOS[code];
-  if (!repo) return undefined;
-  const tab = MAP_TABS.find((t) => t.key === mapKey);
-  if (!tab) return undefined;
-  // Paris n'a pas de maisons
-  if (code === "75" && mapKey === "maisons") return undefined;
-  return `https://samuelbruno-lab.github.io/${repo}/${tab.file}`;
-}
-
 type CommuneSuggestion = { code: string; nom: string };
 
 export default function DeptPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
   const dept = DEPT_INFO[code] ?? { nom: code, nomFull: `Département ${code}`, color: "#00d4ff", description: "", emoji: "📍" };
-  const [activeTab, setActiveTab] = useState("dpe-habitation");
-  const staticMapUrl = getStaticMapUrl(code, activeTab);
-
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"], dept: [code] });
   const [mode, setMode] = useState<"clusters" | "heatmap">("clusters");
   const [points, setPoints] = useState<DvfPoint[]>([]);
@@ -105,7 +71,6 @@ export default function DeptPage() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (staticMapUrl) return; // pas besoin de fetch si on affiche un iframe
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -123,7 +88,7 @@ export default function DeptPage() {
       else { setClusters(json.data ?? []); setPoints([]); }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
-  }, [filters, zoom, mode, code, staticMapUrl]);
+  }, [filters, zoom, mode, code]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -132,62 +97,17 @@ export default function DeptPage() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>
 
-      {/* === CARTE : iframe statique OU DvfMap dynamique === */}
-      {staticMapUrl ? (
-        <iframe
-          src={staticMapUrl}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", zIndex: 1 }}
-          title={`Carte foncière ${dept.nomFull}`}
-          allowFullScreen
-        />
-      ) : (
-        <DvfMap
-          points={points}
-          clusters={clusters}
-          mode={mode}
-          filters={filters}
-          isLoading={isLoading}
-          onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
-        />
-      )}
+      <DvfMap
+        points={points}
+        clusters={clusters}
+        mode={mode}
+        filters={filters}
+        isLoading={isLoading}
+        onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
+      />
 
-      {/* === ONGLETS TYPE DE CARTE === */}
-      {DEPT_REPOS[code] && (
-        <div style={{
-          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
-          zIndex: 1000, display: "flex", gap: 4,
-          background: "rgba(5,5,20,0.85)", borderRadius: 12,
-          padding: 4, backdropFilter: "blur(10px)",
-          border: "1px solid rgba(255,255,255,0.1)",
-        }}>
-          {MAP_TABS.map((tab) => {
-            if (code === "75" && tab.key === "maisons") return null;
-            const isActive = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  background: isActive ? `${dept.color}30` : "transparent",
-                  border: `1px solid ${isActive ? dept.color : "transparent"}`,
-                  borderRadius: 8, padding: "7px 14px",
-                  color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
-                  fontSize: 12, fontWeight: isActive ? 700 : 500,
-                  fontFamily: "Segoe UI, sans-serif",
-                  cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 5,
-                }}
-              >
-                <span style={{ fontSize: 13 }}>{tab.emoji}</span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* === HEADER OVERLAY (masqué pour les cartes statiques qui ont leur propre header) === */}
-      {!staticMapUrl && <div style={{
+      {/* === HEADER OVERLAY === */}
+      <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 900,
         background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
         padding: "14px 20px 60px",
@@ -224,9 +144,7 @@ export default function DeptPage() {
 
         {/* Droite : search + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "all", flexWrap: "wrap" }}>
-          {/* Search — uniquement pour depts dynamiques */}
-          {!staticMapUrl && (
-            <div ref={searchRef} style={{ position: "relative", width: 240 }}>
+          <div ref={searchRef} style={{ position: "relative", width: 240 }}>
               <input
                 type="text"
                 placeholder={`Chercher dans le ${code}…`}
@@ -259,22 +177,18 @@ export default function DeptPage() {
                 </div>
               )}
             </div>
-          )}
 
         </div>
-      </div>}
+      </div>
 
-      {/* === FILTER PANEL (uniquement pour les depts dynamiques) === */}
-      {!staticMapUrl && (
-        <FilterPanel
-          filters={filters}
-          onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
-          mode={mode}
-          onModeChange={setMode}
-          onLeadClick={() => setShowLeadModal(true)}
-          totalTx={totalTx}
-        />
-      )}
+      <FilterPanel
+        filters={filters}
+        onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
+        mode={mode}
+        onModeChange={setMode}
+        onLeadClick={() => setShowLeadModal(true)}
+        totalTx={totalTx}
+      />
 
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
       <div style={{

@@ -692,7 +692,9 @@ def make_dpe_map(data, cfg, out_path):
     html = html.replace("</head>", custom_css + "</head>")
     html = html.replace("</body>",
         '<div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>\n' +
-        custom_js + "\n</body>")
+        "\n</body>")
+    # Inject custom JS after </html> so it runs AFTER Folium's map init scripts
+    html = html.replace("</html>", custom_js + "\n</html>")
 
     with open(out_path, "w") as f:
         f.write(html)

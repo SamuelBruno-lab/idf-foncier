@@ -777,6 +777,7 @@ def make_map(data, cfg, type_local, out_path):
       <div class="kpi"><div class="val">{med_m2:,.0f}€</div><div class="lbl">Médiane/m²</div></div>
     </div>
     <a href="index.html" class="back-link">← Vue d'ensemble {dept_nom}</a>
+    <a href="https://www.datamerry.com" target="_top" class="back-link">← Retour à datamerry.com</a>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
       © 2026 Samuel Bruno · datamerry.com
     </div>

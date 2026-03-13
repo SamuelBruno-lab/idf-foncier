@@ -517,6 +517,7 @@ def make_dpe_map(data, cfg, out_path):
         '<div id="dpe-legend"></div>' +
       '</div>' +
       '<a href="index.html" class="back-link">\\u2190 Vue d\\u2019ensemble {dept_nom}</a>' +
+      '<a href="https://www.datamerry.com" target="_top" class="back-link">\\u2190 Retour \\u00E0 datamerry.com</a>' +
       '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center">' +
         '\\u00A9 2026 Samuel Bruno \\u00B7 datamerry.com' +
       '</div>' +

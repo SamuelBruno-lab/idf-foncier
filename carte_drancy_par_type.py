@@ -102,16 +102,20 @@ def assign_cluster_to_mixed(mixed_data, pure_data, pure_cluster_labels):
 
 def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
                                median_m2_by_parcelle_type, global_median_m2_by_type,
-                               min_parcelle_tx=5):
+                               min_parcelle_tx=5, seuil_m2_min=None):
     """Ventile le prix total de chaque mutation mixte entre ses composantes.
 
     Référence de prix (par ordre de priorité) pour chaque composante (type_local) :
       1. Médiane de la parcelle (si ≥ min_parcelle_tx ventes pures du même type sur la parcelle)
       2. Médiane du micromarché = zone HDBSCAN préliminaire pour ce type
       3. Médiane globale commune (fallback)
+    Si la référence choisie est inférieure au seuil min €/m² pour ce type,
+    on utilise le fallback global pour éviter des ventilations aberrantes.
 
     Formule : Part(type) = Prix_total × (S_type × P_réf_type) / Σ(S_i × P_réf_i)
     """
+    if seuil_m2_min is None:
+        seuil_m2_min = {}
     if mixed_data.empty:
         return pd.DataFrame()
     results = []
@@ -140,6 +144,15 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
                 m2_ref = global_median_m2_by_type.get(tl, np.nan)
                 ref_source = "global"
 
+            # Si la référence est en-dessous du seuil min pour ce type,
+            # elle est probablement aberrante → fallback sur la médiane globale.
+            tl_min = seuil_m2_min.get(tl, 0)
+            if pd.notna(m2_ref) and m2_ref < tl_min and ref_source != "global":
+                fallback = global_median_m2_by_type.get(tl, np.nan)
+                if pd.notna(fallback) and fallback >= tl_min:
+                    m2_ref = fallback
+                    ref_source = "global"
+
             theorique = float(surf) * float(m2_ref) if (pd.notna(surf) and pd.notna(m2_ref)) else np.nan
             type_groups.append({
                 "row": template, "type_local": tl,
@@ -148,6 +161,11 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
             })
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
+
+        # Filtre : si le prix réel est < 20% de la valeur théorique, la vente est
+        # aberrante (vente familiale, judiciaire, viager…) → on l'exclut.
+        if total_theorique > 0 and total_val / total_theorique < 0.20:
+            continue
 
         breakdown = []
         for c in type_groups:
@@ -215,14 +233,22 @@ raw["prix_m2"] = np.where(
 )
 raw = raw.dropna(subset=["valeur_fonciere"])
 
-# Suppression des outliers DVF aberrants
-SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
-                 "Local industriel. commercial ou assimilé": 12000}
-for tl, seuil in SEUIL_PRIX_M2.items():
+# Suppression des outliers DVF aberrants (min et max)
+SEUIL_PRIX_M2_MAX = {"Maison": 9000, "Appartement": 12000,
+                     "Local industriel. commercial ou assimilé": 12000}
+SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
+                     "Local industriel. commercial ou assimilé": 500}
+for tl, seuil in SEUIL_PRIX_M2_MAX.items():
     mask = (raw["type_local"] == tl) & (raw["prix_m2"] > seuil)
     n = mask.sum()
     if n:
         print(f"Suppression {n} outliers {tl} > {seuil} €/m²")
+    raw = raw[~mask]
+for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+    mask = (raw["type_local"] == tl) & (raw["prix_m2"] < seuil)
+    n = mask.sum()
+    if n:
+        print(f"Suppression {n} outliers {tl} < {seuil} €/m²")
     raw = raw[~mask]
 
 # ── Ventilation des mutations mixtes ──────────────────────────────────────────
@@ -242,7 +268,7 @@ for cid in np.unique(pure_cluster_labels[pure_cluster_labels >= 0]):
     median_m2_by_cluster_type[int(cid)] = {}
     for tl in subset_c["type_local"].dropna().unique():
         vals = subset_c[subset_c["type_local"] == tl]["prix_m2"]
-        if len(vals) >= 3:
+        if len(vals) >= 10:
             median_m2_by_cluster_type[int(cid)][tl] = float(vals.median())
             print(f"  Zone {cid} · {tl}: {median_m2_by_cluster_type[int(cid)][tl]:,.0f} €/m² ({len(vals)} tx)")
 
@@ -274,8 +300,17 @@ if not mixed_raw.empty:
         median_m2_by_parcelle_type,
         global_median_m2_by_type,
         min_parcelle_tx=5,
+        seuil_m2_min=SEUIL_PRIX_M2_MIN,
     )
     if not ventile_df.empty:
+        # Appliquer les mêmes seuils min/max aux résultats ventilés
+        before = len(ventile_df)
+        for tl, seuil in SEUIL_PRIX_M2_MAX.items():
+            ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] > seuil))]
+        for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+            ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] < seuil))]
+        if len(ventile_df) < before:
+            print(f"  Suppression {before - len(ventile_df)} ventilations aberrantes (seuils min/max)")
         raw = pd.concat([raw, ventile_df], ignore_index=True)
         print(f"  Total après ventilation : {len(raw)} transactions")
 

@@ -44,6 +44,117 @@ const DvfMap = dynamic(() => import("@/components/DvfMap"), {
   ),
 });
 
+function FooterTabs() {
+  const [activeTab, setActiveTab] = useState<"about" | "contact" | null>(null);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        fontFamily: "Segoe UI, Arial, sans-serif",
+        zIndex: 1001,
+      }}
+    >
+      {/* Contenu de l'onglet ouvert */}
+      {activeTab && (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            background: "rgba(10,10,30,0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "none",
+            borderRadius: "12px 12px 0 0",
+            padding: "20px 24px 16px",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: 13,
+            lineHeight: 1.7,
+          }}
+        >
+          {activeTab === "about" && (
+            <>
+              <p>
+                Datamerry est un prototype d&apos;analyse foncière utilisant les
+                données ouvertes DVF et DPE pour identifier automatiquement les
+                micro-marchés immobiliers.
+              </p>
+              <p style={{ marginTop: 10 }}>
+                L&apos;objectif est d&apos;explorer de nouvelles approches de
+                prospection et d&apos;analyse territoriale pour les
+                professionnels de l&apos;immobilier, les collectivités et les
+                investisseurs.
+              </p>
+            </>
+          )}
+          {activeTab === "contact" && (
+            <p>
+              Pour toute question ou retour :{" "}
+              <a
+                href="mailto:contact@datamerry.com"
+                style={{ color: "#00d4ff", textDecoration: "none" }}
+              >
+                contact@datamerry.com
+              </a>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Barre d'onglets + badge open data */}
+      <div
+        style={{
+          width: "100%",
+          background: "rgba(10,10,30,0.85)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
+          padding: "10px 16px",
+          fontSize: 12,
+        }}
+      >
+        {(["about", "contact"] as const).map((tab) => {
+          const label = tab === "about" ? "À propos" : "Contact";
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(isActive ? null : tab)}
+              style={{
+                background: "none",
+                border: "none",
+                color: isActive ? "#00d4ff" : "rgba(255,255,255,0.35)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: isActive ? 700 : 500,
+                fontFamily: "inherit",
+                padding: "4px 0",
+                borderBottom: isActive ? "1.5px solid #00d4ff" : "1.5px solid transparent",
+                transition: "all 0.15s",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
+          Built with open data{" "}
+          <span style={{ color: "rgba(0,212,255,0.6)", fontWeight: 600 }}>
+            DVF / data.gouv.fr
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"] });
@@ -413,21 +524,8 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Footer branding */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 20,
-              left: 0,
-              right: 0,
-              textAlign: "center",
-              fontSize: 12,
-              color: "rgba(255,255,255,0.25)",
-              fontFamily: "Segoe UI, sans-serif",
-            }}
-          >
-            datamerry.com · Observatoire foncier Île-de-France · Source DVF data.gouv.fr
-          </div>
+          {/* Footer tabs: À propos / Contact */}
+          <FooterTabs />
         </div>
       )}
 

@@ -133,17 +133,62 @@ def aggregate_mutations(data):
         pure_data  = data.copy()
         mixed_data = pd.DataFrame()
     # 2. Agréger surfaces pour mutations pures
-    agg_dict = {}
-    for col in ["surface_terrain", "surface_reelle_bati"]:
-        if col in data.columns:
-            agg_dict[col] = "sum"
-    if agg_dict:
-        agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
-        for col in agg_dict:
-            agg_df[col] = agg_df[col].replace(0, np.nan)
-        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
-        data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
-        data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
+    # Appartements/Maisons : sum (plusieurs lots = plusieurs unités distinctes)
+    # Commerces : max (un seul local peut apparaître sur plusieurs parcelles DVF,
+    #   chaque ligne portant la surface totale du local → sum la multiplie à tort)
+    has_surf_terrain = "surface_terrain" in data.columns
+    has_surf_bati = "surface_reelle_bati" in data.columns
+    has_type = "type_local" in pure_data.columns
+    commercial_types = {"Local industriel. commercial ou assimilé",
+                        "Local industriel, commercial ou assimilé",
+                        "Local commercial"}
+    if has_surf_terrain or has_surf_bati:
+        if has_type:
+            is_commercial = pure_data["type_local"].isin(commercial_types)
+            pure_resid = pure_data[~is_commercial]
+            pure_comm  = pure_data[is_commercial]
+            parts = []
+            # Résidentiel / terrains : somme des surfaces (lots distincts)
+            if not pure_resid.empty:
+                agg_r = {}
+                if has_surf_terrain:
+                    agg_r["surface_terrain"] = "sum"
+                if has_surf_bati:
+                    agg_r["surface_reelle_bati"] = "sum"
+                agg_df_r = pure_resid.groupby("id_mutation").agg(agg_r).reset_index()
+                for col in agg_r:
+                    agg_df_r[col] = agg_df_r[col].replace(0, np.nan)
+                ded_r = pure_resid.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+                ded_r = ded_r.drop(columns=list(agg_r.keys()), errors="ignore")
+                ded_r = ded_r.merge(agg_df_r, on="id_mutation", how="left")
+                parts.append(ded_r)
+            # Commerces : max de surface_reelle_bati (même local sur N parcelles)
+            if not pure_comm.empty:
+                agg_c = {}
+                if has_surf_terrain:
+                    agg_c["surface_terrain"] = "sum"
+                if has_surf_bati:
+                    agg_c["surface_reelle_bati"] = "max"
+                agg_df_c = pure_comm.groupby("id_mutation").agg(agg_c).reset_index()
+                for col in agg_c:
+                    agg_df_c[col] = agg_df_c[col].replace(0, np.nan)
+                ded_c = pure_comm.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+                ded_c = ded_c.drop(columns=list(agg_c.keys()), errors="ignore")
+                ded_c = ded_c.merge(agg_df_c, on="id_mutation", how="left")
+                parts.append(ded_c)
+            data_dedup = pd.concat(parts, ignore_index=True) if parts else pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+        else:
+            agg_dict = {}
+            if has_surf_terrain:
+                agg_dict["surface_terrain"] = "sum"
+            if has_surf_bati:
+                agg_dict["surface_reelle_bati"] = "sum"
+            agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
+            for col in agg_dict:
+                agg_df[col] = agg_df[col].replace(0, np.nan)
+            data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+            data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
+            data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
     else:
         data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
     print(f"  Mutations pures agrégées : {len(data_dedup)}")
@@ -194,16 +239,20 @@ def assign_cluster_to_mixed(mixed_data, pure_data, pure_cluster_labels):
 
 def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
                                median_m2_by_parcelle_type, global_median_m2_by_type,
-                               min_parcelle_tx=5):
+                               min_parcelle_tx=5, seuil_m2_min=None):
     """Ventile le prix total de chaque mutation mixte entre ses composantes.
 
     Référence de prix (par ordre de priorité) pour chaque composante (type_local) :
       1. Médiane de la parcelle (si ≥ min_parcelle_tx ventes pures du même type sur la parcelle)
       2. Médiane du micromarché = zone HDBSCAN préliminaire pour ce type
       3. Médiane globale commune (fallback)
+    Si la référence choisie est inférieure au seuil min €/m² pour ce type,
+    on utilise le fallback global pour éviter des ventilations aberrantes.
 
     Formule : Part(type) = Prix_total × (S_type × P_réf_type) / Σ(S_i × P_réf_i)
     """
+    if seuil_m2_min is None:
+        seuil_m2_min = {}
     if mixed_data.empty:
         return pd.DataFrame()
 
@@ -233,6 +282,15 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
                 m2_ref = global_median_m2_by_type.get(tl, np.nan)
                 ref_source = "global"
 
+            # Si la référence est en-dessous du seuil min pour ce type,
+            # elle est probablement aberrante → fallback sur la médiane globale.
+            tl_min = seuil_m2_min.get(tl, 0)
+            if pd.notna(m2_ref) and m2_ref < tl_min and ref_source != "global":
+                fallback = global_median_m2_by_type.get(tl, np.nan)
+                if pd.notna(fallback) and fallback >= tl_min:
+                    m2_ref = fallback
+                    ref_source = "global"
+
             theorique = float(surf) * float(m2_ref) if (pd.notna(surf) and pd.notna(m2_ref)) else np.nan
             type_groups.append({
                 "row": template, "type_local": tl,
@@ -241,6 +299,11 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
             })
 
         total_theorique = sum(c["theorique"] for c in type_groups if pd.notna(c["theorique"]))
+
+        # Filtre : si le prix réel est < 20% de la valeur théorique, la vente est
+        # aberrante (vente familiale, judiciaire, viager…) → on l'exclut.
+        if total_theorique > 0 and total_val / total_theorique < 0.20:
+            continue
 
         breakdown = []
         for c in type_groups:
@@ -344,16 +407,25 @@ def load_data(cfg):
             np.nan,
         )
     data = data.dropna(subset=["valeur_fonciere"])
-    # Suppression des outliers DVF aberrants par type
-    SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
-                     "Local industriel. commercial ou assimilé": 12000,
-                     "Local commercial": 12000}
+    # Suppression des outliers DVF aberrants par type (min et max)
+    SEUIL_PRIX_M2_MAX = {"Maison": 9000, "Appartement": 12000,
+                         "Local industriel. commercial ou assimilé": 12000,
+                         "Local commercial": 12000}
+    SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
+                         "Local industriel. commercial ou assimilé": 500,
+                         "Local commercial": 500}
     if "type_local" in data.columns:
-        for tl, seuil in SEUIL_PRIX_M2.items():
+        for tl, seuil in SEUIL_PRIX_M2_MAX.items():
             mask = (data["type_local"] == tl) & (data["prix_m2"] > seuil)
             n = mask.sum()
             if n:
                 print(f"  Suppression {n} outliers {tl} > {seuil} €/m²")
+            data = data[~mask]
+        for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+            mask = (data["type_local"] == tl) & (data["prix_m2"] < seuil)
+            n = mask.sum()
+            if n:
+                print(f"  Suppression {n} outliers {tl} < {seuil} €/m²")
             data = data[~mask]
     # Ventilation des mutations mixtes
     # Clustering préliminaire sur les ventes pures pour définir les micromarchés de référence
@@ -372,7 +444,7 @@ def load_data(cfg):
         if "type_local" in subset_c.columns:
             for tl in subset_c["type_local"].dropna().unique():
                 vals = subset_c[subset_c["type_local"] == tl]["prix_m2"]
-                if len(vals) >= 3:
+                if len(vals) >= 10:
                     median_m2_by_cluster_type[int(cid)][tl] = float(vals.median())
                     print(f"  Zone {cid} · {tl}: {median_m2_by_cluster_type[int(cid)][tl]:,.0f} €/m² ({len(vals)} tx)")
     # Médiane par parcelle ET type (référence si parcelle isolée avec beaucoup de ventes)
@@ -402,8 +474,18 @@ def load_data(cfg):
             median_m2_by_parcelle_type,
             global_median_m2_by_type,
             min_parcelle_tx=5,
+            seuil_m2_min=SEUIL_PRIX_M2_MIN,
         )
         if not ventile_df.empty:
+            # Appliquer les mêmes seuils min/max aux résultats ventilés
+            before = len(ventile_df)
+            if "type_local" in ventile_df.columns:
+                for tl, seuil in SEUIL_PRIX_M2_MAX.items():
+                    ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] > seuil))]
+                for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+                    ventile_df = ventile_df[~((ventile_df["type_local"] == tl) & (ventile_df["prix_m2"] < seuil))]
+            if len(ventile_df) < before:
+                print(f"  Suppression {before - len(ventile_df)} ventilations aberrantes (seuils min/max)")
             data = pd.concat([data, ventile_df], ignore_index=True)
             print(f"  Total après ventilation : {len(data)} transactions")
     data["latitude"] = pd.to_numeric(data["latitude"], errors="coerce")
@@ -774,6 +856,13 @@ def make_index(cfg, stats, out_dir):
     .datamerry-link:hover {{ background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.25); }}
     .method-badge {{ display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; margin-top: 30px; font-size: 13px; color: rgba(255,255,255,0.5); }}
     .method-badge span {{ color: {color}; font-weight: 600; }}
+    .about {{ max-width: 600px; margin: 50px auto 0; padding: 30px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }}
+    .about h2 {{ font-size: 16px; font-weight: 700; color: {color}; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }}
+    .about p {{ font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.7; margin-bottom: 10px; }}
+    .about a {{ color: {color}; text-decoration: none; }}
+    .about a:hover {{ text-decoration: underline; }}
+    .open-data-badge {{ display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.5); }}
+    .open-data-badge span {{ color: {color}; font-weight: 600; }}
     .footer {{ margin-top: 50px; text-align: center; font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.8; }}
   </style>
 </head>
@@ -792,6 +881,14 @@ def make_index(cfg, stats, out_dir):
   <div class="cards">{cards}</div>
   <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
   <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
+  <div class="about">
+    <h2>À propos</h2>
+    <p>Datamerry est un prototype d'analyse foncière utilisant les données ouvertes DVF et DPE pour identifier automatiquement les micro-marchés immobiliers.</p>
+    <p>L'objectif est d'explorer de nouvelles approches de prospection et d'analyse territoriale pour les professionnels de l'immobilier, les collectivités et les investisseurs.</p>
+    <h2 style="margin-top:24px;">Contact</h2>
+    <p>Pour toute question ou retour : <a href="mailto:contact@datamerry.com">contact@datamerry.com</a></p>
+    <div class="open-data-badge">🗂 Built with open data <span>DVF / data.gouv.fr</span></div>
+  </div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>
     Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>

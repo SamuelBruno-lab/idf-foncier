@@ -102,16 +102,20 @@ def assign_cluster_to_mixed(mixed_data, pure_data, pure_cluster_labels):
 
 def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
                                median_m2_by_parcelle_type, global_median_m2_by_type,
-                               min_parcelle_tx=5):
+                               min_parcelle_tx=5, seuil_m2_min=None):
     """Ventile le prix total de chaque mutation mixte entre ses composantes.
 
     Référence de prix (par ordre de priorité) pour chaque composante (type_local) :
       1. Médiane de la parcelle (si ≥ min_parcelle_tx ventes pures du même type sur la parcelle)
       2. Médiane du micromarché = zone HDBSCAN préliminaire pour ce type
       3. Médiane globale commune (fallback)
+    Si la référence choisie est inférieure au seuil min €/m² pour ce type,
+    on utilise le fallback global pour éviter des ventilations aberrantes.
 
     Formule : Part(type) = Prix_total × (S_type × P_réf_type) / Σ(S_i × P_réf_i)
     """
+    if seuil_m2_min is None:
+        seuil_m2_min = {}
     if mixed_data.empty:
         return pd.DataFrame()
     results = []
@@ -139,6 +143,15 @@ def ventiler_mutations_mixtes(mixed_data, median_m2_by_cluster_type,
             else:
                 m2_ref = global_median_m2_by_type.get(tl, np.nan)
                 ref_source = "global"
+
+            # Si la référence est en-dessous du seuil min pour ce type,
+            # elle est probablement aberrante → fallback sur la médiane globale.
+            tl_min = seuil_m2_min.get(tl, 0)
+            if pd.notna(m2_ref) and m2_ref < tl_min and ref_source != "global":
+                fallback = global_median_m2_by_type.get(tl, np.nan)
+                if pd.notna(fallback) and fallback >= tl_min:
+                    m2_ref = fallback
+                    ref_source = "global"
 
             theorique = float(surf) * float(m2_ref) if (pd.notna(surf) and pd.notna(m2_ref)) else np.nan
             type_groups.append({
@@ -287,6 +300,7 @@ if not mixed_raw.empty:
         median_m2_by_parcelle_type,
         global_median_m2_by_type,
         min_parcelle_tx=5,
+        seuil_m2_min=SEUIL_PRIX_M2_MIN,
     )
     if not ventile_df.empty:
         # Appliquer les mêmes seuils min/max aux résultats ventilés

@@ -56,8 +56,8 @@ DATASETS = {
                   "type_batiment,date_reception_dpe,nom_commune_ban,code_postal_ban,"
                   "adresse_ban,periode_construction,type_energie_principale_chauffage,"
                   "conso_5_usages_par_m2_ep,emission_ges_5_usages_par_m2,_rand",
-        "max_records": 50000,
-        "sort": "_rand",  # random sampling — no temporal/spatial bias
+        "max_records": 800000,
+        "sort": "_rand",
         "conso_field": "conso_5_usages_par_m2_ep",
         "ges_field": "emission_ges_5_usages_par_m2",
         "surface_field": "surface_habitable_logement",

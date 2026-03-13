@@ -139,7 +139,7 @@ def fetch_dpe(dataset_key, dept_code):
         if not after:
             break
         if len(records) % 5000 == 0:
-            print(f"    {len(records)} records...", end="\r")
+            print(f"    {len(records)} records...", flush=True)
 
     print(f"  [{dataset_key}] {len(records)} DPE fetched for dept {dept_code}")
     return records, dataset_key

@@ -186,7 +186,7 @@ def upsert_batch(table: str, records: list, on_conflict: str, batch_size=500):
     url = f"{SUPABASE_URL}/rest/v1/{table}?on_conflict={on_conflict}"
     total = len(records)
 
-    with httpx.Client(timeout=60) as client:
+    with httpx.Client(timeout=60, verify=False) as client:
         for i in range(0, total, batch_size):
             batch = records[i:i + batch_size]
             # Convertir les types numpy/pandas en Python natif, NaN → None

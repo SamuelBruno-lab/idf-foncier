@@ -44,117 +44,6 @@ const DvfMap = dynamic(() => import("@/components/DvfMap"), {
   ),
 });
 
-function FooterTabs() {
-  const [activeTab, setActiveTab] = useState<"about" | "contact" | null>(null);
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        fontFamily: "Segoe UI, Arial, sans-serif",
-        zIndex: 1001,
-      }}
-    >
-      {/* Contenu de l'onglet ouvert */}
-      {activeTab && (
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 520,
-            background: "rgba(10,10,30,0.95)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderBottom: "none",
-            borderRadius: "12px 12px 0 0",
-            padding: "20px 24px 16px",
-            color: "rgba(255,255,255,0.6)",
-            fontSize: 13,
-            lineHeight: 1.7,
-          }}
-        >
-          {activeTab === "about" && (
-            <>
-              <p>
-                Datamerry est un prototype d&apos;analyse foncière utilisant les
-                données ouvertes DVF et DPE pour identifier automatiquement les
-                micro-marchés immobiliers.
-              </p>
-              <p style={{ marginTop: 10 }}>
-                L&apos;objectif est d&apos;explorer de nouvelles approches de
-                prospection et d&apos;analyse territoriale pour les
-                professionnels de l&apos;immobilier, les collectivités et les
-                investisseurs.
-              </p>
-            </>
-          )}
-          {activeTab === "contact" && (
-            <p>
-              Pour toute question ou retour :{" "}
-              <a
-                href="mailto:contact@datamerry.com"
-                style={{ color: "#00d4ff", textDecoration: "none" }}
-              >
-                contact@datamerry.com
-              </a>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Barre d'onglets + badge open data */}
-      <div
-        style={{
-          width: "100%",
-          background: "rgba(10,10,30,0.85)",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 24,
-          padding: "10px 16px",
-          fontSize: 12,
-        }}
-      >
-        {(["about", "contact"] as const).map((tab) => {
-          const label = tab === "about" ? "À propos" : "Contact";
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(isActive ? null : tab)}
-              style={{
-                background: "none",
-                border: "none",
-                color: isActive ? "#00d4ff" : "rgba(255,255,255,0.35)",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: isActive ? 700 : 500,
-                fontFamily: "inherit",
-                padding: "4px 0",
-                borderBottom: isActive ? "1.5px solid #00d4ff" : "1.5px solid transparent",
-                transition: "all 0.15s",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>
-          Built with open data{" "}
-          <span style={{ color: "rgba(0,212,255,0.6)", fontWeight: 600 }}>
-            DVF / data.gouv.fr
-          </span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export default function HomePage() {
   const router = useRouter();
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"] });
@@ -165,6 +54,7 @@ export default function HomePage() {
   const [zoom] = useState(10);
   const [showHero, setShowHero] = useState(true);
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [activeFooter, setActiveFooter] = useState<"about" | "contact" | null>(null);
   const didCheckModal = useRef(false);
 
   // Recherche commune
@@ -481,7 +371,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* CTAs secondaires */}
+          {/* CTAs — 4 boutons centrés */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               onClick={() => setShowHero(false)}
@@ -522,10 +412,103 @@ export default function HomePage() {
                 Actualités & projets pilotes
               </div>
             </Link>
+            <button
+              onClick={() => setActiveFooter(activeFooter === "about" ? null : "about")}
+              style={{
+                padding: "12px 28px",
+                borderRadius: 10,
+                border: `1px solid ${activeFooter === "about" ? "rgba(16,185,129,0.7)" : "rgba(16,185,129,0.4)"}`,
+                background: `rgba(16,185,129,${activeFooter === "about" ? "0.2" : "0.1"})`,
+                color: "#34d399",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              À propos
+            </button>
+            <button
+              onClick={() => setActiveFooter(activeFooter === "contact" ? null : "contact")}
+              style={{
+                padding: "12px 28px",
+                borderRadius: 10,
+                border: `1px solid ${activeFooter === "contact" ? "rgba(251,191,36,0.7)" : "rgba(251,191,36,0.4)"}`,
+                background: `rgba(251,191,36,${activeFooter === "contact" ? "0.2" : "0.1"})`,
+                color: "#fbbf24",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              Contact
+            </button>
           </div>
 
-          {/* Footer tabs: À propos / Contact */}
-          <FooterTabs />
+          {/* Panneau dépliable À propos / Contact */}
+          {activeFooter && (
+            <div
+              style={{
+                maxWidth: 560,
+                width: "100%",
+                marginTop: 20,
+                padding: "20px 24px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: "rgba(255,255,255,0.6)",
+                fontSize: 14,
+                lineHeight: 1.7,
+                fontFamily: "Segoe UI, Arial, sans-serif",
+              }}
+            >
+              {activeFooter === "about" && (
+                <>
+                  <p>
+                    Datamerry est un prototype d&apos;analyse foncière utilisant les
+                    données ouvertes DVF et DPE pour identifier automatiquement les
+                    micro-marchés immobiliers.
+                  </p>
+                  <p style={{ marginTop: 10 }}>
+                    L&apos;objectif est d&apos;explorer de nouvelles approches de
+                    prospection et d&apos;analyse territoriale pour les
+                    professionnels de l&apos;immobilier, les collectivités et les
+                    investisseurs.
+                  </p>
+                </>
+              )}
+              {activeFooter === "contact" && (
+                <p>
+                  Pour toute question ou retour :{" "}
+                  <a href="mailto:contact@datamerry.com" style={{ color: "#00d4ff", textDecoration: "none" }}>
+                    contact@datamerry.com
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Signature open data — bas droite */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              right: 20,
+              fontSize: 11,
+              color: "rgba(255,255,255,0.2)",
+              fontFamily: "Segoe UI, sans-serif",
+            }}
+          >
+            Built with open data{" "}
+            <span style={{ color: "rgba(0,212,255,0.5)", fontWeight: 600 }}>DVF / data.gouv.fr</span>
+          </div>
         </div>
       )}
 

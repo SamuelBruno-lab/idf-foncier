@@ -133,17 +133,62 @@ def aggregate_mutations(data):
         pure_data  = data.copy()
         mixed_data = pd.DataFrame()
     # 2. Agréger surfaces pour mutations pures
-    agg_dict = {}
-    for col in ["surface_terrain", "surface_reelle_bati"]:
-        if col in data.columns:
-            agg_dict[col] = "sum"
-    if agg_dict:
-        agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
-        for col in agg_dict:
-            agg_df[col] = agg_df[col].replace(0, np.nan)
-        data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
-        data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
-        data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
+    # Appartements/Maisons : sum (plusieurs lots = plusieurs unités distinctes)
+    # Commerces : max (un seul local peut apparaître sur plusieurs parcelles DVF,
+    #   chaque ligne portant la surface totale du local → sum la multiplie à tort)
+    has_surf_terrain = "surface_terrain" in data.columns
+    has_surf_bati = "surface_reelle_bati" in data.columns
+    has_type = "type_local" in pure_data.columns
+    commercial_types = {"Local industriel. commercial ou assimilé",
+                        "Local industriel, commercial ou assimilé",
+                        "Local commercial"}
+    if has_surf_terrain or has_surf_bati:
+        if has_type:
+            is_commercial = pure_data["type_local"].isin(commercial_types)
+            pure_resid = pure_data[~is_commercial]
+            pure_comm  = pure_data[is_commercial]
+            parts = []
+            # Résidentiel / terrains : somme des surfaces (lots distincts)
+            if not pure_resid.empty:
+                agg_r = {}
+                if has_surf_terrain:
+                    agg_r["surface_terrain"] = "sum"
+                if has_surf_bati:
+                    agg_r["surface_reelle_bati"] = "sum"
+                agg_df_r = pure_resid.groupby("id_mutation").agg(agg_r).reset_index()
+                for col in agg_r:
+                    agg_df_r[col] = agg_df_r[col].replace(0, np.nan)
+                ded_r = pure_resid.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+                ded_r = ded_r.drop(columns=list(agg_r.keys()), errors="ignore")
+                ded_r = ded_r.merge(agg_df_r, on="id_mutation", how="left")
+                parts.append(ded_r)
+            # Commerces : max de surface_reelle_bati (même local sur N parcelles)
+            if not pure_comm.empty:
+                agg_c = {}
+                if has_surf_terrain:
+                    agg_c["surface_terrain"] = "sum"
+                if has_surf_bati:
+                    agg_c["surface_reelle_bati"] = "max"
+                agg_df_c = pure_comm.groupby("id_mutation").agg(agg_c).reset_index()
+                for col in agg_c:
+                    agg_df_c[col] = agg_df_c[col].replace(0, np.nan)
+                ded_c = pure_comm.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+                ded_c = ded_c.drop(columns=list(agg_c.keys()), errors="ignore")
+                ded_c = ded_c.merge(agg_df_c, on="id_mutation", how="left")
+                parts.append(ded_c)
+            data_dedup = pd.concat(parts, ignore_index=True) if parts else pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+        else:
+            agg_dict = {}
+            if has_surf_terrain:
+                agg_dict["surface_terrain"] = "sum"
+            if has_surf_bati:
+                agg_dict["surface_reelle_bati"] = "sum"
+            agg_df = pure_data.groupby("id_mutation").agg(agg_dict).reset_index()
+            for col in agg_dict:
+                agg_df[col] = agg_df[col].replace(0, np.nan)
+            data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
+            data_dedup = data_dedup.drop(columns=list(agg_dict.keys()), errors="ignore")
+            data_dedup = data_dedup.merge(agg_df, on="id_mutation", how="left")
     else:
         data_dedup = pure_data.drop_duplicates(subset=["id_mutation"], keep="first").copy()
     print(f"  Mutations pures agrégées : {len(data_dedup)}")
@@ -344,16 +389,25 @@ def load_data(cfg):
             np.nan,
         )
     data = data.dropna(subset=["valeur_fonciere"])
-    # Suppression des outliers DVF aberrants par type
-    SEUIL_PRIX_M2 = {"Maison": 9000, "Appartement": 12000,
-                     "Local industriel. commercial ou assimilé": 12000,
-                     "Local commercial": 12000}
+    # Suppression des outliers DVF aberrants par type (min et max)
+    SEUIL_PRIX_M2_MAX = {"Maison": 9000, "Appartement": 12000,
+                         "Local industriel. commercial ou assimilé": 12000,
+                         "Local commercial": 12000}
+    SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
+                         "Local industriel. commercial ou assimilé": 200,
+                         "Local commercial": 200}
     if "type_local" in data.columns:
-        for tl, seuil in SEUIL_PRIX_M2.items():
+        for tl, seuil in SEUIL_PRIX_M2_MAX.items():
             mask = (data["type_local"] == tl) & (data["prix_m2"] > seuil)
             n = mask.sum()
             if n:
                 print(f"  Suppression {n} outliers {tl} > {seuil} €/m²")
+            data = data[~mask]
+        for tl, seuil in SEUIL_PRIX_M2_MIN.items():
+            mask = (data["type_local"] == tl) & (data["prix_m2"] < seuil)
+            n = mask.sum()
+            if n:
+                print(f"  Suppression {n} outliers {tl} < {seuil} €/m²")
             data = data[~mask]
     # Ventilation des mutations mixtes
     # Clustering préliminaire sur les ventes pures pour définir les micromarchés de référence

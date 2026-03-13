@@ -265,12 +265,16 @@ def dominant_dpe(sub):
 
 
 # ── Compact map generation with filters, search, dynamic dashboard ────────
-def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None):
+def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_subtitle=None):
     if dvf_zone_stats is None:
         dvf_zone_stats = {}
     dept_nom = cfg["nom"]
     dept_code = cfg["code"]
     dept_color = cfg["color"]
+    if map_label is None:
+        map_label = f"DPE \\u00B7 {dept_nom} ({dept_code})"
+    if map_subtitle is None:
+        map_subtitle = "Logements existants + neufs + tertiaire \\u00B7 ADEME"
 
     data = apply_jitter(data)
     center = [data["latitude"].mean(), data["longitude"].mean()]
@@ -528,8 +532,8 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None):
   dash.innerHTML = '<div id="dpe-dash">' +
     '<div class="dpe-hdr">' +
       '<span class="dpe-toggle" id="dpe-tog">\\u25B2</span>' +
-      '<h2>\\uD83C\\uDFF7\\uFE0F DPE \\u00B7 {dept_nom} ({dept_code})</h2>' +
-      '<p>Logements existants + neufs + tertiaire \\u00B7 ADEME</p>' +
+      '<h2>\\uD83C\\uDFF7\\uFE0F ' + {map_label!r} + '</h2>' +
+      '<p>' + {map_subtitle!r} + '</p>' +
     '</div>' +
     '<div class="dpe-body" id="dpe-body">' +
       '<div class="dpe-section">' +
@@ -990,19 +994,49 @@ def main():
         dvf = match_dpe_dvf_proximity(dpe_residential, dvf, radius_m=150)
         dvf_zone_stats = compute_dvf_zone_stats(dvf)
 
-        # 5. Assign each DPE point to nearest DVF zone
-        data = assign_dpe_to_dvf_zone(data, dvf)
         print(f"  Stats zones DVF calculées : {len(dvf_zone_stats)} zones avec données prix")
+
+    # 6. Generate separate maps: Habitation + Tertiaire
+    data_hab = data[data["source"] != "tertiaire"].copy()
+    data_ter = data[data["source"] == "tertiaire"].copy()
+
+    # 6a. Carte DPE Habitation
+    if len(data_hab) > 0:
+        print(f"\n[5/6] Génération carte DPE Habitation ({len(data_hab):,} DPE)...")
+        # Re-cluster habitation data
+        min_cs_h = 50 if len(data_hab) > 20000 else (30 if len(data_hab) > 5000 else 15)
+        data_hab = run_hdbscan(data_hab, min_cluster_size=min_cs_h)
+        if not dvf.empty:
+            data_hab = assign_dpe_to_dvf_zone(data_hab, dvf)
+        else:
+            data_hab["dvf_zone"] = -1
+        out_hab = os.path.join(out_dir, "carte_dpe_habitation.html")
+        make_dpe_map(data_hab, cfg, out_hab, dvf_zone_stats=dvf_zone_stats,
+                     map_label=f"DPE Habitation \\u00B7 {cfg['nom']} ({dept_code})",
+                     map_subtitle="Logements existants + neufs \\u00B7 ADEME")
     else:
-        data["dvf_zone"] = -1
+        print("  Aucune donnée DPE habitation.")
 
-    # 6. Generate map
-    print("\n[5/5] Génération de la carte DPE enrichie...")
-    out_path = os.path.join(out_dir, "carte_dpe.html")
-    make_dpe_map(data, cfg, out_path, dvf_zone_stats=dvf_zone_stats)
+    # 6b. Carte DPE Tertiaire
+    if len(data_ter) > 0:
+        print(f"\n[6/6] Génération carte DPE Tertiaire ({len(data_ter):,} DPE)...")
+        min_cs_t = 50 if len(data_ter) > 20000 else (30 if len(data_ter) > 5000 else 15)
+        data_ter = run_hdbscan(data_ter, min_cluster_size=min_cs_t)
+        if not dvf.empty:
+            data_ter = assign_dpe_to_dvf_zone(data_ter, dvf)
+        else:
+            data_ter["dvf_zone"] = -1
+        out_ter = os.path.join(out_dir, "carte_dpe_tertiaire.html")
+        make_dpe_map(data_ter, cfg, out_ter, dvf_zone_stats=dvf_zone_stats,
+                     map_label=f"DPE Tertiaire \\u00B7 {cfg['nom']} ({dept_code})",
+                     map_subtitle="B\\u00E2timents tertiaires \\u00B7 ADEME")
+    else:
+        print("  Aucune donnée DPE tertiaire.")
 
+    n_hab = len(data_hab) if len(data_hab) > 0 else 0
+    n_ter = len(data_ter) if len(data_ter) > 0 else 0
     print(f"\n✅ Pipeline DPE terminé pour {cfg['nom']} ({dept_code})")
-    print(f"   {len(data):,} DPE · {len(dvf_zone_stats)} zones DVF · Fichiers dans : {out_dir}")
+    print(f"   {n_hab:,} DPE habitation · {n_ter:,} DPE tertiaire · {len(dvf_zone_stats)} zones DVF · Fichiers dans : {out_dir}")
 
 
 if __name__ == "__main__":

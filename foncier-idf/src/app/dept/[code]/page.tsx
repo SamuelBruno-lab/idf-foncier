@@ -45,7 +45,8 @@ const DEPT_REPOS: Record<string, string> = {
 };
 
 const MAP_TABS = [
-  { key: "dpe", label: "DPE", emoji: "🏷️", file: "carte_dpe.html" },
+  { key: "dpe-habitation", label: "DPE Habitation", emoji: "🏷️", file: "carte_dpe_habitation.html" },
+  { key: "dpe-tertiaire", label: "DPE Tertiaire", emoji: "🏢", file: "carte_dpe_tertiaire.html" },
   { key: "appartements", label: "Appartements", emoji: "🏢", file: "carte_appartements.html" },
   { key: "maisons", label: "Maisons", emoji: "🏠", file: "carte_maisons.html" },
   { key: "commerces", label: "Commerces", emoji: "🏭", file: "carte_commerces.html" },
@@ -67,7 +68,7 @@ export default function DeptPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
   const dept = DEPT_INFO[code] ?? { nom: code, nomFull: `Département ${code}`, color: "#00d4ff", description: "", emoji: "📍" };
-  const [activeTab, setActiveTab] = useState("dpe");
+  const [activeTab, setActiveTab] = useState("dpe-habitation");
   const staticMapUrl = getStaticMapUrl(code, activeTab);
 
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"], dept: [code] });

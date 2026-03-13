@@ -11,6 +11,7 @@ const DEPTS = [
   { code: "93", shortName: "Seine-St-Denis", color: "#00ff88" },
   { code: "94", shortName: "Val-de-Marne", color: "#a78bfa" },
   { code: "95", shortName: "Val-d'Oise", color: "#f59e0b" },
+  { code: "78", shortName: "Yvelines", color: "#06b6d4" },
   { code: "91", shortName: "Essonne", color: "#10b981" },
   { code: "77", shortName: "Seine-et-Marne", color: "#f97316" },
   { code: "60", shortName: "Oise", color: "#ec4899" },
@@ -339,7 +340,7 @@ export default function HomePage() {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
               Explorer par département
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               {DEPTS.map((d) => (
                 <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
                   <div

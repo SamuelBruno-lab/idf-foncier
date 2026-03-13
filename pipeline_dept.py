@@ -825,6 +825,19 @@ def make_index(cfg, stats, out_dir):
       <div class="card-arrow">→</div>
     </a>"""
 
+    # Carte DPE si elle existe (générée par un pipeline séparé)
+    dpe_path = os.path.join(out_dir, "carte_dpe.html")
+    if os.path.exists(dpe_path):
+        cards += """
+    <a href="carte_dpe.html" class="card">
+      <div class="card-icon">🏷️</div>
+      <div class="card-body">
+        <div class="card-title">DPE · Performance Énergétique</div>
+        <div class="card-desc">Diagnostics · Passoires thermiques · Micro-zones</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>"""
+
     html = f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -856,13 +869,6 @@ def make_index(cfg, stats, out_dir):
     .datamerry-link:hover {{ background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.25); }}
     .method-badge {{ display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; margin-top: 30px; font-size: 13px; color: rgba(255,255,255,0.5); }}
     .method-badge span {{ color: {color}; font-weight: 600; }}
-    .about {{ max-width: 600px; margin: 50px auto 0; padding: 30px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }}
-    .about h2 {{ font-size: 16px; font-weight: 700; color: {color}; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }}
-    .about p {{ font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.7; margin-bottom: 10px; }}
-    .about a {{ color: {color}; text-decoration: none; }}
-    .about a:hover {{ text-decoration: underline; }}
-    .open-data-badge {{ display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.5); }}
-    .open-data-badge span {{ color: {color}; font-weight: 600; }}
     .footer {{ margin-top: 50px; text-align: center; font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.8; }}
   </style>
 </head>
@@ -879,16 +885,8 @@ def make_index(cfg, stats, out_dir):
     <div class="stat"><div class="val">{n_communes}</div><div class="lbl">Communes</div></div>
   </div>
   <div class="cards">{cards}</div>
-  <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
+  <a href="https://datamerry.com" target="_top" class="datamerry-link">← Retour sur datamerry.com</a>
   <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
-  <div class="about">
-    <h2>À propos</h2>
-    <p>Datamerry est un prototype d'analyse foncière utilisant les données ouvertes DVF et DPE pour identifier automatiquement les micro-marchés immobiliers.</p>
-    <p>L'objectif est d'explorer de nouvelles approches de prospection et d'analyse territoriale pour les professionnels de l'immobilier, les collectivités et les investisseurs.</p>
-    <h2 style="margin-top:24px;">Contact</h2>
-    <p>Pour toute question ou retour : <a href="mailto:contact@datamerry.com">contact@datamerry.com</a></p>
-    <div class="open-data-badge">🗂 Built with open data <span>DVF / data.gouv.fr</span></div>
-  </div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>
     Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>

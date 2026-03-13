@@ -825,6 +825,19 @@ def make_index(cfg, stats, out_dir):
       <div class="card-arrow">→</div>
     </a>"""
 
+    # Carte DPE si elle existe (générée par un pipeline séparé)
+    dpe_path = os.path.join(out_dir, "carte_dpe.html")
+    if os.path.exists(dpe_path):
+        cards += """
+    <a href="carte_dpe.html" class="card">
+      <div class="card-icon">🏷️</div>
+      <div class="card-body">
+        <div class="card-title">DPE · Performance Énergétique</div>
+        <div class="card-desc">Diagnostics · Passoires thermiques · Micro-zones</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>"""
+
     html = f"""<!DOCTYPE html>
 <html lang="fr">
 <head>

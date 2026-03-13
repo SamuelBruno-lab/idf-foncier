@@ -705,8 +705,12 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None):
           'M\\u00E9diane zone: <b style="color:#1a1a2e">' + Math.round(medM2).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
           ' <span style="font-size:10px;color:#999">(' + zoneInfo.count + ' tx)</span><br>';
         if (zoneInfo.median_m2_good_dpe) {{
-          dvfHtml += 'M\\u00E9diane DPE A-E: <b style="color:#319834">' + Math.round(zoneInfo.median_m2_good_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+          dvfHtml += 'M\\u00E9diane DPE A-D: <b style="color:#319834">' + Math.round(zoneInfo.median_m2_good_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
             ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_good + ' tx)</span><br>';
+        }}
+        if (zoneInfo.median_m2_mid_dpe) {{
+          dvfHtml += 'M\\u00E9diane DPE E: <b style="color:#fbcc05">' + Math.round(zoneInfo.median_m2_mid_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_mid + ' tx)</span><br>';
         }}
         if (zoneInfo.median_m2_bad_dpe) {{
           dvfHtml += 'M\\u00E9diane DPE F-G: <b style="color:#ef1d29">' + Math.round(zoneInfo.median_m2_bad_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
@@ -716,7 +720,10 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None):
         if (zoneInfo.median_m2_good_dpe && zoneInfo.median_m2_bad_dpe) {{
           var decote = ((zoneInfo.median_m2_good_dpe - zoneInfo.median_m2_bad_dpe) / zoneInfo.median_m2_good_dpe * 100);
           if (decote > 0) {{
-            var estVal = (dpe >= 5) ? Math.round(p[4] * zoneInfo.median_m2_bad_dpe) : Math.round(p[4] * zoneInfo.median_m2_good_dpe);
+            var estVal;
+            if (dpe >= 5) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_bad_dpe); }}
+            else if (dpe === 4 && zoneInfo.median_m2_mid_dpe) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_mid_dpe); }}
+            else {{ estVal = Math.round(p[4] * zoneInfo.median_m2_good_dpe); }}
             dvfHtml += '<div style="margin-top:4px;padding:5px 8px;background:#ef1d2912;border-left:3px solid #ef1d29;border-radius:0 4px 4px 0;font-size:11px;line-height:1.5">' +
               '\\u26A0\\uFE0F <b>D\\u00E9cote passoire \\u00E9nerg\\u00E9tique: -' + decote.toFixed(0) + '%</b><br>' +
               '<span style="color:#666">Valeur estim\\u00E9e (' + p[4] + ' m\\u00B2): <b>' + estVal.toLocaleString('fr') + ' \\u20AC</b></span>' +
@@ -845,12 +852,15 @@ def compute_dvf_zone_stats(dvf):
         if "matched_dpe" in sub.columns:
             matched = sub.dropna(subset=["matched_dpe"])
             if len(matched) >= 3:
-                good = matched[matched["matched_dpe"].isin(["A", "B", "C", "D", "E"])]
+                good = matched[matched["matched_dpe"].isin(["A", "B", "C", "D"])]
+                mid = matched[matched["matched_dpe"] == "E"]
                 bad = matched[matched["matched_dpe"].isin(["F", "G"])]
                 zone["median_m2_good_dpe"] = float(good["prix_m2"].median()) if len(good) >= 3 else None
+                zone["median_m2_mid_dpe"] = float(mid["prix_m2"].median()) if len(mid) >= 3 else None
                 zone["median_m2_bad_dpe"] = float(bad["prix_m2"].median()) if len(bad) >= 3 else None
                 zone["n_matched"] = len(matched)
                 zone["n_good"] = len(good)
+                zone["n_mid"] = len(mid)
                 zone["n_bad"] = len(bad)
         stats[int(cid)] = zone
     return stats

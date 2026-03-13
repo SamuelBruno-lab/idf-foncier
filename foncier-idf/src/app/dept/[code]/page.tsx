@@ -24,22 +24,24 @@ const DEPT_INFO: Record<string, { nom: string; nomFull: string; color: string; d
   "94": { nom: "94", nomFull: "Val-de-Marne", color: "#a78bfa", description: "Vincennes, Créteil · rendements surprenants", emoji: "🏆" },
   "95": { nom: "95", nomFull: "Val-d'Oise", color: "#f59e0b", description: "Cergy, Argenteuil · prix attractifs", emoji: "🌿" },
   "91": { nom: "91", nomFull: "Essonne", color: "#10b981", description: "Évry, Massy · fort rendement locatif", emoji: "🚀" },
+  "78": { nom: "78", nomFull: "Yvelines", color: "#6366f1", description: "Versailles, Saint-Germain · marché résidentiel", emoji: "🏰" },
   "77": { nom: "77", nomFull: "Seine-et-Marne", color: "#f97316", description: "Melun, Meaux · marché maisons", emoji: "🏡" },
   "60": { nom: "60", nomFull: "Oise", color: "#ec4899", description: "Creil, Senlis · prix accessibles hors IDF", emoji: "🌾" },
 };
 
-const DEPT_ORDER = ["75", "92", "93", "94", "95", "91", "77", "60"];
+const DEPT_ORDER = ["75", "92", "93", "94", "78", "95", "91", "77", "60"];
 
 // Cartes statiques GitHub Pages
 const STATIC_MAPS: Record<string, string> = {
-  "60": "https://samuelbruno-lab.github.io/oise-foncier/",
-  "75": "https://samuelbruno-lab.github.io/paris-foncier/",
-  "77": "https://samuelbruno-lab.github.io/seine-et-marne-foncier/",
-  "91": "https://samuelbruno-lab.github.io/essonne-foncier/",
-  "92": "https://samuelbruno-lab.github.io/hauts-de-seine-foncier/",
-  "93": "https://samuelbruno-lab.github.io/seine-saint-denis-foncier/",
-  "94": "https://samuelbruno-lab.github.io/val-de-marne-foncier/",
-  "95": "https://samuelbruno-lab.github.io/val-d-oise-foncier/",
+  "60": "https://samuelbruno-lab.github.io/oise-foncier/carte_dpe.html",
+  "75": "https://samuelbruno-lab.github.io/paris-foncier/carte_dpe.html",
+  "77": "https://samuelbruno-lab.github.io/seine-et-marne-foncier/carte_dpe.html",
+  "78": "https://samuelbruno-lab.github.io/yvelines-foncier/carte_dpe.html",
+  "91": "https://samuelbruno-lab.github.io/essonne-foncier/carte_dpe.html",
+  "92": "https://samuelbruno-lab.github.io/hauts-de-seine-foncier/carte_dpe.html",
+  "93": "https://samuelbruno-lab.github.io/seine-saint-denis-foncier/carte_dpe.html",
+  "94": "https://samuelbruno-lab.github.io/val-de-marne-foncier/carte_dpe.html",
+  "95": "https://samuelbruno-lab.github.io/val-d-oise-foncier/carte_dpe.html",
 };
 
 type CommuneSuggestion = { code: string; nom: string };

@@ -22,7 +22,7 @@ DEPT_CONFIG = {
         "nom": "Oise", "code": "60",
         "gradient": ("90deg", "#ffdd00", "#ffffff", "#ec4899"),
         "color": "#ec4899",
-        "csv_years": {2020: "/home/user/dvf_60.csv"},  # pas d'années séparées
+        "csv_years": {},
         "csv_global": "/home/user/dvf_60.csv",
         "zoom": 10, "repo": "oise-foncier",
     },
@@ -371,6 +371,18 @@ def load_data(cfg):
     if not frames:
         raise RuntimeError("Aucune donnée chargée")
     data = pd.concat(frames, ignore_index=True)
+    # Filtrer 2024 + 1er semestre 2025 (Paris 75 = 2025 seulement)
+    if "date_mutation" in data.columns:
+        data["date_mutation"] = pd.to_datetime(data["date_mutation"], errors="coerce")
+        before = len(data)
+        if cfg["code"] == "75":
+            data = data[data["date_mutation"].dt.year == 2025]
+            print(f"  Filtre Paris 2025 only: {before} → {len(data)} lignes")
+        else:
+            data = data[data["date_mutation"].dt.year.isin([2024, 2025])]
+            print(f"  Filtre 2024+2025: {before} → {len(data)} lignes")
+        # Recalculer annee à partir de date_mutation (corrige csv_years forcé)
+        data["annee"] = data["date_mutation"].dt.year.astype(int)
     data = data.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
     data = data[data["valeur_fonciere"] > 1]
     data["valeur_fonciere"] = pd.to_numeric(data["valeur_fonciere"], errors="coerce")

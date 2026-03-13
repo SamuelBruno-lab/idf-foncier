@@ -340,7 +340,7 @@ export default function HomePage() {
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
               Explorer par département
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               {DEPTS.map((d) => (
                 <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
                   <div

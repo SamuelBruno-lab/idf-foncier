@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Map, { NavigationControl } from "react-map-gl/mapbox";
+import Map, { NavigationControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { GeoJsonLayer } from "@deck.gl/layers";
 
-import "mapbox-gl/dist/mapbox-gl.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 type ParcelBBoxItem = {
   parcel_id: string;
@@ -21,8 +21,6 @@ type Props = {
   onSelectParcel: (id: string) => void;
   insee?: string;
 };
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const INITIAL_VIEW = {
   longitude: 2.335,
@@ -119,14 +117,6 @@ export default function FoncierMap({
     });
   }, [features, onSelectParcel]);
 
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-neutral-600">
-        NEXT_PUBLIC_MAPBOX_TOKEN est manquant.
-      </div>
-    );
-  }
-
   return (
     <div className="relative h-full w-full">
       {loading && (
@@ -144,8 +134,7 @@ export default function FoncierMap({
         }}
       >
         <Map
-          mapboxAccessToken={MAPBOX_TOKEN}
-          mapStyle="mapbox://styles/mapbox/light-v11"
+          mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         >
           <NavigationControl position="top-right" />
         </Map>

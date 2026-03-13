@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Map from "react-map-gl/mapbox";
+import Map from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import type { PickingInfo } from "@deck.gl/core";
-import "mapbox-gl/dist/mapbox-gl.css";
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+import "maplibre-gl/dist/maplibre-gl.css";
 
 interface Zone {
   id: string;
@@ -232,8 +230,7 @@ export default function ZonesMap({ zones }: Props) {
         style={{ height: "420px", position: "relative" }}
       >
         <Map
-          mapboxAccessToken={MAPBOX_TOKEN}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         />
       </DeckGL>
 

@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
-import Map, { NavigationControl, ScaleControl, Marker } from "react-map-gl/mapbox";
+import Map, { NavigationControl, ScaleControl, Marker } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import type { PickingInfo } from "@deck.gl/core";
 import type { DvfPoint, DvfCluster, DvfFilters } from "@/types/dvf";
-import "mapbox-gl/dist/mapbox-gl.css";
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+import "maplibre-gl/dist/maplibre-gl.css";
 
 const INITIAL_VIEW = {
   longitude: 2.347,
@@ -295,8 +293,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
         getCursor={() => cursor}
       >
         <Map
-          mapboxAccessToken={MAPBOX_TOKEN}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
           reuseMaps
         >
           <NavigationControl position="top-right" />

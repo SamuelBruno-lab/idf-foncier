@@ -56,8 +56,8 @@ DATASETS = {
                   "type_batiment,date_reception_dpe,nom_commune_ban,code_postal_ban,"
                   "adresse_ban,periode_construction,type_energie_principale_chauffage,"
                   "conso_5_usages_par_m2_ep,emission_ges_5_usages_par_m2,_rand",
-        "max_records": 50000,
-        "sort": "_rand",  # random sampling — no temporal/spatial bias
+        "max_records": 800000,
+        "sort": "_rand",
         "conso_field": "conso_5_usages_par_m2_ep",
         "ges_field": "emission_ges_5_usages_par_m2",
         "surface_field": "surface_habitable_logement",
@@ -139,7 +139,7 @@ def fetch_dpe(dataset_key, dept_code):
         if not after:
             break
         if len(records) % 5000 == 0:
-            print(f"    {len(records)} records...", end="\r")
+            print(f"    {len(records)} records...", flush=True)
 
     print(f"  [{dataset_key}] {len(records)} DPE fetched for dept {dept_code}")
     return records, dataset_key
@@ -183,16 +183,38 @@ def records_to_dataframe(records, dataset_key):
 
 
 # ── HDBSCAN ───────────────────────────────────────────────────────────────
+HDBSCAN_MAX_POINTS = 100_000  # au-delà, on échantillonne pour éviter OOM
+
 def run_hdbscan(data, min_cluster_size=30):
-    coords = np.radians(data[["latitude", "longitude"]].values)
+    from sklearn.neighbors import BallTree
+    data = data.copy()
+    n_total = len(data)
+    coords_all = np.radians(data[["latitude", "longitude"]].values)
+
+    if n_total > HDBSCAN_MAX_POINTS:
+        print(f"  {n_total:,} points > {HDBSCAN_MAX_POINTS:,} → échantillonnage pour HDBSCAN")
+        sample_idx = np.random.choice(n_total, HDBSCAN_MAX_POINTS, replace=False)
+        coords_sample = coords_all[sample_idx]
+    else:
+        sample_idx = None
+        coords_sample = coords_all
+
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=5,
         metric="haversine",
         cluster_selection_method="eom",
     )
-    data = data.copy()
-    data["cluster"] = clusterer.fit_predict(coords)
+    labels_sample = clusterer.fit_predict(coords_sample)
+
+    if sample_idx is not None:
+        # Propager les labels aux points non-échantillonnés via nearest neighbor
+        tree = BallTree(coords_sample, metric="haversine")
+        _, idx = tree.query(coords_all, k=1)
+        data["cluster"] = labels_sample[idx.flatten()]
+    else:
+        data["cluster"] = labels_sample
+
     n = int(data[data["cluster"] >= 0]["cluster"].nunique())
     print(f"  Micro-zones DPE : {n}")
     return data

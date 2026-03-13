@@ -872,7 +872,7 @@ def make_index(cfg, stats, out_dir):
     <div class="stat"><div class="val">{n_communes}</div><div class="lbl">Communes</div></div>
   </div>
   <div class="cards">{cards}</div>
-  <a href="https://datamerry.com/dept/{dept_code}" class="datamerry-link">← Retour sur datamerry.com</a>
+  <a href="https://datamerry.com" target="_top" class="datamerry-link">← Retour sur datamerry.com</a>
   <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
   <div class="footer">
     © 2026 Samuel Bruno · Analyse Foncière · {dept_nom} ({dept_code})<br>

@@ -11,6 +11,7 @@ const DEPTS = [
   { code: "93", shortName: "Seine-St-Denis", color: "#00ff88" },
   { code: "94", shortName: "Val-de-Marne", color: "#a78bfa" },
   { code: "95", shortName: "Val-d'Oise", color: "#f59e0b" },
+  { code: "78", shortName: "Yvelines", color: "#06b6d4" },
   { code: "91", shortName: "Essonne", color: "#10b981" },
   { code: "77", shortName: "Seine-et-Marne", color: "#f97316" },
   { code: "60", shortName: "Oise", color: "#ec4899" },

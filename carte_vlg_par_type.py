@@ -259,7 +259,7 @@ raw = raw.dropna(subset=["valeur_fonciere"])
 SEUIL_PRIX_M2_MAX = {"Maison": 9000, "Appartement": 12000,
                      "Local industriel. commercial ou assimilé": 12000}
 SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
-                     "Local industriel. commercial ou assimilé": 200}
+                     "Local industriel. commercial ou assimilé": 500}
 for tl, seuil in SEUIL_PRIX_M2_MAX.items():
     mask = (raw["type_local"] == tl) & (raw["prix_m2"] > seuil)
     n = mask.sum()
@@ -290,7 +290,7 @@ for cid in np.unique(pure_cluster_labels[pure_cluster_labels >= 0]):
     median_m2_by_cluster_type[int(cid)] = {}
     for tl in subset_c["type_local"].dropna().unique():
         vals = subset_c[subset_c["type_local"] == tl]["prix_m2"]
-        if len(vals) >= 3:
+        if len(vals) >= 10:
             median_m2_by_cluster_type[int(cid)][tl] = float(vals.median())
             print(f"  Zone {cid} · {tl}: {median_m2_by_cluster_type[int(cid)][tl]:,.0f} €/m² ({len(vals)} tx)")
 

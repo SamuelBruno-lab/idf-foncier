@@ -412,8 +412,8 @@ def load_data(cfg):
                          "Local industriel. commercial ou assimilé": 12000,
                          "Local commercial": 12000}
     SEUIL_PRIX_M2_MIN = {"Maison": 500, "Appartement": 500,
-                         "Local industriel. commercial ou assimilé": 200,
-                         "Local commercial": 200}
+                         "Local industriel. commercial ou assimilé": 500,
+                         "Local commercial": 500}
     if "type_local" in data.columns:
         for tl, seuil in SEUIL_PRIX_M2_MAX.items():
             mask = (data["type_local"] == tl) & (data["prix_m2"] > seuil)
@@ -444,7 +444,7 @@ def load_data(cfg):
         if "type_local" in subset_c.columns:
             for tl in subset_c["type_local"].dropna().unique():
                 vals = subset_c[subset_c["type_local"] == tl]["prix_m2"]
-                if len(vals) >= 3:
+                if len(vals) >= 10:
                     median_m2_by_cluster_type[int(cid)][tl] = float(vals.median())
                     print(f"  Zone {cid} · {tl}: {median_m2_by_cluster_type[int(cid)][tl]:,.0f} €/m² ({len(vals)} tx)")
     # Médiane par parcelle ET type (référence si parcelle isolée avec beaucoup de ventes)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
+import { Resend } from "resend";
 
 function getSupabase() {
   return createClient(
@@ -57,6 +58,28 @@ export async function POST(req: NextRequest) {
   if (error) {
     console.error("leads insert error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+
+  // Notification email non-bloquante
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    resend.emails.send({
+      from: "datamerry <no-reply@datamerry.com>",
+      to: "contact@datamerry.com",
+      subject: `[datamerry] Nouveau lead · ${nom || email}`,
+      text: [
+        `Nouvelle inscription accès anticipé.`,
+        ``,
+        `Prénom   : ${prenom || "—"}`,
+        `Nom      : ${nom_famille || "—"}`,
+        `Email    : ${email}`,
+        `Société  : ${societe || "—"}`,
+        `Téléphone: ${telephone || "—"}`,
+        `Source   : ${(body.source ?? "carte_idf")}`,
+        ``,
+        `→ Supabase leads : https://supabase.com/dashboard/project/zexkxstcwkdsqjgsppvx/editor`,
+      ].join("\n"),
+    }).catch((err: unknown) => console.error("resend lead notification error:", err));
   }
 
   return NextResponse.json({ ok: true });

@@ -372,8 +372,29 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* CTAs — 4 boutons centrés */}
+          {/* CTAs — 5 boutons centrés */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            <Link href="/foncier" style={{ textDecoration: "none" }}>
+              <div
+                style={{
+                  padding: "14px 32px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "linear-gradient(135deg, #00ff88, #00d4ff)",
+                  color: "#0a0a1e",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  fontFamily: "Segoe UI, sans-serif",
+                  transition: "transform 0.15s",
+                  boxShadow: "0 4px 24px rgba(0,212,255,0.3)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              >
+                Trouver 50 terrains mutables en IDF
+              </div>
+            </Link>
             <button
               onClick={() => setShowHero(false)}
               style={{
@@ -391,7 +412,7 @@ export default function HomePage() {
               onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              Carte IDF complète →
+              Carte DVF IDF →
             </button>
             <Link href="/actualites" style={{ textDecoration: "none" }}>
               <div

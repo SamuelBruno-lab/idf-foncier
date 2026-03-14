@@ -3,6 +3,7 @@
 type ParcelListItem = {
   parcel_id: string;
   insee_code: string;
+  city_name?: string | null;
   area_m2: number | null;
   mutability_score: number | null;
   best_use: string | null;
@@ -83,7 +84,7 @@ export default function FoncierResultsList({
                       selected ? "text-neutral-300" : "text-neutral-500"
                     }`}
                   >
-                    #{index + 1} · {item.parcel_id}
+                    #{index + 1} · {item.city_name ?? item.insee_code} · {item.parcel_id}
                   </div>
                   <div className="mt-1 text-sm font-semibold">
                     {BEST_USE_LABELS[item.best_use ?? ""] ?? item.best_use ?? "Analyse complémentaire"}

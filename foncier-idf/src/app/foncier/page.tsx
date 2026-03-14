@@ -19,6 +19,7 @@ const FoncierMap = dynamic(
 type ParcelListItem = {
   parcel_id: string;
   insee_code: string;
+  city_name?: string | null;
   area_m2: number | null;
   mutability_score: number | null;
   best_use: string | null;
@@ -61,6 +62,7 @@ function exportRowsToCsv(rows: ParcelListItem[]) {
   const headers = [
     "parcel_id",
     "insee_code",
+    "city_name",
     "area_m2",
     "mutability_score",
     "best_use",
@@ -81,6 +83,7 @@ function exportRowsToCsv(rows: ParcelListItem[]) {
       [
         row.parcel_id,
         row.insee_code,
+        row.city_name ?? "",
         row.area_m2,
         row.mutability_score,
         row.best_use,

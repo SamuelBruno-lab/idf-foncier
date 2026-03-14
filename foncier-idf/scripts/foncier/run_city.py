@@ -50,24 +50,29 @@ def main() -> None:
         "insee_code": insee,
     })
 
-    # Étape 3 : constructibilité
+    # Étape 3 : constructibilité (avec règles PLU)
     run_step("constructibility", "03_compute_constructibility.sql", {
         "insee_code": insee,
         "default_max_height_u": s.default_max_height_u,
         "default_max_footprint_u": s.default_max_footprint_u,
         "default_green_ratio_u": s.default_green_ratio_u,
         "default_setback_penalty": s.default_setback_penalty,
-        "default_parking_penalty": s.default_parking_penalty,
+        "default_parking_penalty": 1.0,  # plus de pénalité forfaitaire, coût réel dans scores
     })
 
-    # Étape 4 : scores
+    # Étape 4 : scores (bilan promoteur ICH)
     run_step("scores", "04_compute_scores.sql", {
         "insee_code": insee,
         "sellable_ratio": s.sellable_ratio,
         "construction_cost_m2": s.construction_cost_m2,
-        "vrd_cost_m2": s.vrd_cost_m2,
-        "sales_fee_ratio": s.sales_fee_ratio,
+        "vrd_cost_m2_terrain": s.vrd_cost_m2_terrain,
+        "commercialisation_ratio": s.commercialisation_ratio,
+        "frais_financiers_ratio": s.frais_financiers_ratio,
         "margin_ratio": s.margin_ratio,
+        "parking_cost_per_place": s.parking_cost_per_place,
+        "parking_surface_per_place": s.parking_surface_per_place,
+        "taxe_valeur_forfaitaire": s.taxe_amenagement_valeur_forfaitaire,
+        "taxe_taux_default": s.taxe_amenagement_taux_default,
     })
 
     logger.info("=== Pipeline foncier terminé — insee=%s ===", insee or "ALL")

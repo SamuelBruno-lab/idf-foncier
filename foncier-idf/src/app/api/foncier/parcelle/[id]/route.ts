@@ -84,11 +84,20 @@ export async function GET(_req: NextRequest, { params }: Params) {
       data = fallback.data as any;
       error = fallback.error;
 
-      // Extract coverage_ratio from explanation_json if available
+      // Extract fields from explanation_json if available
       if (data) {
         const ej = (data as Record<string, unknown>).explanation_json as Record<string, unknown> | null;
         (data as Record<string, unknown>).coverage_ratio = ej?.coverage_ratio ?? null;
         (data as Record<string, unknown>).hdbscan_zone_id = null;
+        (data as Record<string, unknown>).existing_gfa_est = ej?.existing_gfa_est ?? null;
+        (data as Record<string, unknown>).built_footprint_m2 = ej?.built_footprint_m2 ?? null;
+        (data as Record<string, unknown>).building_count = ej?.building_count ?? null;
+        (data as Record<string, unknown>).plu_zone_code = ej?.plu_zone_code ?? null;
+        (data as Record<string, unknown>).zone_vocation = ej?.zone_vocation ?? null;
+        (data as Record<string, unknown>).ces_applied = ej?.ces_applied ?? null;
+        (data as Record<string, unknown>).max_height_est = ej?.max_height_est ?? null;
+        (data as Record<string, unknown>).setback_front_m = ej?.setback_front_m ?? null;
+        (data as Record<string, unknown>).setback_side_m = ej?.setback_side_m ?? null;
       }
     }
 

@@ -60,19 +60,9 @@ def main() -> None:
         "default_parking_penalty": 1.0,  # plus de pénalité forfaitaire, coût réel dans scores
     })
 
-    # Étape 4 : scores (bilan promoteur ICH)
+    # Étape 4 : scores (sous-exploitation + marché + zonage + taille)
     run_step("scores", "04_compute_scores.sql", {
         "insee_code": insee,
-        "sellable_ratio": s.sellable_ratio,
-        "construction_cost_m2": s.construction_cost_m2,
-        "vrd_cost_m2_terrain": s.vrd_cost_m2_terrain,
-        "commercialisation_ratio": s.commercialisation_ratio,
-        "frais_financiers_ratio": s.frais_financiers_ratio,
-        "margin_ratio": s.margin_ratio,
-        "parking_cost_per_place": s.parking_cost_per_place,
-        "parking_surface_per_place": s.parking_surface_per_place,
-        "taxe_valeur_forfaitaire": s.taxe_amenagement_valeur_forfaitaire,
-        "taxe_taux_default": s.taxe_amenagement_taux_default,
     })
 
     logger.info("=== Pipeline foncier terminé — insee=%s ===", insee or "ALL")

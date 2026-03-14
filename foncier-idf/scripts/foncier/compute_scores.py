@@ -25,19 +25,6 @@ def main() -> None:
         sql_path,
         {
             "insee_code": args.insee_code,
-            # Bilan promoteur ICH
-            "sellable_ratio": s.sellable_ratio,
-            "construction_cost_m2": s.construction_cost_m2,
-            "vrd_cost_m2_terrain": s.vrd_cost_m2_terrain,
-            "commercialisation_ratio": s.commercialisation_ratio,
-            "frais_financiers_ratio": s.frais_financiers_ratio,
-            "margin_ratio": s.margin_ratio,
-            # Parking
-            "parking_cost_per_place": s.parking_cost_per_place,
-            "parking_surface_per_place": s.parking_surface_per_place,
-            # Taxe d'aménagement
-            "taxe_valeur_forfaitaire": s.taxe_amenagement_valeur_forfaitaire,
-            "taxe_taux_default": s.taxe_amenagement_taux_default,
         },
     )
     logger.info("Scores computed for insee=%s", args.insee_code)

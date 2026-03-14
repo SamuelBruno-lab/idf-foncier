@@ -104,6 +104,7 @@ export default function DeptPage() {
   }, []);
 
   const fetchData = useCallback(async () => {
+    if (staticMapUrl) return; // pas besoin de fetch si on affiche un iframe
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -121,7 +122,7 @@ export default function DeptPage() {
       else { setClusters(json.data ?? []); setPoints([]); }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
-  }, [filters, zoom, mode, code]);
+  }, [filters, zoom, mode, code, staticMapUrl]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -130,14 +131,24 @@ export default function DeptPage() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>
 
-      <DvfMap
-        points={points}
-        clusters={clusters}
-        mode={mode}
-        filters={filters}
-        isLoading={isLoading}
-        onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
-      />
+      {/* === CARTE : iframe statique OU DvfMap dynamique === */}
+      {staticMapUrl ? (
+        <iframe
+          src={staticMapUrl}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", zIndex: 1 }}
+          title={`Carte foncière ${dept.nomFull}`}
+          allowFullScreen
+        />
+      ) : (
+        <DvfMap
+          points={points}
+          clusters={clusters}
+          mode={mode}
+          filters={filters}
+          isLoading={isLoading}
+          onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
+        />
+      )}
 
       {/* === ONGLETS TYPE DE CARTE === */}
       {DEPT_REPOS[code] && (
@@ -247,16 +258,18 @@ export default function DeptPage() {
             </div>
 
         </div>
-      </div>
+      </div>}
 
-      <FilterPanel
-        filters={filters}
-        onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
-        mode={mode}
-        onModeChange={setMode}
-        onLeadClick={() => setShowLeadModal(true)}
-        totalTx={totalTx}
-      />
+      {!staticMapUrl && (
+        <FilterPanel
+          filters={filters}
+          onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
+          mode={mode}
+          onModeChange={setMode}
+          onLeadClick={() => setShowLeadModal(true)}
+          totalTx={totalTx}
+        />
+      )}
 
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
       <div style={{

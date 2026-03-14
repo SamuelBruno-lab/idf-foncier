@@ -19,15 +19,6 @@ type Props = {
   onSelectParcel: (parcelId: string) => void;
 };
 
-function formatCurrency(value: number | null | undefined) {
-  if (value == null) return "—";
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function formatNumber(value: number | null | undefined) {
   if (value == null) return "—";
   return new Intl.NumberFormat("fr-FR", {
@@ -105,13 +96,6 @@ export default function FoncierResultsList({
                 <div className="text-right">
                   <div className="text-sm font-semibold">
                     {item.mutability_score?.toFixed(1) ?? "—"}/10
-                  </div>
-                  <div
-                    className={`mt-1 text-xs ${
-                      selected ? "text-neutral-300" : "text-neutral-600"
-                    }`}
-                  >
-                    {formatCurrency(item.land_value_est)}
                   </div>
                 </div>
               </div>

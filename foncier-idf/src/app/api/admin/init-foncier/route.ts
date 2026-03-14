@@ -6,13 +6,15 @@ const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 function getDbConfig() {
   const ref = "zexkxstcwkdsqjgsppvx";
   const password = process.env.SUPABASE_DB_PASSWORD ?? "11097211Sbr@";
+  // Try direct connection first, fallback configs can be added
   return {
-    host: `aws-0-eu-west-3.pooler.supabase.com`,
+    host: `db.${ref}.supabase.co`,
     port: 5432,
     database: "postgres",
-    user: `postgres.${ref}`,
+    user: "postgres",
     password,
     ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 15000,
   };
 }
 

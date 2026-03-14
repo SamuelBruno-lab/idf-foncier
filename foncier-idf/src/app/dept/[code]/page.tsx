@@ -31,12 +31,45 @@ const DEPT_INFO: Record<string, { nom: string; nomFull: string; color: string; d
 
 const DEPT_ORDER = ["75", "92", "93", "94", "78", "95", "91", "77", "60"];
 
+// Repos GitHub Pages par département
+const DEPT_REPOS: Record<string, string> = {
+  "60": "oise-foncier",
+  "75": "paris-foncier",
+  "77": "seine-et-marne-foncier",
+  "78": "yvelines-foncier",
+  "91": "essonne-foncier",
+  "92": "hauts-de-seine-foncier",
+  "93": "seine-saint-denis-foncier",
+  "94": "val-de-marne-foncier",
+  "95": "val-d-oise-foncier",
+};
+
+const MAP_TABS = [
+  { key: "dpe", label: "DPE", emoji: "🏷️", file: "carte_dpe.html" },
+  { key: "appartements", label: "Appartements", emoji: "🏢", file: "carte_appartements.html" },
+  { key: "maisons", label: "Maisons", emoji: "🏠", file: "carte_maisons.html" },
+  { key: "commerces", label: "Commerces", emoji: "🏭", file: "carte_commerces.html" },
+] as const;
+
+function getStaticMapUrl(code: string, mapKey: string): string | undefined {
+  const repo = DEPT_REPOS[code];
+  if (!repo) return undefined;
+  const tab = MAP_TABS.find((t) => t.key === mapKey);
+  if (!tab) return undefined;
+  // Paris n'a pas de maisons
+  if (code === "75" && mapKey === "maisons") return undefined;
+  return `https://samuelbruno-lab.github.io/${repo}/${tab.file}`;
+}
+
 type CommuneSuggestion = { code: string; nom: string };
 
 export default function DeptPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
   const dept = DEPT_INFO[code] ?? { nom: code, nomFull: `Département ${code}`, color: "#00d4ff", description: "", emoji: "📍" };
+  const [activeTab, setActiveTab] = useState("dpe");
+  const staticMapUrl = getStaticMapUrl(code, activeTab);
+
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"], dept: [code] });
   const [mode, setMode] = useState<"clusters" | "heatmap">("clusters");
   const [points, setPoints] = useState<DvfPoint[]>([]);
@@ -106,8 +139,43 @@ export default function DeptPage() {
         onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
       />
 
-      {/* === HEADER OVERLAY === */}
-      <div style={{
+      {/* === ONGLETS TYPE DE CARTE === */}
+      {DEPT_REPOS[code] && (
+        <div style={{
+          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+          zIndex: 1000, display: "flex", gap: 4,
+          background: "rgba(5,5,20,0.85)", borderRadius: 12,
+          padding: 4, backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255,255,255,0.1)",
+        }}>
+          {MAP_TABS.map((tab) => {
+            if (code === "75" && tab.key === "maisons") return null;
+            const isActive = tab.key === activeTab;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  background: isActive ? `${dept.color}30` : "transparent",
+                  border: `1px solid ${isActive ? dept.color : "transparent"}`,
+                  borderRadius: 8, padding: "7px 14px",
+                  color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
+                  fontSize: 12, fontWeight: isActive ? 700 : 500,
+                  fontFamily: "Segoe UI, sans-serif",
+                  cursor: "pointer", transition: "all 0.15s",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{tab.emoji}</span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* === HEADER OVERLAY (masqué pour les cartes statiques qui ont leur propre header) === */}
+      {!staticMapUrl && <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 900,
         background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
         padding: "14px 20px 60px",

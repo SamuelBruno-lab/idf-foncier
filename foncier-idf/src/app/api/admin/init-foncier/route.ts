@@ -5,7 +5,7 @@ const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function getDbConfigs() {
   const ref = "zexkxstcwkdsqjgsppvx";
-  const password = process.env.SUPABASE_DB_PASSWORD ?? "11097211Sbr@";
+  const password = process.env.SUPABASE_DB_PASSWORD!;
   return [
     // New-style pooler: {ref}.pooler.supabase.com
     { host: `${ref}.pooler.supabase.com`, port: 6543, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "new-pooler:6543" },

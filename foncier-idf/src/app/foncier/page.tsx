@@ -8,6 +8,7 @@ import FoncierFilters, {
 import FoncierResultsList from "@/components/foncier/FoncierResultsList";
 import ParcelDetailsPanel from "@/components/foncier/ParcelDetailsPanel";
 import QuickOpportunityActions from "@/components/foncier/QuickOpportunityActions";
+import FoncierKpiBanner from "@/components/foncier/FoncierKpiBanner";
 
 // Load map client-side only (Mapbox + Deck.GL need window)
 const FoncierMap = dynamic(
@@ -120,6 +121,27 @@ export default function FoncierPage() {
     () => results.find((item) => item.parcel_id === selectedParcelId) ?? null,
     [results, selectedParcelId]
   );
+
+  const kpiItems = useMemo(() => {
+    if (results.length === 0) return [];
+    const scores = results.map((r) => r.mutability_score ?? 0);
+    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const totalValue = results.reduce((a, r) => a + (r.land_value_est ?? 0), 0);
+    const topCount = results.filter((r) => (r.mutability_score ?? 0) >= 8).length;
+    return [
+      { label: "Score moyen", value: avgScore.toFixed(1) },
+      {
+        label: "Valeur totale",
+        value:
+          totalValue >= 1_000_000_000
+            ? `${(totalValue / 1_000_000_000).toFixed(1)} Md€`
+            : totalValue >= 1_000_000
+            ? `${(totalValue / 1_000_000).toFixed(0)} M€`
+            : `${(totalValue / 1_000).toFixed(0)} k€`,
+      },
+      { label: "Score ≥ 8", value: String(topCount) },
+    ];
+  }, [results]);
 
   // ---- Fetch results from /api/foncier/search ----
   const fetchResults = useCallback(async (nextFilters: FoncierFiltersState) => {
@@ -274,8 +296,15 @@ export default function FoncierPage() {
               onLoad={loadOpportunities}
               onExportCsv={handleExportCsv}
               loading={loadingList}
+              resultCount={results.length}
             />
           </div>
+
+          {kpiItems.length > 0 && (
+            <div className="mb-4">
+              <FoncierKpiBanner items={kpiItems} />
+            </div>
+          )}
 
           <FoncierFilters
             value={filters}
@@ -309,6 +338,7 @@ export default function FoncierPage() {
               selectedParcelId={selectedParcelId}
               onSelectParcel={setSelectedParcelId}
               insee={filters.insee}
+              minScore={filters.minScore}
             />
           </div>
         </section>

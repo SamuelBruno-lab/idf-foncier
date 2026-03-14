@@ -39,6 +39,9 @@ const BEST_USE_LABELS: Record<string, string> = {
   densification_residentielle: "Densification résidentielle",
   division_parcellaire: "Division parcellaire",
   dent_creuse: "Dent creuse",
+  activite_economique: "Activité économique",
+  bureaux_commerces: "Bureaux / Commerces",
+  mixte_logements_activite: "Mixte logements + activité",
   analyse_complementaire: "Analyse complémentaire",
 };
 

@@ -24,7 +24,19 @@ const FULL_SELECT = `
   underuse_ratio,
   median_price_m2,
   hdbscan_zone_id,
-  coverage_ratio
+  coverage_ratio,
+  plu_zone_code,
+  zone_vocation,
+  ces_applied,
+  max_height_est,
+  setback_front_m,
+  setback_side_m,
+  nb_logements_est,
+  nb_parking_places,
+  parking_cost,
+  parking_surface_m2,
+  taxe_amenagement,
+  taxe_amenagement_taux
 `;
 
 const LEGACY_SELECT = `

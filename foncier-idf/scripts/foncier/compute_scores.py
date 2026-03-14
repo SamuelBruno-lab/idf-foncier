@@ -30,6 +30,10 @@ def main() -> None:
             "vrd_cost_m2": s.vrd_cost_m2,
             "sales_fee_ratio": s.sales_fee_ratio,
             "margin_ratio": s.margin_ratio,
+            "parking_cost_per_place": s.parking_cost_per_place,
+            "parking_surface_per_place": s.parking_surface_per_place,
+            "taxe_valeur_forfaitaire": s.taxe_amenagement_valeur_forfaitaire,
+            "taxe_taux_default": s.taxe_amenagement_taux_default,
         },
     )
     logger.info("Scores computed for insee=%s", args.insee_code)

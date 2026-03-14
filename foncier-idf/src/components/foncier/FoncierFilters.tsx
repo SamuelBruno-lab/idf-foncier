@@ -20,6 +20,9 @@ const BEST_USE_OPTIONS = [
   { value: "densification_residentielle", label: "Densification résidentielle" },
   { value: "division_parcellaire", label: "Division parcellaire" },
   { value: "dent_creuse", label: "Dent creuse" },
+  { value: "activite_economique", label: "Activité économique" },
+  { value: "bureaux_commerces", label: "Bureaux / Commerces" },
+  { value: "mixte_logements_activite", label: "Mixte logements + activité" },
   { value: "analyse_complementaire", label: "Analyse complémentaire" },
 ];
 

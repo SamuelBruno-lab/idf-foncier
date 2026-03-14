@@ -28,6 +28,20 @@ export type ParcelDetail = {
   median_price_m2: number | null;
   hdbscan_zone_id: string | null;
   coverage_ratio: number | null;
+  // PLU fields
+  plu_zone_code: string | null;
+  zone_vocation: string | null;
+  ces_applied: number | null;
+  max_height_est: number | null;
+  setback_front_m: number | null;
+  setback_side_m: number | null;
+  // Parking & taxe
+  nb_logements_est: number | null;
+  nb_parking_places: number | null;
+  parking_cost: number | null;
+  parking_surface_m2: number | null;
+  taxe_amenagement: number | null;
+  taxe_amenagement_taux: number | null;
 };
 
 export type ParcelBBoxItem = {

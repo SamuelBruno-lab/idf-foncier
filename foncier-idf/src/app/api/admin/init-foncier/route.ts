@@ -3,9 +3,9 @@ import { Client } from "pg";
 
 const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function getDbConfigs() {
+function getDbConfigs(overridePassword?: string) {
   const ref = "zexkxstcwkdsqjgsppvx";
-  const password = process.env.SUPABASE_DB_PASSWORD!;
+  const password = overridePassword || process.env.SUPABASE_DB_PASSWORD!;
   return [
     // New-style pooler: {ref}.pooler.supabase.com
     { host: `${ref}.pooler.supabase.com`, port: 6543, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "new-pooler:6543" },
@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const step = (body as Record<string, string>).step ?? "all";
+  const dbPassword = (body as Record<string, string>).db_password;
 
-  const configs = getDbConfigs();
+  const configs = getDbConfigs(dbPassword);
   const logs: string[] = [];
   let client: Client | null = null;
 

@@ -17,8 +17,21 @@ import hdbscan
 from scipy.spatial import ConvexHull
 import requests
 from urllib.parse import urlparse, parse_qs
+from sklearn.neighbors import BallTree
 
 # ── Config par département ─────────────────────────────────────────────────
+DVF_CSV = {
+    "60": "/home/user/dvf_60.csv",
+    "75": "/home/user/dvf_75.csv",
+    "77": "/home/user/dvf_77.csv",
+    "78": "/home/user/dvf_78.csv",
+    "91": "/home/user/dvf_91.csv",
+    "92": "/home/user/dvf_92.csv",
+    "93": "/home/user/dvf_93.csv",
+    "94": "/home/user/dvf_94.csv",
+    "95": "/home/user/dvf_95.csv",
+}
+
 DEPT_CONFIG = {
     "60": {"nom": "Oise", "code": "60", "color": "#ec4899", "zoom": 10,
            "gradient": ("90deg", "#ffdd00", "#ffffff", "#ec4899")},
@@ -252,10 +265,16 @@ def dominant_dpe(sub):
 
 
 # ── Compact map generation with filters, search, dynamic dashboard ────────
-def make_dpe_map(data, cfg, out_path):
+def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_subtitle=None):
+    if dvf_zone_stats is None:
+        dvf_zone_stats = {}
     dept_nom = cfg["nom"]
     dept_code = cfg["code"]
     dept_color = cfg["color"]
+    if map_label is None:
+        map_label = f"DPE \\u00B7 {dept_nom} ({dept_code})"
+    if map_subtitle is None:
+        map_subtitle = "Logements existants + neufs + tertiaire \\u00B7 ADEME"
 
     data = apply_jitter(data)
     center = [data["latitude"].mean(), data["longitude"].mean()]
@@ -357,7 +376,7 @@ def make_dpe_map(data, cfg, out_path):
         ])
 
     # Build compact point array
-    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx, adresseIdx]
+    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx, adresseIdx, dvfZone]
     pts_data = []
     for _, row in data.iterrows():
         lat = round(float(row.get("lat_j", row["latitude"])), 4)
@@ -368,7 +387,8 @@ def make_dpe_map(data, cfg, out_path):
         conso = int(round(float(row["conso_m2"]), 0)) if pd.notna(row.get("conso_m2")) else 0
         com_idx = commune_to_idx.get(str(row.get("commune", "")), 0)
         adr_idx = adresse_to_idx.get(str(row.get("adresse", "")), 0)
-        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx, adr_idx])
+        dvf_z = int(row.get("dvf_zone", -1))
+        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx, adr_idx, dvf_z])
 
     # Stats for dashboard
     n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique()) if "cluster" in data.columns else 0
@@ -397,6 +417,7 @@ def make_dpe_map(data, cfg, out_path):
     communes_json = json.dumps(communes_list, separators=(',', ':'), ensure_ascii=False)
     adresses_json = json.dumps(adresses_list, separators=(',', ':'), ensure_ascii=False)
     bboxes_json = json.dumps(com_bboxes, separators=(',', ':'))
+    dvf_stats_json = json.dumps(dvf_zone_stats, separators=(',', ':'))
 
     custom_css = f"""<style>
   .leaflet-popup-content-wrapper {{ border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }}
@@ -495,6 +516,7 @@ def make_dpe_map(data, cfg, out_path):
   var COMMUNES = {communes_json};
   var ADRESSES = {adresses_json};
   var COM_BB = {bboxes_json};
+  var DVF_ZONES = {dvf_stats_json};
   var TOTAL = PTS.length;
   var N_ZONES = {n_clusters};
 
@@ -510,8 +532,8 @@ def make_dpe_map(data, cfg, out_path):
   dash.innerHTML = '<div id="dpe-dash">' +
     '<div class="dpe-hdr">' +
       '<span class="dpe-toggle" id="dpe-tog">\\u25B2</span>' +
-      '<h2>\\uD83C\\uDFF7\\uFE0F DPE \\u00B7 {dept_nom} ({dept_code})</h2>' +
-      '<p>Logements existants + neufs + tertiaire \\u00B7 ADEME</p>' +
+      '<h2>\\uD83C\\uDFF7\\uFE0F ' + {map_label!r} + '</h2>' +
+      '<p>' + {map_subtitle!r} + '</p>' +
     '</div>' +
     '<div class="dpe-body" id="dpe-body">' +
       '<div class="dpe-section">' +
@@ -674,8 +696,49 @@ def make_dpe_map(data, cfg, out_path):
         {{direction: 'top', offset: [0, -6]}}
       );
       var addr = ADRESSES[p[7]] || '';
+      var dvfZone = p[8];
+      var zoneInfo = (dvfZone >= 0 && DVF_ZONES[dvfZone]) ? DVF_ZONES[dvfZone] : null;
+
+      // Build DVF price + décote section
+      var dvfHtml = '';
+      if (zoneInfo) {{
+        var medM2 = zoneInfo.median_m2;
+        dvfHtml += '<hr style="margin:6px 0;border:none;border-top:1px solid #eee;">' +
+          '<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">\\uD83D\\uDCCA Micro-march\\u00E9 DVF (zone ' + dvfZone + ')</div>' +
+          '<div style="font-size:12px;color:#555;line-height:1.7">' +
+          'M\\u00E9diane zone: <b style="color:#1a1a2e">' + Math.round(medM2).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+          ' <span style="font-size:10px;color:#999">(' + zoneInfo.count + ' tx)</span><br>';
+        if (zoneInfo.median_m2_good_dpe) {{
+          dvfHtml += 'M\\u00E9diane DPE A-D: <b style="color:#319834">' + Math.round(zoneInfo.median_m2_good_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_good + ' tx)</span><br>';
+        }}
+        if (zoneInfo.median_m2_mid_dpe) {{
+          dvfHtml += 'M\\u00E9diane DPE E: <b style="color:#fbcc05">' + Math.round(zoneInfo.median_m2_mid_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_mid + ' tx)</span><br>';
+        }}
+        if (zoneInfo.median_m2_bad_dpe) {{
+          dvfHtml += 'M\\u00E9diane DPE F-G: <b style="color:#ef1d29">' + Math.round(zoneInfo.median_m2_bad_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
+            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_bad + ' tx)</span><br>';
+        }}
+        // Décote calculation: compare bad DPE vs good DPE median
+        if (zoneInfo.median_m2_good_dpe && zoneInfo.median_m2_bad_dpe) {{
+          var decote = ((zoneInfo.median_m2_good_dpe - zoneInfo.median_m2_bad_dpe) / zoneInfo.median_m2_good_dpe * 100);
+          if (decote > 0) {{
+            var estVal;
+            if (dpe >= 5) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_bad_dpe); }}
+            else if (dpe === 4 && zoneInfo.median_m2_mid_dpe) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_mid_dpe); }}
+            else {{ estVal = Math.round(p[4] * zoneInfo.median_m2_good_dpe); }}
+            dvfHtml += '<div style="margin-top:4px;padding:5px 8px;background:#ef1d2912;border-left:3px solid #ef1d29;border-radius:0 4px 4px 0;font-size:11px;line-height:1.5">' +
+              '\\u26A0\\uFE0F <b>D\\u00E9cote passoire \\u00E9nerg\\u00E9tique: -' + decote.toFixed(0) + '%</b><br>' +
+              '<span style="color:#666">Valeur estim\\u00E9e (' + p[4] + ' m\\u00B2): <b>' + estVal.toLocaleString('fr') + ' \\u20AC</b></span>' +
+              '</div>';
+          }}
+        }}
+        dvfHtml += '</div>';
+      }}
+
       marker.bindPopup(
-        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:200px">' +
+        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:220px">' +
         '<div style="font-size:15px;font-weight:800;color:' + DPE_COLORS[dpe] + ';margin-bottom:6px">DPE ' + DPE_LABELS[dpe] + '</div>' +
         (addr ? '<div style="font-size:12px;color:#333;font-weight:600;margin-bottom:4px">' + addr + '</div>' : '') +
         '<div style="font-size:12px;color:#555;line-height:1.7">' +
@@ -683,7 +746,8 @@ def make_dpe_map(data, cfg, out_path):
         'Surface: <b>' + p[4] + ' m\\u00B2</b><br>' +
         'Conso: <b>' + p[5] + ' kWh/m\\u00B2/an</b><br>' +
         'Source: ' + SRC_LABELS[src] +
-        '</div></div>'
+        '</div>' + dvfHtml + '</div>',
+        {{maxWidth: 320}}
       );
       group.addLayer(marker);
     }}
@@ -735,6 +799,142 @@ def make_dpe_map(data, cfg, out_path):
     print(f"  ✅ {out_path} ({size_mb:.1f} MB)")
 
 
+# ── DVF cross-referencing ─────────────────────────────────────────────────
+
+def load_dvf(dept_code):
+    """Load DVF CSV for the department, filter apartments, compute prix/m²."""
+    csv_path = DVF_CSV.get(dept_code)
+    if not csv_path or not os.path.exists(csv_path):
+        print(f"  DVF CSV not found for {dept_code}")
+        return pd.DataFrame()
+    df = pd.read_csv(csv_path, low_memory=False)
+    df = df.dropna(subset=["latitude", "longitude", "valeur_fonciere"])
+    # Keep only residential (Appartement + Maison) for meaningful €/m² comparison
+    df = df[df["type_local"].isin(["Appartement", "Maison"])].copy()
+    df["surface_reelle_bati"] = pd.to_numeric(df["surface_reelle_bati"], errors="coerce")
+    df = df[df["surface_reelle_bati"] > 10].copy()
+    df["prix_m2"] = df["valeur_fonciere"] / df["surface_reelle_bati"]
+    # Remove outliers
+    df = df[(df["prix_m2"] > 500) & (df["prix_m2"] < 25000)].copy()
+    # Deduplicate by id_mutation
+    if "id_mutation" in df.columns:
+        df = df.drop_duplicates(subset=["id_mutation"], keep="first")
+    print(f"  DVF chargé : {len(df):,} transactions résidentielles")
+    return df
+
+
+def dvf_hdbscan(dvf, min_cluster_size=30):
+    """Run HDBSCAN on DVF transactions, return dvf with 'dvf_cluster' column."""
+    if dvf.empty:
+        return dvf
+    coords = np.radians(dvf[["latitude", "longitude"]].values)
+    n = len(dvf)
+    mcs = max(min_cluster_size, int(n * 0.005))
+    mcs = min(mcs, 200)
+    cl = hdbscan.HDBSCAN(
+        min_cluster_size=mcs, min_samples=3,
+        metric="haversine", cluster_selection_method="eom",
+    )
+    dvf = dvf.copy()
+    dvf["dvf_cluster"] = cl.fit_predict(coords)
+    n_cl = int(dvf[dvf["dvf_cluster"] >= 0]["dvf_cluster"].nunique())
+    print(f"  DVF micro-marchés : {n_cl}")
+    return dvf
+
+
+def compute_dvf_zone_stats(dvf):
+    """Compute per-zone stats: median €/m² global, and by DPE grade if available."""
+    if dvf.empty or "dvf_cluster" not in dvf.columns:
+        return {}
+    stats = {}
+    for cid, sub in dvf[dvf["dvf_cluster"] >= 0].groupby("dvf_cluster"):
+        zone = {
+            "median_m2": float(sub["prix_m2"].median()),
+            "count": len(sub),
+        }
+        # If DPE grades have been matched, compute per-grade medians
+        if "matched_dpe" in sub.columns:
+            matched = sub.dropna(subset=["matched_dpe"])
+            if len(matched) >= 3:
+                good = matched[matched["matched_dpe"].isin(["A", "B", "C", "D"])]
+                mid = matched[matched["matched_dpe"] == "E"]
+                bad = matched[matched["matched_dpe"].isin(["F", "G"])]
+                zone["median_m2_good_dpe"] = float(good["prix_m2"].median()) if len(good) >= 3 else None
+                zone["median_m2_mid_dpe"] = float(mid["prix_m2"].median()) if len(mid) >= 3 else None
+                zone["median_m2_bad_dpe"] = float(bad["prix_m2"].median()) if len(bad) >= 3 else None
+                zone["n_matched"] = len(matched)
+                zone["n_good"] = len(good)
+                zone["n_mid"] = len(mid)
+                zone["n_bad"] = len(bad)
+        stats[int(cid)] = zone
+    return stats
+
+
+def match_dpe_dvf_proximity(dpe_data, dvf, radius_m=150):
+    """Match each DVF transaction to the nearest DPE record within radius.
+    Returns dvf with 'matched_dpe' column (DPE grade)."""
+    if dvf.empty or dpe_data.empty:
+        return dvf
+
+    dvf = dvf.copy()
+    dpe_coords = np.radians(dpe_data[["latitude", "longitude"]].values)
+    dvf_coords = np.radians(dvf[["latitude", "longitude"]].values)
+
+    # BallTree for fast nearest-neighbor lookup
+    tree = BallTree(dpe_coords, metric="haversine")
+    radius_rad = radius_m / 6_371_000  # Earth radius in meters
+
+    dists, indices = tree.query(dvf_coords, k=1)
+    dists_m = dists.flatten() * 6_371_000
+
+    matched_dpe = []
+    for i, (d, idx) in enumerate(zip(dists_m, indices.flatten())):
+        if d <= radius_m:
+            matched_dpe.append(dpe_data.iloc[idx]["etiquette_dpe"])
+        else:
+            matched_dpe.append(None)
+
+    dvf["matched_dpe"] = matched_dpe
+    n_matched = dvf["matched_dpe"].notna().sum()
+    print(f"  DVF↔DPE matching : {n_matched:,}/{len(dvf):,} transactions matchées ({radius_m}m)")
+    return dvf
+
+
+def assign_dpe_to_dvf_zone(dpe_data, dvf):
+    """Assign each DPE point to the nearest DVF micro-marché centroid."""
+    if dvf.empty or "dvf_cluster" not in dvf.columns:
+        dpe_data = dpe_data.copy()
+        dpe_data["dvf_zone"] = -1
+        return dpe_data
+
+    clustered = dvf[dvf["dvf_cluster"] >= 0]
+    centroids = clustered.groupby("dvf_cluster")[["latitude", "longitude"]].mean()
+    if centroids.empty:
+        dpe_data = dpe_data.copy()
+        dpe_data["dvf_zone"] = -1
+        return dpe_data
+
+    centroid_coords = np.radians(centroids[["latitude", "longitude"]].values)
+    centroid_ids = centroids.index.tolist()
+
+    dpe_coords = np.radians(dpe_data[["latitude", "longitude"]].values)
+    tree = BallTree(centroid_coords, metric="haversine")
+    dists, indices = tree.query(dpe_coords, k=1)
+    dists_m = dists.flatten() * 6_371_000
+
+    dpe_data = dpe_data.copy()
+    zones = []
+    for d, idx in zip(dists_m, indices.flatten()):
+        if d <= 2000:  # within 2km of a DVF zone centroid
+            zones.append(centroid_ids[idx])
+        else:
+            zones.append(-1)
+    dpe_data["dvf_zone"] = zones
+    assigned = sum(1 for z in zones if z >= 0)
+    print(f"  DPE→DVF zone : {assigned:,}/{len(dpe_data):,} assignés")
+    return dpe_data
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 def main():
     if len(sys.argv) < 2:
@@ -776,18 +976,67 @@ def main():
     data = pd.concat(all_frames, ignore_index=True)
     print(f"  Total combiné : {len(data)} DPE ({', '.join(f'{k}: {v}' for k, v in data['source'].value_counts().items())})")
 
-    # 2. Cluster
-    print("\n[2/3] Clustering HDBSCAN...")
+    # 2. Cluster DPE
+    print("\n[2/5] Clustering HDBSCAN DPE...")
     min_cs = 50 if len(data) > 20000 else (30 if len(data) > 5000 else 15)
     data = run_hdbscan(data, min_cluster_size=min_cs)
 
-    # 3. Generate map
-    print("\n[3/3] Génération de la carte DPE...")
-    out_path = os.path.join(out_dir, "carte_dpe.html")
-    make_dpe_map(data, cfg, out_path)
+    # 3. Load DVF + HDBSCAN micro-marchés
+    print("\n[3/5] Chargement DVF + micro-marchés...")
+    dvf = load_dvf(dept_code)
+    dvf_zone_stats = {}
+    if not dvf.empty:
+        dvf = dvf_hdbscan(dvf, min_cluster_size=30)
 
+        # 4. Match DVF↔DPE by spatial proximity (residential DPE only)
+        print("\n[4/5] Matching DVF↔DPE par proximité spatiale...")
+        dpe_residential = data[data["source"] != "tertiaire"]
+        dvf = match_dpe_dvf_proximity(dpe_residential, dvf, radius_m=150)
+        dvf_zone_stats = compute_dvf_zone_stats(dvf)
+
+        print(f"  Stats zones DVF calculées : {len(dvf_zone_stats)} zones avec données prix")
+
+    # 6. Generate separate maps: Habitation + Tertiaire
+    data_hab = data[data["source"] != "tertiaire"].copy()
+    data_ter = data[data["source"] == "tertiaire"].copy()
+
+    # 6a. Carte DPE Habitation
+    if len(data_hab) > 0:
+        print(f"\n[5/6] Génération carte DPE Habitation ({len(data_hab):,} DPE)...")
+        # Re-cluster habitation data
+        min_cs_h = 50 if len(data_hab) > 20000 else (30 if len(data_hab) > 5000 else 15)
+        data_hab = run_hdbscan(data_hab, min_cluster_size=min_cs_h)
+        if not dvf.empty:
+            data_hab = assign_dpe_to_dvf_zone(data_hab, dvf)
+        else:
+            data_hab["dvf_zone"] = -1
+        out_hab = os.path.join(out_dir, "carte_dpe_habitation.html")
+        make_dpe_map(data_hab, cfg, out_hab, dvf_zone_stats=dvf_zone_stats,
+                     map_label=f"DPE Habitation \\u00B7 {cfg['nom']} ({dept_code})",
+                     map_subtitle="Logements existants + neufs \\u00B7 ADEME")
+    else:
+        print("  Aucune donnée DPE habitation.")
+
+    # 6b. Carte DPE Tertiaire
+    if len(data_ter) > 0:
+        print(f"\n[6/6] Génération carte DPE Tertiaire ({len(data_ter):,} DPE)...")
+        min_cs_t = 50 if len(data_ter) > 20000 else (30 if len(data_ter) > 5000 else 15)
+        data_ter = run_hdbscan(data_ter, min_cluster_size=min_cs_t)
+        if not dvf.empty:
+            data_ter = assign_dpe_to_dvf_zone(data_ter, dvf)
+        else:
+            data_ter["dvf_zone"] = -1
+        out_ter = os.path.join(out_dir, "carte_dpe_tertiaire.html")
+        make_dpe_map(data_ter, cfg, out_ter, dvf_zone_stats=dvf_zone_stats,
+                     map_label=f"DPE Tertiaire \\u00B7 {cfg['nom']} ({dept_code})",
+                     map_subtitle="B\\u00E2timents tertiaires \\u00B7 ADEME")
+    else:
+        print("  Aucune donnée DPE tertiaire.")
+
+    n_hab = len(data_hab) if len(data_hab) > 0 else 0
+    n_ter = len(data_ter) if len(data_ter) > 0 else 0
     print(f"\n✅ Pipeline DPE terminé pour {cfg['nom']} ({dept_code})")
-    print(f"   {len(data):,} DPE · Fichiers dans : {out_dir}")
+    print(f"   {n_hab:,} DPE habitation · {n_ter:,} DPE tertiaire · {len(dvf_zone_stats)} zones DVF · Fichiers dans : {out_dir}")
 
 
 if __name__ == "__main__":

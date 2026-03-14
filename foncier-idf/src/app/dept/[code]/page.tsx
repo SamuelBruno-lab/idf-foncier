@@ -104,7 +104,6 @@ export default function DeptPage() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (staticMapUrl) return; // pas besoin de fetch si on affiche un iframe
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -122,7 +121,7 @@ export default function DeptPage() {
       else { setClusters(json.data ?? []); setPoints([]); }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
-  }, [filters, zoom, mode, code, staticMapUrl]);
+  }, [filters, zoom, mode, code]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -131,24 +130,14 @@ export default function DeptPage() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>
 
-      {/* === CARTE : iframe statique OU DvfMap dynamique === */}
-      {staticMapUrl ? (
-        <iframe
-          src={staticMapUrl}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", zIndex: 1 }}
-          title={`Carte foncière ${dept.nomFull}`}
-          allowFullScreen
-        />
-      ) : (
-        <DvfMap
-          points={points}
-          clusters={clusters}
-          mode={mode}
-          filters={filters}
-          isLoading={isLoading}
-          onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
-        />
-      )}
+      <DvfMap
+        points={points}
+        clusters={clusters}
+        mode={mode}
+        filters={filters}
+        isLoading={isLoading}
+        onCommuneClick={(c) => window.open(`/analyse/${c}`, "_blank")}
+      />
 
       {/* === ONGLETS TYPE DE CARTE === */}
       {DEPT_REPOS[code] && (
@@ -223,9 +212,7 @@ export default function DeptPage() {
 
         {/* Droite : search + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "all", flexWrap: "wrap" }}>
-          {/* Search — uniquement pour depts dynamiques */}
-          {!staticMapUrl && (
-            <div ref={searchRef} style={{ position: "relative", width: 240 }}>
+          <div ref={searchRef} style={{ position: "relative", width: 240 }}>
               <input
                 type="text"
                 placeholder={`Chercher dans le ${code}…`}
@@ -258,22 +245,18 @@ export default function DeptPage() {
                 </div>
               )}
             </div>
-          )}
 
         </div>
-      </div>}
+      </div>
 
-      {/* === FILTER PANEL (uniquement pour les depts dynamiques) === */}
-      {!staticMapUrl && (
-        <FilterPanel
-          filters={filters}
-          onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
-          mode={mode}
-          onModeChange={setMode}
-          onLeadClick={() => setShowLeadModal(true)}
-          totalTx={totalTx}
-        />
-      )}
+      <FilterPanel
+        filters={filters}
+        onFiltersChange={(f) => setFilters({ ...f, dept: [code] })}
+        mode={mode}
+        onModeChange={setMode}
+        onLeadClick={() => setShowLeadModal(true)}
+        totalTx={totalTx}
+      />
 
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
       <div style={{

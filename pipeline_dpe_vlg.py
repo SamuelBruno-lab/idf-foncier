@@ -116,13 +116,34 @@ def main():
     min_cs = 15 if len(data) > 2000 else 8
     data = run_hdbscan(data, min_cluster_size=min_cs)
 
-    # 3. Generate map
-    print("\n[3/3] Génération de la carte DPE...")
-    out_path = os.path.join(out_dir, "carte_dpe.html")
-    make_dpe_map(data, cfg, out_path)
+    # 3. Generate separate maps: Habitation + Tertiaire
+    data_hab = data[data["source"] != "tertiaire"].copy()
+    data_ter = data[data["source"] == "tertiaire"].copy()
 
+    if len(data_hab) > 0:
+        print(f"\n[3/4] Génération carte DPE Habitation ({len(data_hab):,} DPE)...")
+        min_cs_h = 15 if len(data_hab) > 2000 else 8
+        data_hab = run_hdbscan(data_hab, min_cluster_size=min_cs_h)
+        data_hab["dvf_zone"] = -1
+        out_hab = os.path.join(out_dir, "carte_dpe_habitation.html")
+        make_dpe_map(data_hab, cfg, out_hab,
+                     map_label=f"DPE Habitation \u00B7 {cfg['nom']}",
+                     map_subtitle="Logements existants + neufs \u00B7 ADEME")
+
+    if len(data_ter) > 0:
+        print(f"\n[4/4] Génération carte DPE Tertiaire ({len(data_ter):,} DPE)...")
+        min_cs_t = 15 if len(data_ter) > 2000 else 8
+        data_ter = run_hdbscan(data_ter, min_cluster_size=min_cs_t)
+        data_ter["dvf_zone"] = -1
+        out_ter = os.path.join(out_dir, "carte_dpe_tertiaire.html")
+        make_dpe_map(data_ter, cfg, out_ter,
+                     map_label=f"DPE Tertiaire \u00B7 {cfg['nom']}",
+                     map_subtitle="B\u00E2timents tertiaires \u00B7 ADEME")
+
+    n_hab = len(data_hab) if len(data_hab) > 0 else 0
+    n_ter = len(data_ter) if len(data_ter) > 0 else 0
     print(f"\n✅ Pipeline DPE VLG terminé")
-    print(f"   {len(data):,} DPE · {out_path}")
+    print(f"   {n_hab:,} DPE habitation · {n_ter:,} DPE tertiaire · {out_dir}")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,21 @@
 -- Calcule le score final de mutabilité par parcelle.
--- Intègre :
---   - Bilan promoteur avec coût parking souterrain réel
---   - Taxe d'aménagement (valeur forfaitaire IDF × taux communal)
---   - Vocation de zone (résidentiel / économique / mixte)
---   - Best_use tenant compte de la vocation PLU
+-- Bilan promoteur — méthode ICH compte à rebours (tableur PROMOTION)
+--
+-- RECETTES
+--   CA = surface habitable × prix vente m²
+--   surface habitable = SDP × rendement (0.75)
+--
+-- DÉPENSES (dans l'ordre du tableur ICH)
+--   1. Marge promoteur    = 8% × CA              (DÉPENSE, pas un résultat !)
+--   2. Construction        = 1 800 €/m² × SDP    (honoraires compris, IDF)
+--   3. VRD                 = 100 €/m² × surface TERRAIN
+--   4. Publicité           = 2.5% × CA
+--   5. Dette (frais fin.)  = 6% × (construction + pub + VRD)
+--   6. Parking souterrain  = nb_places × 13 500 €/place
+--   7. Taxe d'aménagement  = SDP × 854 €/m² × taux communal
+--
+-- RÉSULTAT
+--   Charge foncière = CA - somme dépenses = prix max terrain
 
 INSERT INTO public.parcel_scores (
   parcel_id,
@@ -47,9 +59,8 @@ SELECT
   sub.size_score,
   sub.land_value_score,
 
-  -- Best use tenant compte de la VOCATION de la zone PLU
+  -- Best use selon vocation PLU
   CASE
-    -- Zones à vocation économique → pas de résidentiel
     WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
       THEN CASE
         WHEN p.area_m2 >= 2000 AND pc.underuse_ratio >= 0.70
@@ -58,7 +69,6 @@ SELECT
           THEN 'bureaux_commerces'
         ELSE 'analyse_complementaire'
       END
-    -- Zones résidentielles ou mixtes
     WHEN COALESCE(pc.zone_vocation, 'residentiel') IN ('residentiel', 'mixte')
       THEN CASE
         WHEN pc.dominant_zone_family IN ('U', 'AU')
@@ -72,7 +82,6 @@ SELECT
         WHEN pc.dominant_zone_family = 'U'
              AND COALESCE(bs.coverage_ratio, 0) < 0.15
           THEN 'dent_creuse'
-        -- Zones mixtes grandes parcelles → possibilité éco
         WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'mixte'
              AND p.area_m2 >= 2000
              AND pc.underuse_ratio >= 0.60
@@ -82,18 +91,19 @@ SELECT
     ELSE 'analyse_complementaire'
   END AS best_use,
 
-  bilan.land_value_est AS land_value_est,
-  bilan.program_value_est AS program_value_est,
+  bilan.charge_fonciere AS land_value_est,
+  bilan.ca_total AS program_value_est,
   bilan.nb_logements AS nb_logements_est,
   bilan.nb_parking_places AS nb_parking_places,
-  bilan.parking_cost AS parking_cost,
-  bilan.parking_surface_m2 AS parking_surface_m2,
+  bilan.cout_parking AS parking_cost,
+  bilan.surface_parking AS parking_surface_m2,
   bilan.taxe_amenagement AS taxe_amenagement,
   bilan.ta_taux AS taxe_amenagement_taux,
   COALESCE(pc.zone_vocation, 'residentiel') AS zone_vocation,
   pc.plu_zone_code,
 
   jsonb_build_object(
+    -- Parcelle
     'area_m2', p.area_m2,
     'underuse_ratio', pc.underuse_ratio,
     'dominant_zone_family', pc.dominant_zone_family,
@@ -107,15 +117,24 @@ SELECT
     'estimated_gfa', pc.estimated_gfa,
     'residual_potential_est', pc.residual_potential_est,
     'coverage_ratio', bs.coverage_ratio,
+    -- Bilan promoteur ICH
+    'surface_habitable', bilan.surface_habitable,
+    'ca_total', bilan.ca_total,
     'nb_logements_est', bilan.nb_logements,
+    'prix_par_logement', bilan.prix_par_logement,
     'nb_parking_places', bilan.nb_parking_places,
-    'parking_cost', bilan.parking_cost,
-    'parking_surface_m2', bilan.parking_surface_m2,
+    'marge_promoteur', bilan.marge_promoteur,
+    'cout_construction', bilan.cout_construction,
+    'cout_vrd', bilan.cout_vrd,
+    'cout_publicite', bilan.cout_publicite,
+    'cout_dette', bilan.cout_dette,
+    'cout_parking', bilan.cout_parking,
+    'surface_parking', bilan.surface_parking,
     'taxe_amenagement', bilan.taxe_amenagement,
     'taxe_amenagement_taux', bilan.ta_taux,
-    'program_value_est', bilan.program_value_est,
-    'construction_cost_total', bilan.construction_cost_total,
-    'land_value_est', bilan.land_value_est
+    'total_depenses', bilan.total_depenses,
+    'charge_fonciere', bilan.charge_fonciere,
+    'charge_fonciere_m2_terrain', CASE WHEN p.area_m2 > 0 THEN bilan.charge_fonciere / p.area_m2 ELSE 0 END
   ) AS explanation_json,
 
   now() AS computed_at
@@ -127,24 +146,25 @@ LEFT JOIN public.parcel_market_stats pms
   ON pms.parcel_id = p.parcel_id
 LEFT JOIN public.parcel_building_stats bs
   ON bs.parcel_id = p.parcel_id
--- Bilan promoteur complet avec parking + taxe d'aménagement
+-- Jointure PLU pour les ratios parking par typo
+LEFT JOIN public.plu_zone_rules plu_r
+  ON plu_r.zone_code = pc.plu_zone_code
+  AND plu_r.epci_code = 'BNS'
+-- ═══════════════════════════════════════════
+-- BILAN PROMOTEUR ICH (compte à rebours)
+-- ═══════════════════════════════════════════
 CROSS JOIN LATERAL (
   SELECT
-    -- Nombre de logements estimé (SDP vendable / 65 m² moyen par logement)
-    GREATEST(1,
-      FLOOR(pc.estimated_gfa * %(sellable_ratio)s::numeric / 65.0)
-    )::int AS nb_logements,
+    -- ── Nb logements (SDP / 60 m²) ──
+    GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))::int AS nb_logements,
 
-    -- Nombre de places parking selon PLU
-    -- Mix typologique : T1=10%%, T2=25%%, T3=35%%, T4=20%%, T5=10%%
-    -- Places par typo : T1=1, T2=1.5, T3=1.5, T4=1.5, T5=2
-    -- Moyenne pondérée = 0.10×1 + 0.25×1.5 + 0.35×1.5 + 0.20×1.5 + 0.10×2 = 1.5 place/logement
+    -- ── Nb places parking PLU ──
     CASE
       WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
         THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))::int
       ELSE GREATEST(1,
         CEIL(
-          GREATEST(1, FLOOR(pc.estimated_gfa * %(sellable_ratio)s::numeric / 65.0))
+          GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
           * (
             0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
             + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
@@ -156,74 +176,122 @@ CROSS JOIN LATERAL (
       )::int
     END AS nb_parking_places,
 
-    -- Coût parking souterrain = nb_places × 13 500 €/place
-    CASE
-      WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
-        THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
-             * %(parking_cost_per_place)s::numeric
-      ELSE GREATEST(1,
-        CEIL(
-          GREATEST(1, FLOOR(pc.estimated_gfa * %(sellable_ratio)s::numeric / 65.0))
-          * (
-            0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
-            + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
-            + 0.35 * COALESCE(plu_r.parking_logement_t3, 1.5)
-            + 0.20 * COALESCE(plu_r.parking_logement_t4, 1.5)
-            + 0.10 * COALESCE(plu_r.parking_logement_t5, 2.0)
+    -- ═══ RECETTES ═══
+    -- Surface habitable = SDP × rendement (0.75)
+    (pc.estimated_gfa * %(sellable_ratio)s::numeric)
+    AS surface_habitable,
+
+    -- CA = surface habitable × prix vente m²
+    (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+    AS ca_total,
+
+    -- Prix par logement = CA / nb logements
+    CASE WHEN GREATEST(1, FLOOR(pc.estimated_gfa / 60.0)) > 0
+      THEN (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+           / GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
+      ELSE 0
+    END AS prix_par_logement,
+
+    -- ═══ DÉPENSE 1 : Marge promoteur = 8%% × CA ═══
+    (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+    * %(margin_ratio)s::numeric
+    AS marge_promoteur,
+
+    -- ═══ DÉPENSE 2 : Construction = 1300 €/m² × SDP (honoraires compris) ═══
+    (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+    AS cout_construction,
+
+    -- ═══ DÉPENSE 3 : VRD = 100 €/m² × surface TERRAIN ═══
+    (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+    AS cout_vrd,
+
+    -- ═══ DÉPENSE 4 : Publicité = 2.5%% × CA ═══
+    (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+    * %(commercialisation_ratio)s::numeric
+    AS cout_publicite,
+
+    -- ═══ DÉPENSE 5 : Dette = 6%% × (construction + pub + VRD) ═══
+    (
+      (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+      + (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+        * %(commercialisation_ratio)s::numeric
+      + (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+    ) * %(frais_financiers_ratio)s::numeric
+    AS cout_dette,
+
+    -- ═══ DÉPENSE 6 : Parking souterrain = nb_places × 13 500 € ═══
+    (
+      CASE
+        WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
+          THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
+        ELSE GREATEST(1,
+          CEIL(
+            GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
+            * (
+              0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
+              + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
+              + 0.35 * COALESCE(plu_r.parking_logement_t3, 1.5)
+              + 0.20 * COALESCE(plu_r.parking_logement_t4, 1.5)
+              + 0.10 * COALESCE(plu_r.parking_logement_t5, 2.0)
+            )
           )
         )
-      ) * %(parking_cost_per_place)s::numeric
-    END AS parking_cost,
+      END * %(parking_cost_per_place)s::numeric
+    ) AS cout_parking,
 
-    -- Surface parking (27 m²/place)
-    CASE
-      WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
-        THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
-             * %(parking_surface_per_place)s::numeric
-      ELSE GREATEST(1,
-        CEIL(
-          GREATEST(1, FLOOR(pc.estimated_gfa * %(sellable_ratio)s::numeric / 65.0))
-          * (
-            0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
-            + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
-            + 0.35 * COALESCE(plu_r.parking_logement_t3, 1.5)
-            + 0.20 * COALESCE(plu_r.parking_logement_t4, 1.5)
-            + 0.10 * COALESCE(plu_r.parking_logement_t5, 2.0)
+    -- Surface parking (m²)
+    (
+      CASE
+        WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
+          THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
+        ELSE GREATEST(1,
+          CEIL(
+            GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
+            * (
+              0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
+              + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
+              + 0.35 * COALESCE(plu_r.parking_logement_t3, 1.5)
+              + 0.20 * COALESCE(plu_r.parking_logement_t4, 1.5)
+              + 0.10 * COALESCE(plu_r.parking_logement_t5, 2.0)
+            )
           )
         )
-      ) * %(parking_surface_per_place)s::numeric
-    END AS parking_surface_m2,
+      END * %(parking_surface_per_place)s::numeric
+    ) AS surface_parking,
 
-    -- Taxe d'aménagement = SDP × valeur forfaitaire × taux communal
-    pc.estimated_gfa * %(taxe_valeur_forfaitaire)s::numeric * %(taxe_taux_default)s::numeric
+    -- ═══ DÉPENSE 7 : Taxe d'aménagement = SDP × 854 × taux ═══
+    (pc.estimated_gfa * %(taxe_valeur_forfaitaire)s::numeric * %(taxe_taux_default)s::numeric)
     AS taxe_amenagement,
 
     %(taxe_taux_default)s::numeric AS ta_taux,
 
-    -- Chiffre d'affaires programme
-    (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
-    AS program_value_est,
-
-    -- Coût construction total
-    (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
-    + (pc.estimated_gfa * %(vrd_cost_m2)s::numeric)
-    AS construction_cost_total,
-
-    -- Charge foncière résiduelle = CA - construction - parking - taxe - frais - marge
+    -- ═══ TOTAL DÉPENSES ═══
     (
-      -- CA programme
+      -- 1. Marge (8% CA)
       (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
-      -- Construction + VRD
-      - (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
-      - (pc.estimated_gfa * %(vrd_cost_m2)s::numeric)
-      -- Parking souterrain
-      - (
+        * %(margin_ratio)s::numeric
+      -- 2. Construction (1300 × SDP)
+      + (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+      -- 3. VRD (100 × terrain)
+      + (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+      -- 4. Publicité (2.5% CA)
+      + (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+        * %(commercialisation_ratio)s::numeric
+      -- 5. Dette (6% × (constr + pub + VRD))
+      + (
+          (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+          + (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+            * %(commercialisation_ratio)s::numeric
+          + (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+        ) * %(frais_financiers_ratio)s::numeric
+      -- 6. Parking
+      + (
         CASE
           WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
             THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
           ELSE GREATEST(1,
             CEIL(
-              GREATEST(1, FLOOR(pc.estimated_gfa * %(sellable_ratio)s::numeric / 65.0))
+              GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
               * (
                 0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
                 + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
@@ -235,18 +303,54 @@ CROSS JOIN LATERAL (
           )
         END * %(parking_cost_per_place)s::numeric
       )
-      -- Taxe d'aménagement
+      -- 7. Taxe d'aménagement
+      + (pc.estimated_gfa * %(taxe_valeur_forfaitaire)s::numeric * %(taxe_taux_default)s::numeric)
+    ) AS total_depenses,
+
+    -- ═══ CHARGE FONCIÈRE = CA - total dépenses ═══
+    (
+      -- CA
+      (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+      -- 1. Marge (8% CA)
+      - (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+        * %(margin_ratio)s::numeric
+      -- 2. Construction (1300 × SDP)
+      - (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+      -- 3. VRD (100 × terrain)
+      - (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+      -- 4. Publicité (2.5% CA)
+      - (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+        * %(commercialisation_ratio)s::numeric
+      -- 5. Dette (6% × (constr + pub + VRD))
+      - (
+          (pc.estimated_gfa * %(construction_cost_m2)s::numeric)
+          + (pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0))
+            * %(commercialisation_ratio)s::numeric
+          + (p.area_m2 * %(vrd_cost_m2_terrain)s::numeric)
+        ) * %(frais_financiers_ratio)s::numeric
+      -- 6. Parking
+      - (
+        CASE
+          WHEN COALESCE(pc.zone_vocation, 'residentiel') = 'economique'
+            THEN GREATEST(1, CEIL(pc.estimated_gfa / 100.0 * COALESCE(plu_r.parking_per_100m2_eco, 1.0)))
+          ELSE GREATEST(1,
+            CEIL(
+              GREATEST(1, FLOOR(pc.estimated_gfa / 60.0))
+              * (
+                0.10 * COALESCE(plu_r.parking_logement_t1, 1.0)
+                + 0.25 * COALESCE(plu_r.parking_logement_t2, 1.5)
+                + 0.35 * COALESCE(plu_r.parking_logement_t3, 1.5)
+                + 0.20 * COALESCE(plu_r.parking_logement_t4, 1.5)
+                + 0.10 * COALESCE(plu_r.parking_logement_t5, 2.0)
+              )
+            )
+          )
+        END * %(parking_cost_per_place)s::numeric
+      )
+      -- 7. Taxe d'aménagement
       - (pc.estimated_gfa * %(taxe_valeur_forfaitaire)s::numeric * %(taxe_taux_default)s::numeric)
-      -- Frais de commercialisation
-      - ((pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0)) * %(sales_fee_ratio)s::numeric)
-      -- Marge promoteur
-      - ((pc.estimated_gfa * %(sellable_ratio)s::numeric * COALESCE(pms.median_price_m2, 0)) * %(margin_ratio)s::numeric)
-    ) AS land_value_est
+    ) AS charge_fonciere
 ) bilan
--- Jointure PLU pour les ratios parking par typo
-LEFT JOIN public.plu_zone_rules plu_r
-  ON plu_r.zone_code = pc.plu_zone_code
-  AND plu_r.epci_code = 'BNS'
 -- Sous-scores
 CROSS JOIN LATERAL (
   SELECT
@@ -278,10 +382,10 @@ CROSS JOIN LATERAL (
       ELSE 2
     END AS size_score,
     CASE
-      WHEN bilan.land_value_est >= 1500000 THEN 10
-      WHEN bilan.land_value_est >= 800000 THEN 8
-      WHEN bilan.land_value_est >= 400000 THEN 6
-      WHEN bilan.land_value_est >= 150000 THEN 4
+      WHEN bilan.charge_fonciere >= 1500000 THEN 10
+      WHEN bilan.charge_fonciere >= 800000 THEN 8
+      WHEN bilan.charge_fonciere >= 400000 THEN 6
+      WHEN bilan.charge_fonciere >= 150000 THEN 4
       ELSE 2
     END AS land_value_score
 ) sub

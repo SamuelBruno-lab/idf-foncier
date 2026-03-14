@@ -194,12 +194,31 @@ class Settings:
     default_setback_penalty: float = 0.85
     default_parking_penalty: float = 0.90
 
-    # Bilan promoteur
-    construction_cost_m2: float = 1300.0
-    vrd_cost_m2: float = 100.0
-    sales_fee_ratio: float = 0.03
-    margin_ratio: float = 0.08
-    sellable_ratio: float = 0.75
+    # Bilan promoteur (méthode ICH compte à rebours)
+    # Source : cours ICH prospection foncière (tableur PROMOTION)
+    #
+    # RECETTES
+    #   CA = surface habitable × prix vente m²
+    #   surface habitable = SDP × rendement (0.75)
+    #
+    # DÉPENSES (ordre du tableur ICH)
+    #   1. Marge promoteur = 8% du CA (DÉPENSE, pas un résultat)
+    #   2. Construction = 1 300 €/m² de SDP (honoraires compris)
+    #   3. VRD = 100 €/m² de terrain (pas de SDP !)
+    #   4. Publicité / commercialisation = 2.5% du CA
+    #   5. Dette / frais financiers = 6% × (construction + pub + VRD)
+    #   6. Parking souterrain = nb_places × 13 500 €
+    #   7. Taxe d'aménagement = SDP × 854 €/m² × taux communal
+    #
+    # RÉSULTAT
+    #   Charge foncière = CA - somme dépenses = prix max terrain
+    #
+    construction_cost_m2: float = 1800.0    # €/m² SDP en IDF (honoraires compris)
+    vrd_cost_m2_terrain: float = 100.0      # €/m² de TERRAIN (pas de SDP !)
+    commercialisation_ratio: float = 0.025  # 2.5% du CA (publicité — cours ICH)
+    frais_financiers_ratio: float = 0.06    # 6% × (construction + pub + VRD) = dette
+    margin_ratio: float = 0.08             # 8% du CA — marge promoteur (traitée comme dépense !)
+    sellable_ratio: float = 0.75           # 75% rendement SDP → surface habitable
 
     # Coûts sous-sol
     parking_cost_per_place: float = PARKING_COST_PER_PLACE

@@ -142,6 +142,13 @@ export default function ParcelDetailsPanel({
   const taxeAmenagement = item?.taxe_amenagement ?? (ej.taxe_amenagement as number | null);
   const taxeTaux = item?.taxe_amenagement_taux ?? (ej.taxe_amenagement_taux as number | null);
 
+  // Bâti existant
+  const existingGfa = item?.existing_gfa_est ?? (ej.existing_gfa_est as number | null) ?? null;
+  const builtFootprint = item?.built_footprint_m2 ?? (ej.built_footprint_m2 as number | null) ?? null;
+  const buildingCount = item?.building_count ?? (ej.building_count as number | null) ?? null;
+  // Surface habitable existante estimée (SDP × 0.85 = ratio SDP→SHAB standard)
+  const existingSurfaceHab = existingGfa != null ? existingGfa * 0.85 : null;
+
   // Bilan ICH
   const surfaceHab = (ej.surface_habitable as number | null) ?? (gfa != null ? gfa * 0.75 : null);
   const caTotal = item?.program_value_est ?? (ej.ca_total as number | null);
@@ -204,15 +211,31 @@ export default function ParcelDetailsPanel({
         </div>
       )}
 
-      {/* Constructibilité */}
+      {/* Bâti existant */}
+      <div className="mt-4 rounded-2xl border border-neutral-200 p-4">
+        <h3 className="text-sm font-semibold">Bati existant</h3>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <StatCard label="SDP existante" value={existingGfa != null && existingGfa > 0 ? `${formatNumber(existingGfa)} m²` : "0 m²"} />
+          <StatCard label="Surface hab. existante" value={existingSurfaceHab != null && existingSurfaceHab > 0 ? `${formatNumber(existingSurfaceHab)} m²` : "0 m²"} />
+          <StatCard label="Emprise au sol" value={builtFootprint != null && builtFootprint > 0 ? `${formatNumber(builtFootprint)} m²` : "0 m²"} />
+          <StatCard label="Nb batiments" value={buildingCount != null ? `${buildingCount}` : "0"} />
+        </div>
+        {existingGfa != null && existingGfa > 0 && (
+          <div className="mt-2 text-xs text-neutral-400">
+            SDP existante estimee = emprise batie × nb niveaux. Surface hab. = SDP × 0.85.
+          </div>
+        )}
+      </div>
+
+      {/* Constructibilité projetée */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <StatCard label="Surface terrain" value={`${formatNumber(area)} m²`} />
-        <StatCard label="SDP développée" value={`${formatNumber(gfa)} m²`} />
-        <StatCard label="Surface habitable" value={`${formatNumber(surfaceHab)} m²`} />
-        <StatCard label="Rendement" value="75 %" />
+        <StatCard label="SDP max (PLU)" value={`${formatNumber(gfa)} m²`} />
+        <StatCard label="Surface hab. projetee" value={`${formatNumber(surfaceHab)} m²`} />
+        <StatCard label="Rendement SDP→hab." value="75 %" />
         {!isEconomique && nbLogements != null && (
           <>
-            <StatCard label="Logements estimés" value={`${nbLogements}`} />
+            <StatCard label="Logements estimes" value={`${nbLogements}`} />
             {prixLogement != null && <StatCard label="Prix / logement" value={formatCurrency(prixLogement)} />}
           </>
         )}
@@ -328,12 +351,12 @@ export default function ParcelDetailsPanel({
           warning={hasMissingBuildingData}
         />
         <StatCard
-          label={hdbscanZone ? "Prix micro-zone HDBSCAN" : "Prix median communal"}
-          value={item?.median_price_m2 != null ? `${formatNumber(item.median_price_m2)} €/m²` : "—"}
+          label="Taux emprise (CES reel)"
+          value={coverageRatio != null ? formatPercent(coverageRatio) : "—"}
         />
         <StatCard
-          label="Emprise batie"
-          value={coverageRatio != null ? formatPercent(coverageRatio) : "—"}
+          label={hdbscanZone ? "Prix micro-zone HDBSCAN" : "Prix median communal"}
+          value={item?.median_price_m2 != null ? `${formatNumber(item.median_price_m2)} €/m²` : "—"}
         />
       </div>
 

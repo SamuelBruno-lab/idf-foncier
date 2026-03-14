@@ -117,6 +117,9 @@ SELECT
     'estimated_gfa', pc.estimated_gfa,
     'residual_potential_est', pc.residual_potential_est,
     'coverage_ratio', bs.coverage_ratio,
+    'existing_gfa_est', COALESCE(bs.existing_gfa_est, 0),
+    'built_footprint_m2', COALESCE(bs.built_footprint_m2, 0),
+    'building_count', COALESCE(bs.building_count, 0),
     -- Bilan promoteur ICH
     'surface_habitable', bilan.surface_habitable,
     'ca_total', bilan.ca_total,

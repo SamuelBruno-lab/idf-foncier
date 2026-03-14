@@ -28,6 +28,10 @@ export type ParcelDetail = {
   median_price_m2: number | null;
   hdbscan_zone_id: string | null;
   coverage_ratio: number | null;
+  // Bâti existant
+  existing_gfa_est: number | null;
+  built_footprint_m2: number | null;
+  building_count: number | null;
   // PLU fields
   plu_zone_code: string | null;
   zone_vocation: string | null;

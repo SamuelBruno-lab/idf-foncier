@@ -3,19 +3,39 @@ import { Client } from "pg";
 
 const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function getDbConfig() {
+const REGIONS = ["eu-west-3", "eu-central-1", "eu-west-1", "eu-west-2", "us-east-1"];
+
+function getDbConfigs() {
   const ref = "zexkxstcwkdsqjgsppvx";
   const password = process.env.SUPABASE_DB_PASSWORD ?? "11097211Sbr@";
-  // Try direct connection first, fallback configs can be added
-  return {
+  const configs = [];
+  // Try pooler with different regions and ports
+  for (const region of REGIONS) {
+    for (const port of [6543, 5432]) {
+      configs.push({
+        host: `aws-0-${region}.pooler.supabase.com`,
+        port,
+        database: "postgres",
+        user: `postgres.${ref}`,
+        password,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 8000,
+        label: `pooler-${region}:${port}`,
+      });
+    }
+  }
+  // Also try direct connection
+  configs.push({
     host: `db.${ref}.supabase.co`,
     port: 5432,
     database: "postgres",
     user: "postgres",
     password,
     ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 15000,
-  };
+    connectionTimeoutMillis: 8000,
+    label: "direct",
+  });
+  return configs;
 }
 
 async function runSQL(client: Client, sql: string, label: string): Promise<string> {
@@ -38,12 +58,32 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const step = (body as Record<string, string>).step ?? "all";
 
-  const client = new Client(getDbConfig());
+  const configs = getDbConfigs();
   const logs: string[] = [];
+  let client: Client | null = null;
+
+  // Try each config until one works
+  for (const cfg of configs) {
+    const { label, ...pgConfig } = cfg;
+    const c = new Client(pgConfig);
+    try {
+      await c.connect();
+      await c.query("SELECT 1");
+      client = c;
+      logs.push(`Connected via ${label} (${cfg.host}:${cfg.port})`);
+      break;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logs.push(`SKIP ${label}: ${msg}`);
+      await c.end().catch(() => {});
+    }
+  }
+
+  if (!client) {
+    return NextResponse.json({ success: false, logs, error: "Could not connect to any database endpoint" }, { status: 500 });
+  }
 
   try {
-    await client.connect();
-    logs.push("Connected to database");
 
     // ===== STEP 1: Schema =====
     if (step === "all" || step === "schema") {

@@ -5,6 +5,7 @@ import Map, { NavigationControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
+import { ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -12,6 +13,17 @@ type DvfPoint = {
   lat: number;
   lon: number;
   prix_m2: number;
+};
+
+type ClusterItem = {
+  cluster_id: string;
+  lat: number;
+  lon: number;
+  count: number;
+  prix_median: number | null;
+  prix_m2_median: number | null;
+  nom: string;
+  dept: string;
 };
 
 type Props = {
@@ -37,6 +49,14 @@ function scoreColor(score: number | null | undefined): [number, number, number, 
   return [101, 163, 13, 140];
 }
 
+function priceColor(prixM2: number | null): [number, number, number, number] {
+  if (prixM2 == null) return [150, 150, 150, 100];
+  if (prixM2 >= 8000) return [220, 38, 38, 160];
+  if (prixM2 >= 5000) return [234, 88, 12, 150];
+  if (prixM2 >= 3000) return [202, 138, 4, 140];
+  return [16, 185, 129, 130];
+}
+
 export default function FoncierMap({
   selectedParcelId,
   onSelectParcel,
@@ -51,11 +71,18 @@ export default function FoncierMap({
     best_use?: string;
     area?: number;
     land_value?: number;
+    // cluster hover
+    cluster_nom?: string;
+    cluster_prix_m2?: number;
+    cluster_count?: number;
   } | null>(null);
 
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showClusters, setShowClusters] = useState(false);
   const [dvfPoints, setDvfPoints] = useState<DvfPoint[]>([]);
+  const [clusters, setClusters] = useState<ClusterItem[]>([]);
   const [loadingDvf, setLoadingDvf] = useState(false);
+  const [loadingClusters, setLoadingClusters] = useState(false);
 
   // Fetch DVF heatmap data when toggled on
   useEffect(() => {
@@ -68,16 +95,13 @@ export default function FoncierMap({
       try {
         const params = new URLSearchParams({ mode: "heatmap", zoom: "14" });
         if (insee) {
-          // Get dept from insee code (first 2 digits)
           const dept = insee.startsWith("97") ? insee.slice(0, 3) : insee.slice(0, 2);
           params.set("dept", dept);
         }
         const res = await fetch(`/api/dvf/clusters?${params.toString()}`);
         if (!res.ok) return;
         const json = await res.json();
-        if (!cancelled) {
-          setDvfPoints(json.data ?? []);
-        }
+        if (!cancelled) setDvfPoints(json.data ?? []);
       } catch {
         // silently fail
       } finally {
@@ -87,6 +111,34 @@ export default function FoncierMap({
 
     return () => { cancelled = true; };
   }, [showHeatmap, insee, dvfPoints.length]);
+
+  // Fetch HDBSCAN clusters when toggled on
+  useEffect(() => {
+    if (!showClusters || clusters.length > 0) return;
+
+    let cancelled = false;
+    setLoadingClusters(true);
+
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (insee) {
+          const dept = insee.startsWith("97") ? insee.slice(0, 3) : insee.slice(0, 2);
+          params.set("dept", dept);
+        }
+        const res = await fetch(`/api/foncier/clusters?${params.toString()}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setClusters(json.items ?? []);
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoadingClusters(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [showClusters, insee, clusters.length]);
 
   const tileUrl = useMemo(() => {
     const params = new URLSearchParams();
@@ -107,7 +159,7 @@ export default function FoncierMap({
   const layers = useMemo(() => {
     const result = [];
 
-    // DVF heatmap layer (below parcels)
+    // DVF heatmap layer (below everything)
     if (showHeatmap && dvfPoints.length > 0) {
       result.push(
         new HeatmapLayer({
@@ -135,7 +187,63 @@ export default function FoncierMap({
       );
     }
 
-    // Parcels MVT layer
+    // HDBSCAN cluster circles (below parcels, above heatmap)
+    if (showClusters && clusters.length > 0) {
+      result.push(
+        new ScatterplotLayer({
+          id: "hdbscan-clusters",
+          data: clusters,
+          getPosition: (d: ClusterItem) => [d.lon, d.lat],
+          getRadius: (d: ClusterItem) => Math.max(200, Math.sqrt(d.count) * 80),
+          getFillColor: (d: ClusterItem) => priceColor(d.prix_m2_median),
+          getLineColor: [80, 80, 80, 180] as [number, number, number, number],
+          lineWidthMinPixels: 1,
+          stroked: true,
+          filled: true,
+          pickable: true,
+          radiusUnits: "meters" as const,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onHover: (info: any) => {
+            if (info?.object) {
+              const d = info.object as ClusterItem;
+              setHoverInfo({
+                x: info.x,
+                y: info.y,
+                cluster_nom: d.nom,
+                cluster_prix_m2: d.prix_m2_median ?? undefined,
+                cluster_count: d.count,
+              });
+            }
+          },
+        })
+      );
+      // Labels for clusters
+      result.push(
+        new TextLayer({
+          id: "hdbscan-labels",
+          data: clusters,
+          getPosition: (d: ClusterItem) => [d.lon, d.lat],
+          getText: (d: ClusterItem) => {
+            if (d.prix_m2_median) {
+              return `${d.nom}\n${Math.round(d.prix_m2_median).toLocaleString("fr-FR")} €/m²`;
+            }
+            return d.nom;
+          },
+          getSize: 11,
+          getColor: [30, 30, 30, 220] as [number, number, number, number],
+          getTextAnchor: "middle" as const,
+          getAlignmentBaseline: "center" as const,
+          fontFamily: "system-ui, sans-serif",
+          fontWeight: 600,
+          outlineWidth: 2,
+          outlineColor: [255, 255, 255, 200] as [number, number, number, number],
+          billboard: false,
+          sizeUnits: "pixels" as const,
+        })
+      );
+    }
+
+    // Parcels MVT layer (on top)
     result.push(
       new MVTLayer({
         id: "foncier-mvt",
@@ -170,7 +278,7 @@ export default function FoncierMap({
               area: p.area,
               land_value: p.land_value,
             });
-          } else {
+          } else if (!showClusters) {
             setHoverInfo(null);
           }
         },
@@ -181,7 +289,7 @@ export default function FoncierMap({
     );
 
     return result;
-  }, [tileUrl, selectedParcelId, handleClick, showHeatmap, dvfPoints]);
+  }, [tileUrl, selectedParcelId, handleClick, showHeatmap, dvfPoints, showClusters, clusters]);
 
   return (
     <div className="relative h-full w-full">
@@ -208,12 +316,23 @@ export default function FoncierMap({
               : "border border-neutral-200 bg-white/95 text-neutral-700 hover:bg-neutral-50"
           }`}
         >
-          {loadingDvf ? "Chargement DVF…" : showHeatmap ? "Heatmap DVF" : "Afficher heatmap DVF"}
+          {loadingDvf ? "Chargement…" : showHeatmap ? "Heatmap DVF actif" : "Heatmap DVF"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowClusters(!showClusters)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition ${
+            showClusters
+              ? "bg-teal-600 text-white"
+              : "border border-neutral-200 bg-white/95 text-neutral-700 hover:bg-neutral-50"
+          }`}
+        >
+          {loadingClusters ? "Chargement…" : showClusters ? "Zones HDBSCAN actif" : "Zones HDBSCAN"}
         </button>
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 rounded-xl border border-neutral-200 bg-white/95 px-3 py-2 text-xs shadow-sm">
+      <div className="absolute bottom-4 right-4 max-h-[40vh] overflow-y-auto rounded-xl border border-neutral-200 bg-white/95 px-3 py-2 text-xs shadow-sm">
         <div className="mb-1.5 font-medium text-neutral-700">Score mutabilité</div>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -244,6 +363,34 @@ export default function FoncierMap({
             </div>
           </>
         )}
+        {showClusters && (
+          <>
+            <div className="mb-1 mt-3 border-t border-neutral-200 pt-2 font-medium text-neutral-700">
+              Zones HDBSCAN
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "rgb(220,38,38)" }} />
+                <span>≥ 8 000 €/m²</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "rgb(234,88,12)" }} />
+                <span>5 000–8 000</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "rgb(202,138,4)" }} />
+                <span>3 000–5 000</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "rgb(16,185,129)" }} />
+                <span>&lt; 3 000</span>
+              </div>
+            </div>
+            <div className="mt-1 text-[10px] text-neutral-500">
+              Taille = nb transactions
+            </div>
+          </>
+        )}
       </div>
 
       {/* Hover tooltip */}
@@ -252,21 +399,39 @@ export default function FoncierMap({
           className="pointer-events-none absolute z-10 rounded-xl border border-neutral-200 bg-white/95 px-3 py-2 text-xs shadow-md"
           style={{ left: hoverInfo.x + 12, top: hoverInfo.y - 12 }}
         >
-          <div className="font-semibold text-neutral-900">
-            {hoverInfo.parcel_id}
-          </div>
-          <div className="mt-0.5 text-neutral-600">
-            Score : <span className="font-medium text-neutral-900">{hoverInfo.score?.toFixed(1) ?? "—"}/10</span>
-          </div>
-          {hoverInfo.area != null && (
-            <div className="text-neutral-600">
-              Surface : {Math.round(hoverInfo.area).toLocaleString("fr-FR")} m²
-            </div>
-          )}
-          {hoverInfo.best_use && (
-            <div className="text-neutral-600">
-              {hoverInfo.best_use.replace(/_/g, " ")}
-            </div>
+          {hoverInfo.cluster_nom ? (
+            <>
+              <div className="font-semibold text-neutral-900">{hoverInfo.cluster_nom}</div>
+              {hoverInfo.cluster_prix_m2 != null && (
+                <div className="mt-0.5 text-neutral-600">
+                  Prix médian : <span className="font-medium text-neutral-900">
+                    {Math.round(hoverInfo.cluster_prix_m2).toLocaleString("fr-FR")} €/m²
+                  </span>
+                </div>
+              )}
+              {hoverInfo.cluster_count != null && (
+                <div className="text-neutral-600">
+                  {hoverInfo.cluster_count} transactions
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="font-semibold text-neutral-900">{hoverInfo.parcel_id}</div>
+              <div className="mt-0.5 text-neutral-600">
+                Score : <span className="font-medium text-neutral-900">{hoverInfo.score?.toFixed(1) ?? "—"}/10</span>
+              </div>
+              {hoverInfo.area != null && (
+                <div className="text-neutral-600">
+                  Surface : {Math.round(hoverInfo.area).toLocaleString("fr-FR")} m²
+                </div>
+              )}
+              {hoverInfo.best_use && (
+                <div className="text-neutral-600">
+                  {hoverInfo.best_use.replace(/_/g, " ")}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

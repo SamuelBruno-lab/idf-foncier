@@ -434,6 +434,201 @@ export async function POST(req: NextRequest) {
       logs.push(`Scored parcels for 92078: ${result.rows[0]?.n ?? 0}`);
     }
 
+    // ===== STEP: migrate — run HDBSCAN view + pipeline fixes =====
+    if (step === "migrate" || step === "all-migrate") {
+      // Migration 10: add geom to HDBSCAN zones + update view
+      logs.push(await runSQL(client, `
+        ALTER TABLE dvf_hdbscan_zones ADD COLUMN IF NOT EXISTS geom GEOMETRY(Polygon, 4326);
+      `, "add geom column to hdbscan_zones"));
+
+      logs.push(await runSQL(client, `
+        UPDATE dvf_hdbscan_zones
+        SET geom = ST_SetSRID(
+          ST_MakePolygon(
+            ST_MakeLine(
+              ARRAY(
+                SELECT ST_MakePoint((coord->1)::float, (coord->0)::float)
+                FROM jsonb_array_elements(hull_coords) AS coord
+              )
+              || ARRAY[ST_MakePoint((hull_coords->0->1)::float, (hull_coords->0->0)::float)]
+            )
+          ), 4326)
+        WHERE hull_coords IS NOT NULL
+          AND jsonb_array_length(hull_coords) >= 3
+          AND geom IS NULL;
+      `, "build hdbscan zone geometries"));
+
+      logs.push(await runSQL(client, `
+        CREATE INDEX IF NOT EXISTS idx_hdbscan_geom ON dvf_hdbscan_zones USING GIST (geom);
+      `, "hdbscan geom index"));
+
+      // Update view with hdbscan_zone_id and coverage_ratio
+      logs.push(await runSQL(client, `
+        CREATE OR REPLACE VIEW public.v_parcel_foncier AS
+        SELECT
+          p.parcel_id, p.insee_code, p.section, p.number, p.area_m2, p.city_name,
+          pcs.mutability_score, pcs.best_use, pcs.land_value_est, pcs.program_value_est,
+          pcs.explanation_json,
+          pc.dominant_zone_family, pc.estimated_gfa, pc.residual_potential_est, pc.underuse_ratio,
+          pms.median_price_m2,
+          pms.hdbscan_zone_id,
+          COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
+          p.geom
+        FROM public.parcels p
+        LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
+        LEFT JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
+        LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id
+        LEFT JOIN public.parcel_building_stats pbs ON pbs.parcel_id = p.parcel_id;
+      `, "updated v_parcel_foncier view"));
+
+      // Migration 11: RPC get_parcel_centroids
+      logs.push(await runSQL(client, `
+        CREATE OR REPLACE FUNCTION public.get_parcel_centroids(
+          p_insee TEXT, p_limit INT DEFAULT 1000, p_offset INT DEFAULT 0
+        )
+        RETURNS TABLE(parcel_id TEXT, centroid_lon FLOAT, centroid_lat FLOAT)
+        LANGUAGE sql STABLE
+        AS $fn$
+          SELECT p.parcel_id,
+            ST_X(ST_Centroid(ST_Transform(p.geom, 4326)))::float,
+            ST_Y(ST_Centroid(ST_Transform(p.geom, 4326)))::float
+          FROM public.parcels p
+          WHERE p.insee_code = p_insee
+          ORDER BY p.parcel_id LIMIT p_limit OFFSET p_offset;
+        $fn$;
+      `, "get_parcel_centroids RPC"));
+
+      // Migration 11: updated score_commune_parcels with HDBSCAN
+      logs.push(await runSQL(client, `
+        CREATE OR REPLACE FUNCTION public.score_commune_parcels(
+          p_insee TEXT, p_median_price NUMERIC DEFAULT 4000
+        ) RETURNS INTEGER LANGUAGE plpgsql AS $fn$
+        DECLARE
+          scored_count INTEGER;
+          v_h NUMERIC := 12; v_fp NUMERIC := 0.40; v_gr NUMERIC := 0.20;
+          v_sb NUMERIC := 0.85; v_pk NUMERIC := 0.90; v_sr NUMERIC := 0.75;
+          v_cc NUMERIC := 1300; v_vrd NUMERIC := 100; v_sf NUMERIC := 0.03; v_mg NUMERIC := 0.08;
+        BEGIN
+          -- Step 1: building stats
+          INSERT INTO public.parcel_building_stats (parcel_id, built_footprint_m2, building_count, existing_gfa_est, coverage_ratio, updated_at)
+          SELECT p.parcel_id,
+            COALESCE(SUM(ST_Area(ST_Intersection(p.geom, b.geom))), 0),
+            COUNT(DISTINCT b.building_id) FILTER (WHERE ST_Intersects(p.geom, b.geom)),
+            COALESCE(SUM(ST_Area(ST_Intersection(p.geom, b.geom)) * COALESCE(b.levels_est, 1)), 0),
+            CASE WHEN p.area_m2 > 0 THEN COALESCE(SUM(ST_Area(ST_Intersection(p.geom, b.geom))), 0) / p.area_m2 ELSE 0 END,
+            now()
+          FROM public.parcels p LEFT JOIN public.buildings b ON ST_Intersects(p.geom, b.geom)
+          WHERE p.insee_code = p_insee GROUP BY p.parcel_id, p.area_m2
+          ON CONFLICT (parcel_id) DO UPDATE SET
+            built_footprint_m2=EXCLUDED.built_footprint_m2, building_count=EXCLUDED.building_count,
+            existing_gfa_est=EXCLUDED.existing_gfa_est, coverage_ratio=EXCLUDED.coverage_ratio, updated_at=now();
+
+          -- Step 2: market stats with HDBSCAN spatial matching
+          INSERT INTO public.parcel_market_stats (parcel_id, median_price_m2, market_tension_score, hdbscan_zone_id, analysis_year, updated_at)
+          SELECT p.parcel_id,
+            COALESCE(hz.prix_m2_median, commune_appt.prix_m2_median, p_median_price),
+            CASE
+              WHEN COALESCE(hz.prix_m2_median, commune_appt.prix_m2_median, p_median_price) >= 6000 THEN 10
+              WHEN COALESCE(hz.prix_m2_median, commune_appt.prix_m2_median, p_median_price) >= 4500 THEN 8
+              WHEN COALESCE(hz.prix_m2_median, commune_appt.prix_m2_median, p_median_price) >= 3000 THEN 6
+              WHEN COALESCE(hz.prix_m2_median, commune_appt.prix_m2_median, p_median_price) >= 2000 THEN 4
+              ELSE 2
+            END,
+            hz.zone_id,
+            EXTRACT(YEAR FROM now())::int,
+            now()
+          FROM public.parcels p
+          LEFT JOIN LATERAL (
+            SELECT z.id AS zone_id, z.prix_m2_median FROM public.dvf_hdbscan_zones z
+            WHERE z.code_commune = p.insee_code AND z.type_local = 'Appartement'
+              AND z.prix_m2_median IS NOT NULL AND z.geom IS NOT NULL
+              AND ST_Contains(z.geom, ST_Centroid(ST_Transform(p.geom, 4326)))
+            ORDER BY z.count DESC LIMIT 1
+          ) hz ON true
+          LEFT JOIN LATERAL (
+            SELECT prix_m2_median FROM public.dvf_clusters_commune
+            WHERE cluster_id = p.insee_code || '_Appartement' AND prix_m2_median IS NOT NULL LIMIT 1
+          ) commune_appt ON true
+          WHERE p.insee_code = p_insee
+          ON CONFLICT (parcel_id) DO UPDATE SET
+            median_price_m2=EXCLUDED.median_price_m2, market_tension_score=EXCLUDED.market_tension_score,
+            hdbscan_zone_id=EXCLUDED.hdbscan_zone_id, analysis_year=EXCLUDED.analysis_year, updated_at=now();
+
+          -- Step 3: constructibility
+          INSERT INTO public.parcel_constructibility (
+            parcel_id, dominant_zone_family, max_height_est, max_footprint_ratio_est,
+            min_green_ratio_est, setback_penalty_est, parking_penalty_est,
+            buildable_footprint_est, floors_est, estimated_gfa, residual_potential_est, underuse_ratio, updated_at)
+          SELECT p.parcel_id, 'U', v_h, v_fp, v_gr, v_sb, v_pk,
+            LEAST(p.area_m2*v_fp, p.area_m2*(1-v_gr)*v_sb),
+            GREATEST(1, FLOOR(v_h/3.5))::int,
+            LEAST(p.area_m2*v_fp, p.area_m2*(1-v_gr)*v_sb) * GREATEST(1,FLOOR(v_h/3.5)) * v_pk,
+            GREATEST(0, LEAST(p.area_m2*v_fp, p.area_m2*(1-v_gr)*v_sb)*GREATEST(1,FLOOR(v_h/3.5))*v_pk - COALESCE(bs.existing_gfa_est,0)),
+            CASE WHEN (LEAST(p.area_m2*v_fp,p.area_m2*(1-v_gr)*v_sb)*GREATEST(1,FLOOR(v_h/3.5))*v_pk) > 0
+              THEN GREATEST(0, 1 - COALESCE(bs.existing_gfa_est,0)/(LEAST(p.area_m2*v_fp,p.area_m2*(1-v_gr)*v_sb)*GREATEST(1,FLOOR(v_h/3.5))*v_pk))
+              ELSE 0 END,
+            now()
+          FROM public.parcels p LEFT JOIN public.parcel_building_stats bs ON bs.parcel_id = p.parcel_id
+          WHERE p.insee_code = p_insee
+          ON CONFLICT (parcel_id) DO UPDATE SET
+            dominant_zone_family=EXCLUDED.dominant_zone_family, buildable_footprint_est=EXCLUDED.buildable_footprint_est,
+            floors_est=EXCLUDED.floors_est, estimated_gfa=EXCLUDED.estimated_gfa,
+            residual_potential_est=EXCLUDED.residual_potential_est, underuse_ratio=EXCLUDED.underuse_ratio, updated_at=now();
+
+          -- Step 4: scores (uses per-parcel HDBSCAN prices)
+          INSERT INTO public.parcel_scores (
+            parcel_id, mutability_score, underuse_score, zoning_score, market_score,
+            size_score, land_value_score, best_use, land_value_est, program_value_est, explanation_json, computed_at)
+          SELECT p.parcel_id,
+            ROUND((0.30*sub.us + 0.25*sub.zs + 0.20*sub.ms + 0.15*sub.ss + 0.10*sub.ls), 2),
+            sub.us, sub.zs, sub.ms, sub.ss, sub.ls,
+            CASE
+              WHEN pc.dominant_zone_family IN ('U','AU') AND p.area_m2>=600 AND pc.underuse_ratio>=0.70 THEN 'densification_residentielle'
+              WHEN pc.dominant_zone_family='U' AND p.area_m2 BETWEEN 300 AND 700 AND pc.underuse_ratio>=0.60 THEN 'division_parcellaire'
+              WHEN pc.dominant_zone_family='U' AND COALESCE(bs.coverage_ratio,0)<0.15 THEN 'dent_creuse'
+              ELSE 'analyse_complementaire'
+            END,
+            calc.lv, calc.pv,
+            jsonb_build_object('area_m2',p.area_m2,'underuse_ratio',pc.underuse_ratio,'dominant_zone_family',pc.dominant_zone_family,
+              'median_price_m2',COALESCE(pms.median_price_m2,p_median_price),'estimated_gfa',pc.estimated_gfa,
+              'residual_potential_est',pc.residual_potential_est,'coverage_ratio',bs.coverage_ratio,'hdbscan_zone_id',pms.hdbscan_zone_id),
+            now()
+          FROM public.parcels p
+          JOIN public.parcel_constructibility pc ON pc.parcel_id=p.parcel_id
+          LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id=p.parcel_id
+          LEFT JOIN public.parcel_building_stats bs ON bs.parcel_id=p.parcel_id
+          CROSS JOIN LATERAL (
+            SELECT (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price)) AS pv,
+              (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))-(pc.estimated_gfa*v_cc)-(pc.estimated_gfa*v_vrd)
+              -((pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_sf)
+              -((pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_mg) AS lv
+          ) calc
+          CROSS JOIN LATERAL (
+            SELECT
+              CASE WHEN pc.underuse_ratio>=0.80 THEN 10 WHEN pc.underuse_ratio>=0.60 THEN 8 WHEN pc.underuse_ratio>=0.40 THEN 6 WHEN pc.underuse_ratio>=0.20 THEN 4 ELSE 1 END AS us,
+              CASE WHEN pc.dominant_zone_family='U' THEN 9 WHEN pc.dominant_zone_family='AU' THEN 7 WHEN pc.dominant_zone_family='A' THEN 2 WHEN pc.dominant_zone_family='N' THEN 1 ELSE 3 END AS zs,
+              CASE WHEN COALESCE(pms.median_price_m2,p_median_price)>=6000 THEN 10 WHEN COALESCE(pms.median_price_m2,p_median_price)>=4500 THEN 8 WHEN COALESCE(pms.median_price_m2,p_median_price)>=3000 THEN 6 WHEN COALESCE(pms.median_price_m2,p_median_price)>=2000 THEN 4 ELSE 2 END AS ms,
+              CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS ss,
+              CASE WHEN calc.lv>=1500000 THEN 10 WHEN calc.lv>=800000 THEN 8 WHEN calc.lv>=400000 THEN 6 WHEN calc.lv>=150000 THEN 4 ELSE 2 END AS ls
+          ) sub
+          WHERE p.insee_code = p_insee
+          ON CONFLICT (parcel_id) DO UPDATE SET
+            mutability_score=EXCLUDED.mutability_score, underuse_score=EXCLUDED.underuse_score,
+            zoning_score=EXCLUDED.zoning_score, market_score=EXCLUDED.market_score,
+            size_score=EXCLUDED.size_score, land_value_score=EXCLUDED.land_value_score,
+            best_use=EXCLUDED.best_use, land_value_est=EXCLUDED.land_value_est,
+            program_value_est=EXCLUDED.program_value_est, explanation_json=EXCLUDED.explanation_json, computed_at=now();
+
+          SELECT count(*) INTO scored_count FROM public.parcel_scores WHERE parcel_id LIKE p_insee || '%';
+          NOTIFY pgrst, 'reload schema';
+          RETURN scored_count;
+        END;
+        $fn$;
+      `, "updated score_commune_parcels with HDBSCAN"));
+
+      logs.push(await runSQL(client, `NOTIFY pgrst, 'reload schema';`, "final schema reload after migrate"));
+    }
+
     return NextResponse.json({ success: true, logs });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

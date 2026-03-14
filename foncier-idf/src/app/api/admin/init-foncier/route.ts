@@ -166,12 +166,22 @@ export async function POST(req: NextRequest) {
           pcs.mutability_score, pcs.best_use, pcs.land_value_est, pcs.program_value_est,
           pcs.explanation_json,
           pc.dominant_zone_family, pc.estimated_gfa, pc.residual_potential_est, pc.underuse_ratio,
-          pms.median_price_m2,
+          pc.plu_zone_code, pc.zone_vocation, pc.ces_applied, pc.max_height_est,
+          pc.setback_front_m, pc.setback_side_m,
+          pms.median_price_m2, pms.hdbscan_zone_id,
+          COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
+          COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
+          COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
+          COALESCE(pbs.building_count, 0) AS building_count,
+          pcs.nb_logements_est, pcs.nb_parking_places,
+          pcs.parking_cost, pcs.parking_surface_m2,
+          pcs.taxe_amenagement, pcs.taxe_amenagement_taux,
           p.geom
         FROM public.parcels p
         LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
-        LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id;
+        LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id
+        LEFT JOIN public.parcel_building_stats pbs ON pbs.parcel_id = p.parcel_id;
       `, "v_parcel_foncier view"));
 
       logs.push(await runSQL(client, `
@@ -462,7 +472,7 @@ export async function POST(req: NextRequest) {
         CREATE INDEX IF NOT EXISTS idx_hdbscan_geom ON dvf_hdbscan_zones USING GIST (geom);
       `, "hdbscan geom index"));
 
-      // Update view with hdbscan_zone_id and coverage_ratio
+      // Update view with hdbscan_zone_id, coverage_ratio, and bâti existant
       logs.push(await runSQL(client, `
         CREATE OR REPLACE VIEW public.v_parcel_foncier AS
         SELECT
@@ -470,9 +480,17 @@ export async function POST(req: NextRequest) {
           pcs.mutability_score, pcs.best_use, pcs.land_value_est, pcs.program_value_est,
           pcs.explanation_json,
           pc.dominant_zone_family, pc.estimated_gfa, pc.residual_potential_est, pc.underuse_ratio,
+          pc.plu_zone_code, pc.zone_vocation, pc.ces_applied, pc.max_height_est,
+          pc.setback_front_m, pc.setback_side_m,
           pms.median_price_m2,
           pms.hdbscan_zone_id,
           COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
+          COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
+          COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
+          COALESCE(pbs.building_count, 0) AS building_count,
+          pcs.nb_logements_est, pcs.nb_parking_places,
+          pcs.parking_cost, pcs.parking_surface_m2,
+          pcs.taxe_amenagement, pcs.taxe_amenagement_taux,
           p.geom
         FROM public.parcels p
         LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
@@ -695,7 +713,7 @@ export async function POST(req: NextRequest) {
           ADD COLUMN IF NOT EXISTS plu_zone_code TEXT;
       `, "add bilan columns to scores"));
 
-      // 4. Update view with all new columns
+      // 4. Update view with all new columns (incl. bâti existant)
       logs.push(await runSQL(client, `
         CREATE OR REPLACE VIEW public.v_parcel_foncier AS
         SELECT
@@ -707,6 +725,9 @@ export async function POST(req: NextRequest) {
           pc.setback_front_m, pc.setback_side_m,
           pms.median_price_m2, pms.hdbscan_zone_id,
           COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
+          COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
+          COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
+          COALESCE(pbs.building_count, 0) AS building_count,
           pcs.nb_logements_est, pcs.nb_parking_places,
           pcs.parking_cost, pcs.parking_surface_m2,
           pcs.taxe_amenagement, pcs.taxe_amenagement_taux,
@@ -716,7 +737,7 @@ export async function POST(req: NextRequest) {
         LEFT JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_building_stats pbs ON pbs.parcel_id = p.parcel_id;
-      `, "updated v_parcel_foncier with PLU+bilan columns"));
+      `, "updated v_parcel_foncier with PLU+bilan+bati columns"));
 
       // 5. RLS for plu_zone_rules
       logs.push(await runSQL(client, `

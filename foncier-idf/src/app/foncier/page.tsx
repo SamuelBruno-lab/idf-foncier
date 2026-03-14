@@ -145,6 +145,9 @@ export default function FoncierPage() {
       }
 
       const json = await res.json();
+      if (json.error) {
+        setListError(json.error);
+      }
       const items: ParcelListItem[] = json.items ?? [];
       setResults(items);
 

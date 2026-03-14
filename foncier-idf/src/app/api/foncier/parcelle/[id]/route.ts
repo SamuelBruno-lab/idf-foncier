@@ -38,8 +38,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     if (error) {
       console.error("API /foncier/parcelle/[id] error:", error);
+      const notFound = error.code === "PGRST205" || error.message?.includes("schema cache");
       return NextResponse.json(
-        { error: "Parcelle introuvable." },
+        { error: notFound
+            ? "Tables foncières non initialisées. Exécutez le schéma SQL."
+            : "Parcelle introuvable." },
         { status: 404 }
       );
     }

@@ -61,9 +61,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("API /foncier/opportunities error:", error);
+      const notFound = error.code === "PGRST205" || error.message?.includes("schema cache");
       return NextResponse.json(
-        { error: "Erreur lors du chargement des opportunités." },
-        { status: 500 }
+        { error: notFound
+            ? "Tables foncières non initialisées. Exécutez le schéma SQL."
+            : "Erreur lors du chargement des opportunités.",
+          items: [], count: 0 },
+        { status: notFound ? 200 : 500 }
       );
     }
 

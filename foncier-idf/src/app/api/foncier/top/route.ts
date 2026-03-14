@@ -31,9 +31,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("API /foncier/top error:", error);
+      const notFound = error.code === "PGRST205" || error.message?.includes("schema cache");
       return NextResponse.json(
-        { error: "Erreur lors de la récupération des parcelles." },
-        { status: 500 }
+        { error: notFound
+            ? "Tables foncières non initialisées. Exécutez le schéma SQL."
+            : "Erreur lors de la récupération des parcelles.",
+          items: [], count: 0 },
+        { status: notFound ? 200 : 500 }
       );
     }
 

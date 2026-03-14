@@ -45,9 +45,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("API /foncier/search error:", error);
+      const notFound = error.code === "PGRST205" || error.message?.includes("schema cache");
       return NextResponse.json(
-        { error: "Erreur lors de la recherche foncière." },
-        { status: 500 }
+        { error: notFound
+            ? "Tables foncières non initialisées. Exécutez le schéma SQL (sql/08_foncier_schema.sql) dans Supabase."
+            : "Erreur lors de la recherche foncière.",
+          items: [], count: 0 },
+        { status: notFound ? 200 : 500 }
       );
     }
 

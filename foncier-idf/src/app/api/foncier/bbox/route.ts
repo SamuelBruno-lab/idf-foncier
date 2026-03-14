@@ -37,9 +37,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("API /foncier/bbox error:", error);
+      const notFound = error.code === "PGRST202" || error.message?.includes("schema cache");
       return NextResponse.json(
-        { error: "Erreur lors de la récupération cartographique." },
-        { status: 500 }
+        { error: notFound
+            ? "Fonction get_foncier_bbox non trouvée. Exécutez le schéma SQL (sql/08_foncier_schema.sql) dans Supabase."
+            : "Erreur lors de la récupération cartographique.",
+          items: [], count: 0 },
+        { status: notFound ? 200 : 500 }
       );
     }
 

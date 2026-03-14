@@ -26,6 +26,8 @@ export type ParcelDetail = {
   residual_potential_est: number | null;
   underuse_ratio: number | null;
   median_price_m2: number | null;
+  hdbscan_zone_id: string | null;
+  coverage_ratio: number | null;
 };
 
 export type ParcelBBoxItem = {

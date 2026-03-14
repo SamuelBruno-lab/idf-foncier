@@ -143,11 +143,14 @@ SELECT
   pc.residual_potential_est,
   pc.underuse_ratio,
   pms.median_price_m2,
+  pms.hdbscan_zone_id,
+  COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
   p.geom
 FROM public.parcels p
 LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
 LEFT JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
-LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id;
+LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id
+LEFT JOIN public.parcel_building_stats pbs ON pbs.parcel_id = p.parcel_id;
 
 -- =========================
 -- Fonction RPC bbox

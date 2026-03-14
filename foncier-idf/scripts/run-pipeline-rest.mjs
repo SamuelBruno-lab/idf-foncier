@@ -1,10 +1,11 @@
 /**
  * Pipeline foncier ICH via Supabase REST API (curl-based, proxy-compatible).
+ * Uses real PLUi BNS zones from GPU (assign-plui-zones.py output).
  * Usage: node scripts/run-pipeline-rest.mjs [--insee 92078]
  */
 
 import { execSync } from "child_process";
-import { readFileSync, writeFileSync, unlinkSync } from "fs";
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -78,28 +79,21 @@ const PARKING_COST_PER_PLACE = 13500;
 const TAXE_VALEUR_FORFAITAIRE = 854;
 const TAXE_TAUX_DEFAULT = 0.05;
 
-const PLU_RULES = {
-  UA: { vocation: "mixte",       max_height: 25, ces: 0.80, green_ratio: 0.10, setback_front: 0, setback_side: 0, parking_avg: 1.3 },
-  UB: { vocation: "residentiel", max_height: 18, ces: 0.60, green_ratio: 0.20, setback_front: 3, setback_side: 3, parking_avg: 1.3 },
-  UC: { vocation: "residentiel", max_height: 12, ces: 0.40, green_ratio: 0.30, setback_front: 5, setback_side: 3, parking_avg: 1.3 },
-  UD: { vocation: "residentiel", max_height: 9,  ces: 0.30, green_ratio: 0.40, setback_front: 5, setback_side: 4, parking_avg: 1.2 },
-  UE: { vocation: "economique",  max_height: 15, ces: 0.60, green_ratio: 0.15, setback_front: 5, setback_side: 5, parking_avg: 0 },
-  UX: { vocation: "economique",  max_height: 20, ces: 0.65, green_ratio: 0.15, setback_front: 5, setback_side: 5, parking_avg: 0 },
-  UP: { vocation: "mixte",       max_height: 50, ces: 0.70, green_ratio: 0.15, setback_front: 0, setback_side: 0, parking_avg: 1.3 },
-  AU: { vocation: "mixte",       max_height: 15, ces: 0.50, green_ratio: 0.25, setback_front: 5, setback_side: 4, parking_avg: 1.3 },
-  A:  { vocation: "residentiel", max_height: 7,  ces: 0.10, green_ratio: 0.70, setback_front: 10, setback_side: 5, parking_avg: 1.1 },
-  N:  { vocation: "residentiel", max_height: 7,  ces: 0.05, green_ratio: 0.80, setback_front: 10, setback_side: 10, parking_avg: 0 },
-};
+// PLUi BNS parking norms – Secteur 2 (VLG, Gennevilliers, Colombes, Asnières, Bois-Colombes)
+// Simplified: 1 place/logement (0.75 T1-T2, 1 à partir du T3), logement social 0.5
+const PARKING_PER_LOGEMENT = 1.0;
 
-function assignPluZone(coverageRatio, zoneFamily) {
-  if (zoneFamily === "A") return "A";
-  if (zoneFamily === "N") return "N";
-  if (zoneFamily === "AU") return "AU";
-  if (coverageRatio >= 0.65) return "UA";
-  if (coverageRatio >= 0.45) return "UB";
-  if (coverageRatio >= 0.25) return "UC";
-  return "UD";
-}
+// ─── Setback rules by forme index (Article 3) ──────────────────
+const FORME_SETBACKS = {
+  1: { front: 0, side: 0 },       // central, alignement obligatoire
+  2: { front: 0, side: 3 },       // alignement ou recul, retrait h/2 min 3m
+  3: { front: 3, side: 3 },       // recul possible, retrait h/2 min 3m
+  4: { front: 5, side: 4 },       // recul ≥5m, retrait h/2 min 4m
+  5: { front: 5, side: 4 },       // recul, retrait h/2 min 4m
+  6: { front: 3, side: 4 },       // alignement ou recul, retrait h/2 min 4m
+  7: { front: 5, side: 5 },       // recul ≥h/2 min 5m
+  8: { front: 0, side: 5 },       // alignement ou recul, retrait ≥5m
+};
 
 function computeSetbackPenalty(area, setbackFront, setbackSide) {
   if (!area || area <= 0) return 1.0;
@@ -114,7 +108,16 @@ async function main() {
     ? process.argv[process.argv.indexOf("--insee") + 1]
     : "92078";
 
-  console.log(`=== Pipeline ICH via REST — insee=${insee} ===`);
+  console.log(`=== Pipeline ICH via REST + PLUi BNS — insee=${insee} ===`);
+
+  // 0. Load PLUi zone assignments
+  const pluiFile = resolve(__dirname, "../../data/vlg_parcel_plui_zones.json");
+  if (!existsSync(pluiFile)) {
+    console.error("ERROR: Run assign-plui-zones.py first to generate PLUi zone assignments");
+    process.exit(1);
+  }
+  const pluiMap = JSON.parse(readFileSync(pluiFile, "utf8"));
+  console.log(`[0/5] PLUi zones loaded: ${Object.keys(pluiMap).length} parcels`);
 
   // 1. Fetch parcels
   console.log("[1/5] Fetching parcels...");
@@ -128,7 +131,6 @@ async function main() {
   // 2. Fetch building stats
   console.log("[2/5] Fetching building stats...");
   const parcelIds = parcels.map(p => p.parcel_id);
-  // Supabase REST: use IN filter with batched requests
   const bsMap = {};
   const BS_BATCH = 200;
   for (let i = 0; i < parcelIds.length; i += BS_BATCH) {
@@ -154,40 +156,38 @@ async function main() {
   }
   console.log(`  → ${Object.keys(msMap).length} market stats`);
 
-  // 4. Fetch constructibility
-  console.log("[4/5] Fetching constructibility...");
-  const cMap = {};
-  for (let i = 0; i < parcelIds.length; i += BS_BATCH) {
-    const batch = parcelIds.slice(i, i + BS_BATCH);
-    const inFilter = `parcel_id=in.(${batch.map(id => `"${id}"`).join(",")})`;
-    const data = supabaseGet("parcel_constructibility",
-      `select=${encodeURIComponent("parcel_id,estimated_gfa,max_height_est,max_footprint_ratio_est,dominant_zone_family,underuse_ratio,residual_potential_est")}&${inFilter}`
-    );
-    if (Array.isArray(data)) data.forEach(c => { cMap[c.parcel_id] = c; });
-  }
-  console.log(`  → ${Object.keys(cMap).length} constructibility records`);
+  // 4. Skip old constructibility fetch — we compute from PLUi now
+  console.log("[4/5] Computing from PLUi zones...");
 
   // 5. Compute ICH bilan scores
   console.log("[5/5] Computing ICH bilan + scores...");
   const scoreRows = [];
   const constUpdates = [];
+  let noPluiCount = 0;
 
   for (const p of parcels) {
     const bs = bsMap[p.parcel_id] || {};
     const ms = msMap[p.parcel_id] || {};
-    const cn = cMap[p.parcel_id] || {};
+    const plui = pluiMap[p.parcel_id];
+
+    if (!plui) {
+      noPluiCount++;
+      continue;
+    }
 
     const area = p.area_m2 || 0;
     const coverageRatio = bs.coverage_ratio ?? 0;
-    const zoneFamily = cn.dominant_zone_family || "U";
 
-    const pluZoneCode = assignPluZone(coverageRatio, zoneFamily);
-    const plu = PLU_RULES[pluZoneCode] || PLU_RULES.UC;
+    // PLUi rules
+    const cesApplied = plui.ces;
+    const maxHeight = plui.max_height_m;
+    const greenRatio = plui.green_ratio;
+    const vocation = plui.zone_vocation;
+    const pluZoneCode = plui.plu_zone_code;
+    const forme = plui.forme || 4;
 
-    const cesApplied = plu.ces;
-    const maxHeight = plu.max_height;
-    const greenRatio = plu.green_ratio;
-    const setbackPenalty = computeSetbackPenalty(area, plu.setback_front, plu.setback_side);
+    const setback = FORME_SETBACKS[forme] || FORME_SETBACKS[4];
+    const setbackPenalty = computeSetbackPenalty(area, setback.front, setback.side);
     const buildableFootprint = area * cesApplied * (1 - greenRatio) * setbackPenalty;
     const floors = Math.max(1, Math.floor(maxHeight / 3));
     const estimatedGfa = buildableFootprint * floors;
@@ -208,8 +208,11 @@ async function main() {
     const coutPublicite = COMMERCIALISATION_RATIO * caTotal;
     const coutDette = FRAIS_FINANCIERS_RATIO * (coutConstruction + coutPublicite + coutVrd);
 
-    const nbLogements = plu.vocation === "economique" ? 0 : Math.max(1, Math.round(estimatedGfa / 60));
-    const nbParking = Math.round(nbLogements * plu.parking_avg);
+    // Parking: vocation-dependent
+    const nbLogements = (vocation === "activite" || vocation === "equipement")
+      ? 0
+      : Math.max(1, Math.round(estimatedGfa / 60));
+    const nbParking = Math.round(nbLogements * PARKING_PER_LOGEMENT);
     const parkingCost = nbParking * PARKING_COST_PER_PLACE;
 
     const taxeAmenagement = estimatedGfa * TAXE_VALEUR_FORFAITAIRE * TAXE_TAUX_DEFAULT;
@@ -223,7 +226,10 @@ async function main() {
     const sizeScore = area <= 200 ? 2 : area <= 500 ? 5 : area <= 1000 ? 7 : area <= 2000 ? 9 : 10;
     const underuseScore = Math.min(10, underuseRatio * 12);
     const marketScore = Math.min(10, medianPrice / 1000);
-    const zoningScore = zoneFamily === "U" ? 8 : zoneFamily === "AU" ? 6 : 2;
+
+    const zoneFamily = pluZoneCode.startsWith("U") ? "U" : pluZoneCode.startsWith("A") ? "A" : "N";
+    const zoningScore = zoneFamily === "U" ? 8 : zoneFamily === "A" ? 2 : 1;
+
     const landValueScore = chargeFonciere > 0
       ? (chargeFonciereM2 <= 100 ? 3 : chargeFonciereM2 <= 300 ? 5 : chargeFonciereM2 <= 600 ? 7 : 9)
       : 0;
@@ -232,23 +238,32 @@ async function main() {
       0.25 * sizeScore + 0.30 * underuseScore + 0.15 * marketScore + 0.10 * zoningScore + 0.20 * landValueScore
     ));
 
+    // best_use: based on PLUi vocation + underuse
     let bestUse;
-    if (plu.vocation === "economique") {
+    if (vocation === "naturel" || vocation === "agricole") {
+      bestUse = "non_constructible";
+    } else if (vocation === "equipement") {
+      bestUse = "equipement_public";
+    } else if (vocation === "activite") {
       bestUse = estimatedGfa > 1000 ? "activite_economique" : "bureaux_commerces";
+    } else if (vocation === "projet") {
+      bestUse = "zone_de_projet";
     } else if (area < 300) {
       bestUse = "division_parcellaire";
     } else if (coverageRatio < 0.05 && area > 500) {
       bestUse = "dent_creuse";
     } else if (underuseRatio > 0.4) {
-      bestUse = "densification_residentielle";
+      bestUse = vocation === "mixte" ? "densification_mixte" : "densification_residentielle";
     } else {
       bestUse = "analyse_complementaire";
     }
 
     const explanationJson = {
-      plu_zone_code: pluZoneCode, zone_vocation: plu.vocation,
+      plu_zone_code: pluZoneCode, zone_vocation: vocation,
+      destination: plui.destination, forme: forme,
+      densite_idx: plui.densite_idx, hauteur_idx: plui.hauteur_idx,
       ces_applied: cesApplied, max_height_est: maxHeight,
-      setback_front_m: plu.setback_front, setback_side_m: plu.setback_side,
+      setback_front_m: setback.front, setback_side_m: setback.side,
       coverage_ratio: parseFloat(coverageRatio.toFixed(3)),
       buildable_footprint: Math.round(buildableFootprint),
       floors_est: floors, estimated_gfa: Math.round(estimatedGfa),
@@ -271,7 +286,7 @@ async function main() {
       charge_fonciere: Math.round(chargeFonciere),
       charge_fonciere_m2_terrain: Math.round(chargeFonciereM2),
       prix_par_logement: Math.round(prixParLogement),
-      method: "ICH_bilan_promoteur_v2",
+      method: "ICH_bilan_promoteur_v3_PLUi_BNS",
       construction_cost_m2: CONSTRUCTION_COST_M2,
     };
 
@@ -307,6 +322,8 @@ async function main() {
     });
   }
 
+  if (noPluiCount > 0) console.log(`  ⚠ ${noPluiCount} parcels without PLUi zone (skipped)`);
+
   // Upsert constructibility
   console.log(`  Upserting ${constUpdates.length} constructibility records...`);
   const BATCH = 100;
@@ -333,13 +350,21 @@ async function main() {
   const positive = scoreRows.filter(s => s.land_value_est > 0);
   const top = [...scoreRows].sort((a, b) => b.mutability_score - a.mutability_score).slice(0, 10);
 
-  console.log(`\n=== Résultats VLG (${insee}) ===`);
+  // Vocation distribution
+  const vocCounts = {};
+  scoreRows.forEach(s => {
+    const v = s.explanation_json.zone_vocation;
+    vocCounts[v] = (vocCounts[v] || 0) + 1;
+  });
+
+  console.log(`\n=== Résultats VLG (${insee}) — PLUi BNS ===`);
   console.log(`  Parcelles scorées : ${scored.length}`);
   console.log(`  Charge foncière positive : ${positive.length}`);
+  console.log(`  Vocations : ${JSON.stringify(vocCounts)}`);
   console.log(`\n  Top 10 parcelles :`);
   for (const s of top) {
     const ej = s.explanation_json;
-    console.log(`    ${s.parcel_id} — Score ${s.mutability_score}/10 — CF ${ej.charge_fonciere_m2_terrain} €/m² — ${s.best_use} — PLU ${ej.plu_zone_code} (${ej.zone_vocation}) — ${ej.nb_logements_est} lgts — parking ${ej.cout_parking}€`);
+    console.log(`    ${s.parcel_id} — Score ${s.mutability_score}/10 — CF ${ej.charge_fonciere_m2_terrain} €/m² — ${s.best_use} — PLUi ${ej.plu_zone_code} (${ej.zone_vocation}) — ${ej.nb_logements_est} lgts`);
   }
 
   console.log(`\n=== Pipeline ICH terminé ===`);

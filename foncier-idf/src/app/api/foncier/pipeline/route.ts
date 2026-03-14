@@ -168,11 +168,11 @@ export async function POST(req: NextRequest) {
         .order("count", { ascending: false })
         .limit(1);
 
-      if (dvfData && dvfData.length > 0) {
+      if (dvfData && dvfData.length > 0 && dvfData[0].prix_m2_median != null) {
         medianPrice = dvfData[0].prix_m2_median;
         logs.push(`DVF price found: ${medianPrice} €/m²`);
       } else {
-        logs.push(`DVF fallback price: ${medianPrice} €/m²`);
+        logs.push(`DVF fallback price: ${medianPrice} €/m² (dept ${dep})`);
       }
 
       // Run scoring via RPC

@@ -4,7 +4,6 @@ export type FoncierFiltersState = {
   insee: string;
   minScore: number;
   minArea: number;
-  minLandValue: number;
   bestUse: string;
   limit: number;
 };
@@ -83,20 +82,6 @@ export default function FoncierFilters({
           min={0}
           value={value.minArea}
           onChange={(e) => update("minArea", Number(e.target.value))}
-          disabled={disabled}
-          className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
-          Valeur foncière min (€)
-        </label>
-        <input
-          type="number"
-          min={0}
-          value={value.minLandValue}
-          onChange={(e) => update("minLandValue", Number(e.target.value))}
           disabled={disabled}
           className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
         />

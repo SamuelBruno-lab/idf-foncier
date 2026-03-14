@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
     const insee = searchParams.get("insee");
     const minScore = Number(searchParams.get("minScore") ?? "0");
     const minArea = Number(searchParams.get("minArea") ?? "0");
-    const minLandValue = Number(searchParams.get("minLandValue") ?? "0");
     const bestUse = searchParams.get("bestUse");
     const limit = Number(searchParams.get("limit") ?? "100");
 
@@ -29,7 +28,6 @@ export async function GET(req: NextRequest) {
       )
       .gte("mutability_score", minScore)
       .gte("area_m2", minArea)
-      .gte("land_value_est", minLandValue)
       .order("mutability_score", { ascending: false })
       .limit(limit);
 

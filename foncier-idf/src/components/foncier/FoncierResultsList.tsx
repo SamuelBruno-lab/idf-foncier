@@ -7,7 +7,6 @@ type ParcelListItem = {
   area_m2: number | null;
   mutability_score: number | null;
   best_use: string | null;
-  land_value_est: number | null;
   estimated_gfa: number | null;
   residual_potential_est?: number | null;
 };

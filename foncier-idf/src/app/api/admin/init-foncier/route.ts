@@ -3,11 +3,17 @@ import { Client } from "pg";
 
 const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function getDbUrl(): string {
-  // Supabase direct connection (session mode)
+function getDbConfig() {
   const ref = "zexkxstcwkdsqjgsppvx";
   const password = process.env.SUPABASE_DB_PASSWORD || ADMIN_SECRET;
-  return `postgresql://postgres.${ref}:${encodeURIComponent(password!)}@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require`;
+  return {
+    host: `aws-0-eu-west-3.pooler.supabase.com`,
+    port: 5432,
+    database: "postgres",
+    user: `postgres.${ref}`,
+    password: password!,
+    ssl: { rejectUnauthorized: false },
+  };
 }
 
 async function runSQL(client: Client, sql: string, label: string): Promise<string> {
@@ -30,7 +36,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const step = (body as Record<string, string>).step ?? "all";
 
-  const client = new Client({ connectionString: getDbUrl() });
+  const client = new Client(getDbConfig());
   const logs: string[] = [];
 
   try {

@@ -3,39 +3,19 @@ import { Client } from "pg";
 
 const ADMIN_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const REGIONS = ["eu-west-3", "eu-central-1", "eu-west-1", "eu-west-2", "us-east-1"];
-
 function getDbConfigs() {
   const ref = "zexkxstcwkdsqjgsppvx";
   const password = process.env.SUPABASE_DB_PASSWORD ?? "11097211Sbr@";
-  const configs = [];
-  // Try pooler with different regions and ports
-  for (const region of REGIONS) {
-    for (const port of [6543, 5432]) {
-      configs.push({
-        host: `aws-0-${region}.pooler.supabase.com`,
-        port,
-        database: "postgres",
-        user: `postgres.${ref}`,
-        password,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 8000,
-        label: `pooler-${region}:${port}`,
-      });
-    }
-  }
-  // Also try direct connection
-  configs.push({
-    host: `db.${ref}.supabase.co`,
-    port: 5432,
-    database: "postgres",
-    user: "postgres",
-    password,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 8000,
-    label: "direct",
-  });
-  return configs;
+  return [
+    // New-style pooler: {ref}.pooler.supabase.com
+    { host: `${ref}.pooler.supabase.com`, port: 6543, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "new-pooler:6543" },
+    { host: `${ref}.pooler.supabase.com`, port: 5432, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "new-pooler:5432" },
+    // Old-style pooler
+    { host: `aws-0-eu-west-3.pooler.supabase.com`, port: 6543, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "old-pooler-eu-west-3:6543" },
+    { host: `aws-0-eu-central-1.pooler.supabase.com`, port: 6543, database: "postgres", user: `postgres.${ref}`, password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "old-pooler-eu-central-1:6543" },
+    // Direct connection
+    { host: `db.${ref}.supabase.co`, port: 5432, database: "postgres", user: "postgres", password, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000, label: "direct" },
+  ];
 }
 
 async function runSQL(client: Client, sql: string, label: string): Promise<string> {

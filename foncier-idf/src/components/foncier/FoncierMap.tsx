@@ -71,7 +71,6 @@ export default function FoncierMap({
     score?: number;
     best_use?: string;
     area?: number;
-    land_value?: number;
     // micro-zone hover
     zone_nom?: string;
     zone_type?: string;
@@ -263,7 +262,6 @@ export default function FoncierMap({
               score: p.score,
               best_use: p.best_use,
               area: p.area,
-              land_value: p.land_value,
             });
           } else if (!showMicroZones) {
             setHoverInfo(null);

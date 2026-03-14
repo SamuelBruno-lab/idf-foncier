@@ -12,7 +12,6 @@ export async function GET(req: NextRequest) {
 
     let minScore = 7;
     let minArea = 300;
-    let minLandValue = 250000;
     let bestUseList = [
       "densification_residentielle",
       "division_parcellaire",
@@ -22,7 +21,6 @@ export async function GET(req: NextRequest) {
     if (profile === "marchand") {
       minScore = 6;
       minArea = 150;
-      minLandValue = 100000;
       bestUseList = [
         "division_parcellaire",
         "dent_creuse",
@@ -47,10 +45,9 @@ export async function GET(req: NextRequest) {
       )
       .gte("mutability_score", minScore)
       .gte("area_m2", minArea)
-      .gte("land_value_est", minLandValue)
       .in("best_use", bestUseList)
       .order("mutability_score", { ascending: false })
-      .order("land_value_est", { ascending: false })
+      .order("residual_potential_est", { ascending: false, nullsFirst: false })
       .limit(limit);
 
     if (insee) {

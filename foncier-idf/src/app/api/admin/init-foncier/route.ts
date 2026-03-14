@@ -385,8 +385,7 @@ export async function POST(req: NextRequest) {
           updated_at = now();
       `, "03_constructibility"));
 
-      // Step 4: scores
-      const SR = 0.75, CC = 1300, VRD = 100, SF = 0.03, MG = 0.08;
+      // Step 4: scores (no bilan promoteur — just underuse + zoning + market + size)
       logs.push(await runSQL(client, `
         INSERT INTO public.parcel_scores (
           parcel_id, mutability_score, underuse_score, zoning_score, market_score,
@@ -395,16 +394,17 @@ export async function POST(req: NextRequest) {
         )
         SELECT
           p.parcel_id,
-          ROUND((0.30*sub.underuse_score + 0.25*sub.zoning_score + 0.20*sub.market_score + 0.15*sub.size_score + 0.10*sub.land_value_score), 2),
-          sub.underuse_score, sub.zoning_score, sub.market_score, sub.size_score, sub.land_value_score,
+          ROUND((0.35*sub.underuse_score + 0.25*sub.zoning_score + 0.22*sub.market_score + 0.18*sub.size_score), 2),
+          sub.underuse_score, sub.zoning_score, sub.market_score, sub.size_score, 0,
           CASE
             WHEN pc.dominant_zone_family IN ('U','AU') AND p.area_m2 >= 600 AND pc.underuse_ratio >= 0.70 THEN 'densification_residentielle'
             WHEN pc.dominant_zone_family = 'U' AND p.area_m2 BETWEEN 300 AND 700 AND pc.underuse_ratio >= 0.60 THEN 'division_parcellaire'
             WHEN pc.dominant_zone_family = 'U' AND COALESCE(bs.coverage_ratio,0) < 0.15 THEN 'dent_creuse'
             ELSE 'analyse_complementaire'
           END,
-          calc.land_value_est_calc, calc.program_value_est_calc,
-          jsonb_build_object('area_m2',p.area_m2,'underuse_ratio',pc.underuse_ratio,'dominant_zone_family',pc.dominant_zone_family,'median_price_m2',pms.median_price_m2,'estimated_gfa',pc.estimated_gfa,'residual_potential_est',pc.residual_potential_est,'coverage_ratio',bs.coverage_ratio),
+          0, 0,
+          jsonb_build_object('area_m2',p.area_m2,'underuse_ratio',pc.underuse_ratio,'dominant_zone_family',pc.dominant_zone_family,'median_price_m2',pms.median_price_m2,'estimated_gfa',pc.estimated_gfa,'residual_potential_est',pc.residual_potential_est,'coverage_ratio',bs.coverage_ratio,
+            'existing_gfa_est',COALESCE(bs.existing_gfa_est,0),'built_footprint_m2',COALESCE(bs.built_footprint_m2,0),'building_count',COALESCE(bs.building_count,0)),
           now()
         FROM public.parcels p
         JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
@@ -412,20 +412,10 @@ export async function POST(req: NextRequest) {
         LEFT JOIN public.parcel_building_stats bs ON bs.parcel_id = p.parcel_id
         CROSS JOIN LATERAL (
           SELECT
-            (pc.estimated_gfa * ${SR} * COALESCE(pms.median_price_m2,0)) AS program_value_est_calc,
-            (pc.estimated_gfa * ${SR} * COALESCE(pms.median_price_m2,0))
-            - (pc.estimated_gfa * ${CC}) - (pc.estimated_gfa * ${VRD})
-            - ((pc.estimated_gfa * ${SR} * COALESCE(pms.median_price_m2,0)) * ${SF})
-            - ((pc.estimated_gfa * ${SR} * COALESCE(pms.median_price_m2,0)) * ${MG})
-            AS land_value_est_calc
-        ) calc
-        CROSS JOIN LATERAL (
-          SELECT
             CASE WHEN pc.underuse_ratio>=0.80 THEN 10 WHEN pc.underuse_ratio>=0.60 THEN 8 WHEN pc.underuse_ratio>=0.40 THEN 6 WHEN pc.underuse_ratio>=0.20 THEN 4 ELSE 1 END AS underuse_score,
             CASE WHEN pc.dominant_zone_family='U' THEN 9 WHEN pc.dominant_zone_family='AU' THEN 7 WHEN pc.dominant_zone_family='A' THEN 2 WHEN pc.dominant_zone_family='N' THEN 1 ELSE 3 END AS zoning_score,
             CASE WHEN pms.median_price_m2>=6000 THEN 10 WHEN pms.median_price_m2>=4500 THEN 8 WHEN pms.median_price_m2>=3000 THEN 6 WHEN pms.median_price_m2>=2000 THEN 4 ELSE 2 END AS market_score,
-            CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS size_score,
-            CASE WHEN calc.land_value_est_calc>=1500000 THEN 10 WHEN calc.land_value_est_calc>=800000 THEN 8 WHEN calc.land_value_est_calc>=400000 THEN 6 WHEN calc.land_value_est_calc>=150000 THEN 4 ELSE 2 END AS land_value_score
+            CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS size_score
         ) sub
         WHERE p.insee_code = '${insee}'
         ON CONFLICT (parcel_id) DO UPDATE SET
@@ -489,9 +479,6 @@ export async function POST(req: NextRequest) {
           COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
           COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
           COALESCE(pbs.building_count, 0) AS building_count,
-          pcs.nb_logements_est, pcs.nb_parking_places,
-          pcs.parking_cost, pcs.parking_surface_m2,
-          pcs.taxe_amenagement, pcs.taxe_amenagement_taux,
           p.geom
         FROM public.parcels p
         LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
@@ -525,8 +512,7 @@ export async function POST(req: NextRequest) {
         DECLARE
           scored_count INTEGER;
           v_h NUMERIC := 12; v_fp NUMERIC := 0.40; v_gr NUMERIC := 0.20;
-          v_sb NUMERIC := 0.85; v_pk NUMERIC := 0.90; v_sr NUMERIC := 0.75;
-          v_cc NUMERIC := 1300; v_vrd NUMERIC := 100; v_sf NUMERIC := 0.03; v_mg NUMERIC := 0.08;
+          v_sb NUMERIC := 0.85; v_pk NUMERIC := 0.90;
         BEGIN
           -- Step 1: building stats
           INSERT INTO public.parcel_building_stats (parcel_id, built_footprint_m2, building_count, existing_gfa_est, coverage_ratio, updated_at)
@@ -594,41 +580,35 @@ export async function POST(req: NextRequest) {
             floors_est=EXCLUDED.floors_est, estimated_gfa=EXCLUDED.estimated_gfa,
             residual_potential_est=EXCLUDED.residual_potential_est, underuse_ratio=EXCLUDED.underuse_ratio, updated_at=now();
 
-          -- Step 4: scores (uses per-parcel HDBSCAN prices)
+          -- Step 4: scores (no bilan promoteur)
           INSERT INTO public.parcel_scores (
             parcel_id, mutability_score, underuse_score, zoning_score, market_score,
             size_score, land_value_score, best_use, land_value_est, program_value_est, explanation_json, computed_at)
           SELECT p.parcel_id,
-            ROUND((0.30*sub.us + 0.25*sub.zs + 0.20*sub.ms + 0.15*sub.ss + 0.10*sub.ls), 2),
-            sub.us, sub.zs, sub.ms, sub.ss, sub.ls,
+            ROUND((0.35*sub.us + 0.25*sub.zs + 0.22*sub.ms + 0.18*sub.ss), 2),
+            sub.us, sub.zs, sub.ms, sub.ss, 0,
             CASE
               WHEN pc.dominant_zone_family IN ('U','AU') AND p.area_m2>=600 AND pc.underuse_ratio>=0.70 THEN 'densification_residentielle'
               WHEN pc.dominant_zone_family='U' AND p.area_m2 BETWEEN 300 AND 700 AND pc.underuse_ratio>=0.60 THEN 'division_parcellaire'
               WHEN pc.dominant_zone_family='U' AND COALESCE(bs.coverage_ratio,0)<0.15 THEN 'dent_creuse'
               ELSE 'analyse_complementaire'
             END,
-            calc.lv, calc.pv,
+            0, 0,
             jsonb_build_object('area_m2',p.area_m2,'underuse_ratio',pc.underuse_ratio,'dominant_zone_family',pc.dominant_zone_family,
               'median_price_m2',COALESCE(pms.median_price_m2,p_median_price),'estimated_gfa',pc.estimated_gfa,
-              'residual_potential_est',pc.residual_potential_est,'coverage_ratio',bs.coverage_ratio,'hdbscan_zone_id',pms.hdbscan_zone_id),
+              'residual_potential_est',pc.residual_potential_est,'coverage_ratio',bs.coverage_ratio,'hdbscan_zone_id',pms.hdbscan_zone_id,
+              'existing_gfa_est',COALESCE(bs.existing_gfa_est,0),'built_footprint_m2',COALESCE(bs.built_footprint_m2,0),'building_count',COALESCE(bs.building_count,0)),
             now()
           FROM public.parcels p
           JOIN public.parcel_constructibility pc ON pc.parcel_id=p.parcel_id
           LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id=p.parcel_id
           LEFT JOIN public.parcel_building_stats bs ON bs.parcel_id=p.parcel_id
           CROSS JOIN LATERAL (
-            SELECT (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price)) AS pv,
-              (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))-(pc.estimated_gfa*v_cc)-(pc.estimated_gfa*v_vrd)
-              -((pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_sf)
-              -((pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_mg) AS lv
-          ) calc
-          CROSS JOIN LATERAL (
             SELECT
               CASE WHEN pc.underuse_ratio>=0.80 THEN 10 WHEN pc.underuse_ratio>=0.60 THEN 8 WHEN pc.underuse_ratio>=0.40 THEN 6 WHEN pc.underuse_ratio>=0.20 THEN 4 ELSE 1 END AS us,
               CASE WHEN pc.dominant_zone_family='U' THEN 9 WHEN pc.dominant_zone_family='AU' THEN 7 WHEN pc.dominant_zone_family='A' THEN 2 WHEN pc.dominant_zone_family='N' THEN 1 ELSE 3 END AS zs,
               CASE WHEN COALESCE(pms.median_price_m2,p_median_price)>=6000 THEN 10 WHEN COALESCE(pms.median_price_m2,p_median_price)>=4500 THEN 8 WHEN COALESCE(pms.median_price_m2,p_median_price)>=3000 THEN 6 WHEN COALESCE(pms.median_price_m2,p_median_price)>=2000 THEN 4 ELSE 2 END AS ms,
-              CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS ss,
-              CASE WHEN calc.lv>=1500000 THEN 10 WHEN calc.lv>=800000 THEN 8 WHEN calc.lv>=400000 THEN 6 WHEN calc.lv>=150000 THEN 4 ELSE 2 END AS ls
+              CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS ss
           ) sub
           WHERE p.insee_code = p_insee
           ON CONFLICT (parcel_id) DO UPDATE SET
@@ -729,16 +709,13 @@ export async function POST(req: NextRequest) {
           COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
           COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
           COALESCE(pbs.building_count, 0) AS building_count,
-          pcs.nb_logements_est, pcs.nb_parking_places,
-          pcs.parking_cost, pcs.parking_surface_m2,
-          pcs.taxe_amenagement, pcs.taxe_amenagement_taux,
           p.geom
         FROM public.parcels p
         LEFT JOIN public.parcel_scores pcs ON pcs.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_constructibility pc ON pc.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id = p.parcel_id
         LEFT JOIN public.parcel_building_stats pbs ON pbs.parcel_id = p.parcel_id;
-      `, "updated v_parcel_foncier with PLU+bilan+bati columns"));
+      `, "updated v_parcel_foncier with PLU+bati columns"));
 
       // 5. RLS for plu_zone_rules
       logs.push(await runSQL(client, `
@@ -750,7 +727,7 @@ export async function POST(req: NextRequest) {
         END $$;
       `, "RLS plu_zone_rules"));
 
-      // 6. Update score_commune_parcels with ICH bilan + PLU
+      // 6. Update score_commune_parcels with PLU (no bilan promoteur)
       logs.push(await runSQL(client, `
         CREATE OR REPLACE FUNCTION public.score_commune_parcels(
           p_insee TEXT, p_median_price NUMERIC DEFAULT 4000
@@ -760,17 +737,6 @@ export async function POST(req: NextRequest) {
           -- PLU defaults
           v_h NUMERIC := 12; v_fp NUMERIC := 0.40; v_gr NUMERIC := 0.20;
           v_sb NUMERIC := 0.85;
-          -- Bilan ICH
-          v_sr NUMERIC := 0.75;     -- rendement (SDP → habitable)
-          v_cc NUMERIC := 1800;     -- construction €/m² SDP (IDF)
-          v_vrd NUMERIC := 100;     -- VRD €/m² terrain
-          v_pub NUMERIC := 0.025;   -- publicité 2.5% CA
-          v_dette NUMERIC := 0.06;  -- dette 6% × (constr+pub+VRD)
-          v_mg NUMERIC := 0.08;     -- marge 8% CA (= dépense)
-          v_pk_cost NUMERIC := 13500; -- parking €/place
-          v_pk_surf NUMERIC := 27;    -- parking m²/place
-          v_ta_val NUMERIC := 854;    -- taxe aménagement IDF €/m²
-          v_ta_taux NUMERIC := 0.05;  -- taux communal 5%
         BEGIN
           -- Step 1: building stats
           INSERT INTO public.parcel_building_stats (parcel_id, built_footprint_m2, building_count, existing_gfa_est, coverage_ratio, updated_at)
@@ -890,16 +856,15 @@ export async function POST(req: NextRequest) {
             estimated_gfa=EXCLUDED.estimated_gfa, residual_potential_est=EXCLUDED.residual_potential_est,
             underuse_ratio=EXCLUDED.underuse_ratio, updated_at=now();
 
-          -- Step 4: scores with ICH bilan promoteur
+          -- Step 4: scores (no bilan promoteur)
           INSERT INTO public.parcel_scores (
             parcel_id, mutability_score, underuse_score, zoning_score, market_score,
             size_score, land_value_score, best_use, land_value_est, program_value_est,
-            nb_logements_est, nb_parking_places, parking_cost, parking_surface_m2,
-            taxe_amenagement, taxe_amenagement_taux, zone_vocation, plu_zone_code,
+            zone_vocation, plu_zone_code,
             explanation_json, computed_at)
           SELECT p.parcel_id,
-            ROUND((0.30*sub.us + 0.25*sub.zs + 0.20*sub.ms + 0.15*sub.ss + 0.10*sub.ls), 2),
-            sub.us, sub.zs, sub.ms, sub.ss, sub.ls,
+            ROUND((0.35*sub.us + 0.25*sub.zs + 0.22*sub.ms + 0.18*sub.ss), 2),
+            sub.us, sub.zs, sub.ms, sub.ss, 0,
             CASE
               WHEN COALESCE(pc.zone_vocation,'residentiel')='economique' THEN
                 CASE WHEN p.area_m2>=2000 AND pc.underuse_ratio>=0.70 THEN 'activite_economique'
@@ -911,9 +876,7 @@ export async function POST(req: NextRequest) {
               WHEN COALESCE(pc.zone_vocation,'residentiel')='mixte' AND p.area_m2>=2000 AND pc.underuse_ratio>=0.60 THEN 'mixte_logements_activite'
               ELSE 'analyse_complementaire'
             END,
-            bil.charge_fonciere, bil.ca,
-            bil.nb_log, bil.nb_pk, bil.pk_cost, bil.pk_surf,
-            bil.ta, v_ta_taux,
+            0, 0,
             COALESCE(pc.zone_vocation,'residentiel'), pc.plu_zone_code,
             jsonb_build_object(
               'area_m2',p.area_m2,'underuse_ratio',pc.underuse_ratio,
@@ -924,94 +887,21 @@ export async function POST(req: NextRequest) {
               'median_price_m2',COALESCE(pms.median_price_m2,p_median_price),
               'estimated_gfa',pc.estimated_gfa,'residual_potential_est',pc.residual_potential_est,
               'coverage_ratio',bs.coverage_ratio,'hdbscan_zone_id',pms.hdbscan_zone_id,
-              'surface_habitable',bil.surf_hab,'ca_total',bil.ca,
-              'nb_logements_est',bil.nb_log,'prix_par_logement',CASE WHEN bil.nb_log>0 THEN bil.ca/bil.nb_log ELSE 0 END,
-              'nb_parking_places',bil.nb_pk,
-              'marge_promoteur',bil.marge,'cout_construction',bil.constr,
-              'cout_vrd',bil.vrd,'cout_publicite',bil.pub,'cout_dette',bil.dette,
-              'cout_parking',bil.pk_cost,'surface_parking',bil.pk_surf,
-              'taxe_amenagement',bil.ta,'taxe_amenagement_taux',v_ta_taux,
-              'total_depenses',bil.total_dep,'charge_fonciere',bil.charge_fonciere,
-              'charge_fonciere_m2_terrain',CASE WHEN p.area_m2>0 THEN bil.charge_fonciere/p.area_m2 ELSE 0 END
+              'existing_gfa_est',COALESCE(bs.existing_gfa_est,0),
+              'built_footprint_m2',COALESCE(bs.built_footprint_m2,0),
+              'building_count',COALESCE(bs.building_count,0)
             ),
             now()
           FROM public.parcels p
           JOIN public.parcel_constructibility pc ON pc.parcel_id=p.parcel_id
           LEFT JOIN public.parcel_market_stats pms ON pms.parcel_id=p.parcel_id
           LEFT JOIN public.parcel_building_stats bs ON bs.parcel_id=p.parcel_id
-          LEFT JOIN public.plu_zone_rules plu_r ON plu_r.zone_code=pc.plu_zone_code AND plu_r.epci_code='BNS'
-          CROSS JOIN LATERAL (
-            SELECT
-              GREATEST(1, FLOOR(pc.estimated_gfa/60.0))::int AS nb_log,
-              (pc.estimated_gfa * v_sr) AS surf_hab,
-              (pc.estimated_gfa * v_sr * COALESCE(pms.median_price_m2,p_median_price)) AS ca,
-              -- Parking places
-              CASE WHEN COALESCE(pc.zone_vocation,'residentiel')='economique'
-                THEN GREATEST(1, CEIL(pc.estimated_gfa/100.0*COALESCE(plu_r.parking_per_100m2_eco,1.0)))::int
-                ELSE GREATEST(1, CEIL(GREATEST(1,FLOOR(pc.estimated_gfa/60.0))
-                  *(0.10*COALESCE(plu_r.parking_logement_t1,1.0)+0.25*COALESCE(plu_r.parking_logement_t2,1.5)
-                   +0.35*COALESCE(plu_r.parking_logement_t3,1.5)+0.20*COALESCE(plu_r.parking_logement_t4,1.5)
-                   +0.10*COALESCE(plu_r.parking_logement_t5,2.0))))::int
-              END AS nb_pk,
-              -- Bilan ICH
-              (pc.estimated_gfa * v_sr * COALESCE(pms.median_price_m2,p_median_price)) * v_mg AS marge,
-              (pc.estimated_gfa * v_cc) AS constr,
-              (p.area_m2 * v_vrd) AS vrd,
-              (pc.estimated_gfa * v_sr * COALESCE(pms.median_price_m2,p_median_price)) * v_pub AS pub,
-              ((pc.estimated_gfa*v_cc) + (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_pub + (p.area_m2*v_vrd)) * v_dette AS dette,
-              -- Parking cost
-              CASE WHEN COALESCE(pc.zone_vocation,'residentiel')='economique'
-                THEN GREATEST(1, CEIL(pc.estimated_gfa/100.0*COALESCE(plu_r.parking_per_100m2_eco,1.0))) * v_pk_cost
-                ELSE GREATEST(1, CEIL(GREATEST(1,FLOOR(pc.estimated_gfa/60.0))
-                  *(0.10*COALESCE(plu_r.parking_logement_t1,1.0)+0.25*COALESCE(plu_r.parking_logement_t2,1.5)
-                   +0.35*COALESCE(plu_r.parking_logement_t3,1.5)+0.20*COALESCE(plu_r.parking_logement_t4,1.5)
-                   +0.10*COALESCE(plu_r.parking_logement_t5,2.0)))) * v_pk_cost
-              END AS pk_cost,
-              CASE WHEN COALESCE(pc.zone_vocation,'residentiel')='economique'
-                THEN GREATEST(1, CEIL(pc.estimated_gfa/100.0*COALESCE(plu_r.parking_per_100m2_eco,1.0))) * v_pk_surf
-                ELSE GREATEST(1, CEIL(GREATEST(1,FLOOR(pc.estimated_gfa/60.0))
-                  *(0.10*COALESCE(plu_r.parking_logement_t1,1.0)+0.25*COALESCE(plu_r.parking_logement_t2,1.5)
-                   +0.35*COALESCE(plu_r.parking_logement_t3,1.5)+0.20*COALESCE(plu_r.parking_logement_t4,1.5)
-                   +0.10*COALESCE(plu_r.parking_logement_t5,2.0)))) * v_pk_surf
-              END AS pk_surf,
-              (pc.estimated_gfa * v_ta_val * v_ta_taux) AS ta,
-              -- Total dépenses
-              (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_mg
-              + (pc.estimated_gfa*v_cc) + (p.area_m2*v_vrd)
-              + (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_pub
-              + ((pc.estimated_gfa*v_cc)+(pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_pub+(p.area_m2*v_vrd))*v_dette
-              + CASE WHEN COALESCE(pc.zone_vocation,'residentiel')='economique'
-                  THEN GREATEST(1,CEIL(pc.estimated_gfa/100.0*COALESCE(plu_r.parking_per_100m2_eco,1.0)))*v_pk_cost
-                  ELSE GREATEST(1,CEIL(GREATEST(1,FLOOR(pc.estimated_gfa/60.0))
-                    *(0.10*COALESCE(plu_r.parking_logement_t1,1.0)+0.25*COALESCE(plu_r.parking_logement_t2,1.5)
-                     +0.35*COALESCE(plu_r.parking_logement_t3,1.5)+0.20*COALESCE(plu_r.parking_logement_t4,1.5)
-                     +0.10*COALESCE(plu_r.parking_logement_t5,2.0))))*v_pk_cost
-                END
-              + (pc.estimated_gfa*v_ta_val*v_ta_taux)
-              AS total_dep,
-              -- Charge foncière = CA - total dépenses
-              (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))
-              - (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_mg
-              - (pc.estimated_gfa*v_cc) - (p.area_m2*v_vrd)
-              - (pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_pub
-              - ((pc.estimated_gfa*v_cc)+(pc.estimated_gfa*v_sr*COALESCE(pms.median_price_m2,p_median_price))*v_pub+(p.area_m2*v_vrd))*v_dette
-              - CASE WHEN COALESCE(pc.zone_vocation,'residentiel')='economique'
-                  THEN GREATEST(1,CEIL(pc.estimated_gfa/100.0*COALESCE(plu_r.parking_per_100m2_eco,1.0)))*v_pk_cost
-                  ELSE GREATEST(1,CEIL(GREATEST(1,FLOOR(pc.estimated_gfa/60.0))
-                    *(0.10*COALESCE(plu_r.parking_logement_t1,1.0)+0.25*COALESCE(plu_r.parking_logement_t2,1.5)
-                     +0.35*COALESCE(plu_r.parking_logement_t3,1.5)+0.20*COALESCE(plu_r.parking_logement_t4,1.5)
-                     +0.10*COALESCE(plu_r.parking_logement_t5,2.0))))*v_pk_cost
-                END
-              - (pc.estimated_gfa*v_ta_val*v_ta_taux)
-              AS charge_fonciere
-          ) bil
           CROSS JOIN LATERAL (
             SELECT
               CASE WHEN pc.underuse_ratio>=0.80 THEN 10 WHEN pc.underuse_ratio>=0.60 THEN 8 WHEN pc.underuse_ratio>=0.40 THEN 6 WHEN pc.underuse_ratio>=0.20 THEN 4 ELSE 1 END AS us,
               CASE WHEN pc.dominant_zone_family='U' THEN 9 WHEN pc.dominant_zone_family='AU' THEN 7 WHEN pc.dominant_zone_family='A' THEN 2 WHEN pc.dominant_zone_family='N' THEN 1 ELSE 3 END AS zs,
               CASE WHEN COALESCE(pms.median_price_m2,p_median_price)>=6000 THEN 10 WHEN COALESCE(pms.median_price_m2,p_median_price)>=4500 THEN 8 WHEN COALESCE(pms.median_price_m2,p_median_price)>=3000 THEN 6 WHEN COALESCE(pms.median_price_m2,p_median_price)>=2000 THEN 4 ELSE 2 END AS ms,
-              CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS ss,
-              CASE WHEN bil.charge_fonciere>=1500000 THEN 10 WHEN bil.charge_fonciere>=800000 THEN 8 WHEN bil.charge_fonciere>=400000 THEN 6 WHEN bil.charge_fonciere>=150000 THEN 4 ELSE 2 END AS ls
+              CASE WHEN p.area_m2>=1000 THEN 9 WHEN p.area_m2>=600 THEN 7 WHEN p.area_m2>=300 THEN 5 ELSE 2 END AS ss
           ) sub
           WHERE p.insee_code = p_insee
           ON CONFLICT (parcel_id) DO UPDATE SET
@@ -1020,9 +910,6 @@ export async function POST(req: NextRequest) {
             size_score=EXCLUDED.size_score, land_value_score=EXCLUDED.land_value_score,
             best_use=EXCLUDED.best_use, land_value_est=EXCLUDED.land_value_est,
             program_value_est=EXCLUDED.program_value_est,
-            nb_logements_est=EXCLUDED.nb_logements_est, nb_parking_places=EXCLUDED.nb_parking_places,
-            parking_cost=EXCLUDED.parking_cost, parking_surface_m2=EXCLUDED.parking_surface_m2,
-            taxe_amenagement=EXCLUDED.taxe_amenagement, taxe_amenagement_taux=EXCLUDED.taxe_amenagement_taux,
             zone_vocation=EXCLUDED.zone_vocation, plu_zone_code=EXCLUDED.plu_zone_code,
             explanation_json=EXCLUDED.explanation_json, computed_at=now();
 
@@ -1031,7 +918,7 @@ export async function POST(req: NextRequest) {
           RETURN scored_count;
         END;
         $fn$;
-      `, "updated score_commune_parcels with ICH bilan + PLU"));
+      `, "updated score_commune_parcels with PLU"));
 
       logs.push(await runSQL(client, `NOTIFY pgrst, 'reload schema';`, "final reload after migrate-plu"));
     }

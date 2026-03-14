@@ -159,8 +159,8 @@ async function main() {
   // 4. Skip old constructibility fetch — we compute from PLUi now
   console.log("[4/5] Computing from PLUi zones...");
 
-  // 5. Compute ICH bilan scores
-  console.log("[5/5] Computing ICH bilan + scores...");
+  // 5. Compute scores (no bilan promoteur)
+  console.log("[5/5] Computing scores...");
   const scoreRows = [];
   const constUpdates = [];
   let noPluiCount = 0;
@@ -198,31 +198,7 @@ async function main() {
 
     const medianPrice = ms.median_price_m2 || 4500;
 
-    // === ICH Bilan Promoteur ===
-    const surfaceHabitable = estimatedGfa * SELLABLE_RATIO;
-    const caTotal = surfaceHabitable * medianPrice;
-
-    const marge = MARGIN_RATIO * caTotal;
-    const coutConstruction = CONSTRUCTION_COST_M2 * estimatedGfa;
-    const coutVrd = VRD_COST_M2_TERRAIN * area;
-    const coutPublicite = COMMERCIALISATION_RATIO * caTotal;
-    const coutDette = FRAIS_FINANCIERS_RATIO * (coutConstruction + coutPublicite + coutVrd);
-
-    // Parking: vocation-dependent
-    const nbLogements = (vocation === "activite" || vocation === "equipement")
-      ? 0
-      : Math.max(1, Math.round(estimatedGfa / 60));
-    const nbParking = Math.round(nbLogements * PARKING_PER_LOGEMENT);
-    const parkingCost = nbParking * PARKING_COST_PER_PLACE;
-
-    const taxeAmenagement = estimatedGfa * TAXE_VALEUR_FORFAITAIRE * TAXE_TAUX_DEFAULT;
-
-    const totalDepenses = marge + coutConstruction + coutVrd + coutPublicite + coutDette + parkingCost + taxeAmenagement;
-    const chargeFonciere = caTotal - totalDepenses;
-    const chargeFonciereM2 = area > 0 ? chargeFonciere / area : 0;
-    const prixParLogement = nbLogements > 0 ? caTotal / nbLogements : 0;
-
-    // === Scores ===
+    // === Scores (simple, no bilan promoteur) ===
     const sizeScore = area <= 200 ? 2 : area <= 500 ? 5 : area <= 1000 ? 7 : area <= 2000 ? 9 : 10;
     const underuseScore = Math.min(10, underuseRatio * 12);
     const marketScore = Math.min(10, medianPrice / 1000);
@@ -230,12 +206,8 @@ async function main() {
     const zoneFamily = pluZoneCode.startsWith("U") ? "U" : pluZoneCode.startsWith("A") ? "A" : "N";
     const zoningScore = zoneFamily === "U" ? 8 : zoneFamily === "A" ? 2 : 1;
 
-    const landValueScore = chargeFonciere > 0
-      ? (chargeFonciereM2 <= 100 ? 3 : chargeFonciereM2 <= 300 ? 5 : chargeFonciereM2 <= 600 ? 7 : 9)
-      : 0;
-
     const mutabilityScore = Math.min(10, Math.max(0,
-      0.25 * sizeScore + 0.30 * underuseScore + 0.15 * marketScore + 0.10 * zoningScore + 0.20 * landValueScore
+      0.18 * sizeScore + 0.35 * underuseScore + 0.22 * marketScore + 0.25 * zoningScore
     ));
 
     // best_use: based on PLUi vocation + underuse
@@ -260,34 +232,17 @@ async function main() {
 
     const explanationJson = {
       plu_zone_code: pluZoneCode, zone_vocation: vocation,
-      destination: plui.destination, forme: forme,
-      densite_idx: plui.densite_idx, hauteur_idx: plui.hauteur_idx,
       ces_applied: cesApplied, max_height_est: maxHeight,
       setback_front_m: setback.front, setback_side_m: setback.side,
       coverage_ratio: parseFloat(coverageRatio.toFixed(3)),
       buildable_footprint: Math.round(buildableFootprint),
       floors_est: floors, estimated_gfa: Math.round(estimatedGfa),
-      surface_habitable: Math.round(surfaceHabitable),
       residual_potential: Math.round(residual),
       underuse_ratio: parseFloat(underuseRatio.toFixed(3)),
       median_price_m2: medianPrice,
-      ca_total: Math.round(caTotal),
-      marge_promoteur: Math.round(marge),
-      cout_construction: Math.round(coutConstruction),
-      cout_vrd: Math.round(coutVrd),
-      cout_publicite: Math.round(coutPublicite),
-      cout_dette: Math.round(coutDette),
-      nb_logements_est: nbLogements,
-      nb_parking_places: nbParking,
-      cout_parking: Math.round(parkingCost),
-      taxe_amenagement: Math.round(taxeAmenagement),
-      taxe_amenagement_taux: TAXE_TAUX_DEFAULT,
-      total_depenses: Math.round(totalDepenses),
-      charge_fonciere: Math.round(chargeFonciere),
-      charge_fonciere_m2_terrain: Math.round(chargeFonciereM2),
-      prix_par_logement: Math.round(prixParLogement),
-      method: "ICH_bilan_promoteur_v3_PLUi_BNS",
-      construction_cost_m2: CONSTRUCTION_COST_M2,
+      existing_gfa_est: Math.round(existingArea),
+      built_footprint_m2: Math.round(bs.built_footprint_m2 || 0),
+      building_count: bs.building_count || 0,
     };
 
     scoreRows.push({
@@ -297,9 +252,9 @@ async function main() {
       underuse_score: parseFloat(underuseScore.toFixed(2)),
       market_score: parseFloat(marketScore.toFixed(2)),
       zoning_score: parseFloat(zoningScore.toFixed(2)),
-      land_value_score: parseFloat(landValueScore.toFixed(2)),
-      land_value_est: Math.round(chargeFonciere),
-      program_value_est: Math.round(caTotal),
+      land_value_score: 0,
+      land_value_est: 0,
+      program_value_est: 0,
       best_use: bestUse,
       explanation_json: explanationJson,
       computed_at: new Date().toISOString(),
@@ -347,27 +302,17 @@ async function main() {
 
   // Stats
   const scored = scoreRows.filter(s => s.mutability_score > 0);
-  const positive = scoreRows.filter(s => s.land_value_est > 0);
   const top = [...scoreRows].sort((a, b) => b.mutability_score - a.mutability_score).slice(0, 10);
 
-  // Vocation distribution
-  const vocCounts = {};
-  scoreRows.forEach(s => {
-    const v = s.explanation_json.zone_vocation;
-    vocCounts[v] = (vocCounts[v] || 0) + 1;
-  });
-
-  console.log(`\n=== Résultats VLG (${insee}) — PLUi BNS ===`);
+  console.log(`\n=== Résultats (${insee}) ===`);
   console.log(`  Parcelles scorées : ${scored.length}`);
-  console.log(`  Charge foncière positive : ${positive.length}`);
-  console.log(`  Vocations : ${JSON.stringify(vocCounts)}`);
   console.log(`\n  Top 10 parcelles :`);
   for (const s of top) {
     const ej = s.explanation_json;
-    console.log(`    ${s.parcel_id} — Score ${s.mutability_score}/10 — CF ${ej.charge_fonciere_m2_terrain} €/m² — ${s.best_use} — PLUi ${ej.plu_zone_code} (${ej.zone_vocation}) — ${ej.nb_logements_est} lgts`);
+    console.log(`    ${s.parcel_id} — Score ${s.mutability_score}/10 — ${s.best_use} — PLUi ${ej.plu_zone_code} (${ej.zone_vocation}) — sous-exploit ${Math.round(ej.underuse_ratio*100)}%`);
   }
 
-  console.log(`\n=== Pipeline ICH terminé ===`);
+  console.log(`\n=== Pipeline terminé ===`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

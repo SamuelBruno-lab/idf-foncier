@@ -7,7 +7,6 @@ type ParcelListItem = {
   area_m2: number | null;
   mutability_score: number | null;
   best_use: string | null;
-  land_value_est: number | null;
   estimated_gfa: number | null;
   residual_potential_est?: number | null;
 };
@@ -18,15 +17,6 @@ type Props = {
   selectedParcelId: string | null;
   onSelectParcel: (parcelId: string) => void;
 };
-
-function formatCurrency(value: number | null | undefined) {
-  if (value == null) return "—";
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 function formatNumber(value: number | null | undefined) {
   if (value == null) return "—";
@@ -105,13 +95,6 @@ export default function FoncierResultsList({
                 <div className="text-right">
                   <div className="text-sm font-semibold">
                     {item.mutability_score?.toFixed(1) ?? "—"}/10
-                  </div>
-                  <div
-                    className={`mt-1 text-xs ${
-                      selected ? "text-neutral-300" : "text-neutral-600"
-                    }`}
-                  >
-                    {formatCurrency(item.land_value_est)}
                   </div>
                 </div>
               </div>

@@ -39,13 +39,6 @@ export type ParcelDetail = {
   max_height_est: number | null;
   setback_front_m: number | null;
   setback_side_m: number | null;
-  // Parking & taxe
-  nb_logements_est: number | null;
-  nb_parking_places: number | null;
-  parking_cost: number | null;
-  parking_surface_m2: number | null;
-  taxe_amenagement: number | null;
-  taxe_amenagement_taux: number | null;
 };
 
 export type ParcelBBoxItem = {

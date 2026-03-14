@@ -23,7 +23,6 @@ type ParcelListItem = {
   area_m2: number | null;
   mutability_score: number | null;
   best_use: string | null;
-  land_value_est: number | null;
   estimated_gfa: number | null;
   residual_potential_est?: number | null;
 };
@@ -34,7 +33,6 @@ const DEFAULT_FILTERS: FoncierFiltersState = {
   insee: "92078", // VLG par défaut
   minScore: 6,
   minArea: 200,
-  minLandValue: 0,
   bestUse: "",
   limit: 50,
 };
@@ -49,7 +47,6 @@ function exportRowsToCsv(rows: ParcelListItem[]) {
     "area_m2",
     "mutability_score",
     "best_use",
-    "land_value_est",
     "estimated_gfa",
     "residual_potential_est",
   ];
@@ -70,7 +67,6 @@ function exportRowsToCsv(rows: ParcelListItem[]) {
         row.area_m2,
         row.mutability_score,
         row.best_use,
-        row.land_value_est,
         row.estimated_gfa,
         row.residual_potential_est ?? "",
       ]
@@ -112,18 +108,18 @@ export default function FoncierPage() {
     if (results.length === 0) return [];
     const scores = results.map((r) => r.mutability_score ?? 0);
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const totalValue = results.reduce((a, r) => a + (r.land_value_est ?? 0), 0);
+    const totalResidual = results.reduce((a, r) => a + (r.residual_potential_est ?? 0), 0);
     const topCount = results.filter((r) => (r.mutability_score ?? 0) >= 8).length;
     return [
       { label: "Score moyen", value: avgScore.toFixed(1) },
       {
-        label: "Valeur totale",
+        label: "Potentiel résiduel",
         value:
-          totalValue >= 1_000_000_000
-            ? `${(totalValue / 1_000_000_000).toFixed(1)} Md€`
-            : totalValue >= 1_000_000
-            ? `${(totalValue / 1_000_000).toFixed(0)} M€`
-            : `${(totalValue / 1_000).toFixed(0)} k€`,
+          totalResidual >= 1_000_000
+            ? `${(totalResidual / 1_000_000).toFixed(1)} M m²`
+            : totalResidual >= 1_000
+            ? `${(totalResidual / 1_000).toFixed(0)} k m²`
+            : `${Math.round(totalResidual)} m²`,
       },
       { label: "Score ≥ 8", value: String(topCount) },
     ];
@@ -139,7 +135,6 @@ export default function FoncierPage() {
       if (nextFilters.insee) params.set("insee", nextFilters.insee);
       params.set("minScore", String(nextFilters.minScore));
       params.set("minArea", String(nextFilters.minArea));
-      params.set("minLandValue", String(nextFilters.minLandValue));
       if (nextFilters.bestUse) params.set("bestUse", nextFilters.bestUse);
       params.set("limit", String(nextFilters.limit));
 
@@ -272,8 +267,8 @@ export default function FoncierPage() {
               Radar foncier
             </h1>
             <p className="mt-1 text-sm text-neutral-600">
-              Détection de parcelles mutables, potentiel constructible et valeur
-              foncière estimée.
+              Détection de parcelles mutables et potentiel constructible
+              résiduel.
             </p>
           </div>
 

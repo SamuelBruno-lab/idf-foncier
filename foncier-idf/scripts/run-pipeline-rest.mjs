@@ -135,7 +135,7 @@ async function main() {
     const batch = parcelIds.slice(i, i + BS_BATCH);
     const inFilter = `parcel_id=in.(${batch.map(id => `"${id}"`).join(",")})`;
     const data = supabaseGet("parcel_building_stats",
-      `select=${encodeURIComponent("parcel_id,total_building_area_m2,max_building_height,coverage_ratio,building_count")}&${inFilter}`
+      `select=${encodeURIComponent("parcel_id,built_footprint_m2,existing_gfa_est,coverage_ratio,building_count")}&${inFilter}`
     );
     if (Array.isArray(data)) data.forEach(b => { bsMap[b.parcel_id] = b; });
   }
@@ -192,7 +192,7 @@ async function main() {
     const floors = Math.max(1, Math.floor(maxHeight / 3));
     const estimatedGfa = buildableFootprint * floors;
 
-    const existingArea = bs.total_building_area_m2 || 0;
+    const existingArea = bs.existing_gfa_est || 0;
     const residual = Math.max(0, estimatedGfa - existingArea);
     const underuseRatio = estimatedGfa > 0 ? residual / estimatedGfa : 0;
 

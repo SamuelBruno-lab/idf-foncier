@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analyse Foncière · Yvelines (78)</title>
+  <meta name="description" content="Carte interactive du marché immobilier en Yvelines · 24,228 transactions DVF 2025 · Micro-marchés · datamerry">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0a0a1e 0%, #0d1b2a 50%, #0a0a1e 100%); min-height: 100vh; color: #e8e8f0; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+    .header { text-align: center; margin-bottom: 50px; }
+    .tag { display: inline-block; background: #8b5cf622; color: #8b5cf6; border: 1px solid #8b5cf655; border-radius: 20px; padding: 4px 16px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
+    .header h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 800; background: linear-gradient(90deg, #00d4ff, #ffffff, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2; margin-bottom: 16px; }
+    .header p { font-size: 16px; color: rgba(255,255,255,0.5); max-width: 520px; margin: 0 auto; line-height: 1.6; }
+    .stats-bar { display: flex; gap: 40px; justify-content: center; margin-bottom: 50px; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat .val { font-size: 30px; font-weight: 800; color: #8b5cf6; }
+    .stat .lbl { font-size: 11px; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .cards { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 600px; }
+    .card { display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px 24px; text-decoration: none; color: inherit; transition: all 0.2s ease; cursor: pointer; }
+    .card:hover { background: #8b5cf611; border-color: #8b5cf644; transform: translateY(-2px); box-shadow: 0 8px 32px #8b5cf622; }
+    .card-icon { font-size: 30px; flex-shrink: 0; }
+    .card-body { flex: 1; }
+    .card-title { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .card-desc { font-size: 13px; color: rgba(255,255,255,0.45); }
+    .card-arrow { font-size: 18px; color: #8b5cf666; flex-shrink: 0; }
+    .card:hover .card-arrow { color: #8b5cf6; }
+    .datamerry-link { margin-top: 30px; display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); text-decoration: none; font-size: 13px; transition: all 0.2s; }
+    .datamerry-link:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.25); }
+    .method-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 18px; margin-top: 30px; font-size: 13px; color: rgba(255,255,255,0.5); }
+    .method-badge span { color: #8b5cf6; font-weight: 600; }
+    .footer { margin-top: 50px; text-align: center; font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="tag">Analyse Foncière · Département 78</div>
+    <h1>Marché Immobilier<br>Yvelines</h1>
+    <p>Cartographie interactive des transactions immobilières<br>2025 · Source : Demandes de Valeurs Foncières</p>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="val">24,228</div><div class="lbl">Transactions</div></div>
+    <div class="stat"><div class="val">2025</div><div class="lbl">Période</div></div>
+    <div class="stat"><div class="val">3,743€</div><div class="lbl">Prix médian/m²</div></div>
+    <div class="stat"><div class="val">259</div><div class="lbl">Communes</div></div>
+  </div>
+  <div class="cards">
+    <a href="carte_appartements.html" class="card">
+      <div class="card-icon">🏢</div>
+      <div class="card-body">
+        <div class="card-title">Appartements</div>
+        <div class="card-desc">10,600 transactions · 249 micro-marchés</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+    <a href="carte_maisons.html" class="card">
+      <div class="card-icon">🏠</div>
+      <div class="card-body">
+        <div class="card-title">Maisons / Pavillons</div>
+        <div class="card-desc">7,344 transactions · 138 micro-marchés</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+    <a href="carte_commerces.html" class="card">
+      <div class="card-icon">🏭</div>
+      <div class="card-body">
+        <div class="card-title">Commerces & Locaux</div>
+        <div class="card-desc">1,241 transactions · 29 micro-marchés</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+    <a href="carte_dpe.html" class="card">
+      <div class="card-icon">🏷️</div>
+      <div class="card-body">
+        <div class="card-title">DPE · Performance Énergétique</div>
+        <div class="card-desc">Diagnostics · Passoires thermiques · Micro-zones</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a></div>
+  <a href="https://datamerry.com" target="_top" class="datamerry-link">← Retour sur datamerry.com</a>
+  <div class="method-badge">Clustering spatial · <span>Micro-marchés</span> · Données DVF open data</div>
+  <div class="footer">
+    © 2026 Samuel Bruno · Analyse Foncière · Yvelines (78)<br>
+    Source : data.gouv.fr · DVF · <a href="https://datamerry.com" style="color:rgba(255,255,255,0.3);">datamerry.com</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_7f39b37ae6af841c1526af2c8e81f54b {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.css"/>
+<style>
+  .leaflet-popup-content-wrapper { border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }
+  .leaflet-popup-content { margin:0!important; }
+  .leaflet-control-layers { background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; }
+  .leaflet-control-layers label { color:#ccc!important; white-space:nowrap!important; }
+  #dpe-dash {
+    position:fixed; top:10px; left:10px; z-index:9999; width:320px;
+    background:linear-gradient(135deg,rgba(10,10,30,0.97),rgba(20,20,50,0.97));
+    color:#e8e8f0; font-family:'Segoe UI',Arial,sans-serif;
+    border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+    border:1px solid rgba(255,255,255,0.1); overflow:hidden;
+    max-height:calc(100vh - 20px); overflow-y:auto;
+  }
+  #dpe-dash::-webkit-scrollbar { width:4px; }
+  #dpe-dash::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+  .dpe-hdr {
+    background:linear-gradient(90deg,#f9731622,rgba(255,255,255,0.03));
+    padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.1);
+    position:relative;
+  }
+  .dpe-hdr h2 { margin:0; font-size:14px; font-weight:700; color:#fff; }
+  .dpe-hdr p { margin:3px 0 0; font-size:11px; color:rgba(255,255,255,.5); }
+  .dpe-toggle { position:absolute; top:8px; right:12px; cursor:pointer; color:rgba(255,255,255,.5); font-size:16px; user-select:none; }
+  .dpe-toggle:hover { color:#fff; }
+  .dpe-body { padding:12px 16px; }
+  .dpe-section { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .dpe-section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .dpe-section-title { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.35); margin-bottom:8px; font-weight:600; }
+  .dpe-kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .dpe-kpi { background:rgba(255,255,255,0.06); border-radius:8px; padding:9px; text-align:center; border:1px solid rgba(255,255,255,0.08); }
+  .dpe-kpi .val { font-size:16px; font-weight:800; color:#f97316; }
+  .dpe-kpi .lbl { font-size:10px; color:rgba(255,255,255,.45); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }
+  .dpe-dist-bar { width:100%; height:10px; border-radius:5px; overflow:hidden; background:rgba(255,255,255,0.08); display:flex; }
+  .dpe-filter-row { display:flex; flex-wrap:wrap; gap:4px; }
+  .dpe-search {
+    width:100%; padding:7px 10px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06);
+    color:#fff; font-size:12px; font-family:'Segoe UI',sans-serif; outline:none;
+    box-sizing:border-box;
+  }
+  .dpe-search:focus { border-color:#f9731666; }
+  .dpe-search-results {
+    max-height:120px; overflow-y:auto; margin-top:4px;
+  }
+  .dpe-search-item {
+    padding:6px 8px; cursor:pointer; font-size:12px; color:rgba(255,255,255,.7);
+    border-radius:4px; transition:background 0.1s;
+  }
+  .dpe-search-item:hover { background:rgba(255,255,255,0.1); color:#fff; }
+  .dpe-legend-row { display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:11px; }
+  .dpe-legend-swatch { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+  .back-link {
+    display:block; margin-top:10px; padding:7px 10px; border-radius:7px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    color:rgba(255,255,255,0.5); font-size:11px; text-decoration:none; text-align:center;
+    transition:all 0.2s;
+  }
+  .back-link:hover { background:rgba(255,255,255,0.1); color:#fff; }
+  #copyright-banner {
+    position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;
+    background:rgba(10,10,20,0.75);color:rgba(255,255,255,0.7);
+    font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:4px 12px;
+    border-radius:20px;border:1px solid rgba(255,255,255,0.1);
+    backdrop-filter:blur(4px);pointer-events:none;
+  }
+</style></head>
+<body>
+    
+    <div id='dpe-app'></div>
+    
+            <div class="folium-map" id="map_7f39b37ae6af841c1526af2c8e81f54b" ></div>
+        
+<div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>
+
+</body>
+<script>
+    
+    
+            var map_7f39b37ae6af841c1526af2c8e81f54b = L.map(
+                "map_7f39b37ae6af841c1526af2c8e81f54b",
+                {
+                    center: [48.73771740043856, 2.7400367437415607],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 10,
+  "zoomControl": true,
+  "preferCanvas": true,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_fe2d23295feb1cd334844da8af3d3387 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; OSM \u0026copy; CARTO",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_fe2d23295feb1cd334844da8af3d3387.addTo(map_7f39b37ae6af841c1526af2c8e81f54b);
+        
+    
+            var tile_layer_89108db296f81ee8d7fcf456d3002a3f = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; OSM \u0026copy; CARTO",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_89108db296f81ee8d7fcf456d3002a3f.addTo(map_7f39b37ae6af841c1526af2c8e81f54b);
+        
+    
+            L.control.fullscreen(
+                {
+  "position": "topright",
+  "title": "Full Screen",
+  "titleCancel": "Exit Full Screen",
+  "forceSeparateButton": false,
+}
+            ).addTo(map_7f39b37ae6af841c1526af2c8e81f54b);
+        
+    
+            var tile_layer_6960f2308aca4ffd5434800e502373c3 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e", "detect_retina": false, "max_native_zoom": 20, "max_zoom": 20, "min_zoom": 0, "no_wrap": false, "opacity": 1, "subdomains": "abcd", "tms": false}
+            );
+            var mini_map_83f8d808c74e9ca2eadc9cd3e08b458d = new L.Control.MiniMap(
+                tile_layer_6960f2308aca4ffd5434800e502373c3,
+                {
+  "position": "bottomleft",
+  "width": 150,
+  "height": 150,
+  "collapsedWidth": 25,
+  "collapsedHeight": 25,
+  "zoomLevelOffset": -5,
+  "centerFixed": false,
+  "zoomAnimation": false,
+  "toggleDisplay": false,
+  "autoToggleDisplay": false,
+  "minimized": false,
+}
+            );
+            map_7f39b37ae6af841c1526af2c8e81f54b.addControl(mini_map_83f8d808c74e9ca2eadc9cd3e08b458d);
+        
+    
+            var feature_group_058617268a53bb90488cb969e145d1a1 = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var polygon_59c10da328959a0ce12da25f04837867 = L.polygon(
+                [[48.39770097251066, 3.190331997065196], [48.47791498164056, 3.112723988449979], [48.57383803604962, 3.288874944713604], [48.56245798268032, 3.315045982590622], [48.53627001057423, 3.35578897496894], [48.48334701605233, 3.350884036782644], [48.40849699558543, 3.25097400669086], [48.39770097251066, 3.190331997065196]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_b83ddf2766991387c8d4bcaf2f5cffd1 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_1f17b7071425fbd6e2d817d684be73f1 = $(`<div id="html_1f17b7071425fbd6e2d817d684be73f1" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 0 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:10% <span style='color:#33cc31;font-weight:700;'>B</span>:12% <span style='color:#cbfc34;font-weight:700;'>C</span>:29% <span style='color:#fbfe06;font-weight:700;'>D</span>:24% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:6% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>134 diagnostics · 195 kWh/m²/an · 8.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>134 Tertiaire</span></div></div></div></div>`)[0];
+                popup_b83ddf2766991387c8d4bcaf2f5cffd1.setContent(html_1f17b7071425fbd6e2d817d684be73f1);
+            
+        
+
+        polygon_59c10da328959a0ce12da25f04837867.bindPopup(popup_b83ddf2766991387c8d4bcaf2f5cffd1)
+        ;
+
+        
+    
+    
+            polygon_59c10da328959a0ce12da25f04837867.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 0</b> · DPE C · 134
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_e6fcabed04c5558405d2c0c4caf17174 = L.polygon(
+                [[48.55178597412789, 3.0193929984601944], [48.556687999973086, 3.0118339709491213], [48.60855901192401, 2.9703019388467964], [48.65789301248841, 3.0709349595320368], [48.670492011601965, 3.124397018409762], [48.66496700522518, 3.136570022019644], [48.640519982435855, 3.11688093323606], [48.5608269819765, 3.036958975780597], [48.55178597412789, 3.0193929984601944]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_95e307d98d471d42143e48271af7d0d0 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_fb8864955ccc44f25dc70cc4a4eb583f = $(`<div id="html_fb8864955ccc44f25dc70cc4a4eb583f" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 1 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:14% <span style='color:#33cc31;font-weight:700;'>B</span>:11% <span style='color:#cbfc34;font-weight:700;'>C</span>:19% <span style='color:#fbfe06;font-weight:700;'>D</span>:24% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:8% <span style='color:#ef1d29;font-weight:700;'>G</span>:14%</div><div style='font-size:12px;color:#555;'>37 diagnostics · 202 kWh/m²/an · 7.1 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>37 Tertiaire</span></div></div></div></div>`)[0];
+                popup_95e307d98d471d42143e48271af7d0d0.setContent(html_fb8864955ccc44f25dc70cc4a4eb583f);
+            
+        
+
+        polygon_e6fcabed04c5558405d2c0c4caf17174.bindPopup(popup_95e307d98d471d42143e48271af7d0d0)
+        ;
+
+        
+    
+    
+            polygon_e6fcabed04c5558405d2c0c4caf17174.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 1</b> · DPE D · 37
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_70c704f9ebe68f7d437b74ab25956c77 = L.polygon(
+                [[48.77340900686896, 3.291498977235481], [48.81108998815118, 3.238515040318621], [48.84681597651158, 3.231949987979093], [48.85161002102511, 3.2334390204832806], [48.85184999394601, 3.2357619781752702], [48.85144201268155, 3.239947065852095], [48.78401899475723, 3.309702956986452], [48.7785599810713, 3.3083810111475045], [48.77340900686896, 3.291498977235481]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_22903f848a9bd18fbaedd78da0b57672 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_db14908f93fb994c12d233fe51d21c89 = $(`<div id="html_db14908f93fb994c12d233fe51d21c89" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 2 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:10% <span style='color:#33cc31;font-weight:700;'>B</span>:7% <span style='color:#cbfc34;font-weight:700;'>C</span>:37% <span style='color:#fbfe06;font-weight:700;'>D</span>:17% <span style='color:#fbcc05;font-weight:700;'>E</span>:17% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>30 diagnostics · 177 kWh/m²/an · 8.4 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>30 Tertiaire</span></div></div></div></div>`)[0];
+                popup_22903f848a9bd18fbaedd78da0b57672.setContent(html_db14908f93fb994c12d233fe51d21c89);
+            
+        
+
+        polygon_70c704f9ebe68f7d437b74ab25956c77.bindPopup(popup_22903f848a9bd18fbaedd78da0b57672)
+        ;
+
+        
+    
+    
+            polygon_70c704f9ebe68f7d437b74ab25956c77.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 2</b> · DPE C · 30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_a6e591e7c7d7bcbe6f1d1837663c2fb0 = L.polygon(
+                [[48.95114602823564, 3.0198019960638502], [48.95122397036488, 3.127543991091261], [48.95107599695069, 3.1306779554150963], [48.950626988063085, 3.1320059966052423], [48.90751099982043, 3.179537020994989], [48.9132720389966, 3.123085950556816], [48.9181469626953, 3.0906679921367126], [48.92590198196871, 3.063041939150409], [48.95114602823564, 3.0198019960638502]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_f8b3d0b7bf20ce70be2b0480ddabcced = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_5a25c8d72e1a4744b78f437d08dbaa29 = $(`<div id="html_5a25c8d72e1a4744b78f437d08dbaa29" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 3 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:12% <span style='color:#cbfc34;font-weight:700;'>C</span>:23% <span style='color:#fbfe06;font-weight:700;'>D</span>:36% <span style='color:#fbcc05;font-weight:700;'>E</span>:16% <span style='color:#f58221;font-weight:700;'>F</span>:9% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>56 diagnostics · 246 kWh/m²/an · 10.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>56 Tertiaire</span></div></div></div></div>`)[0];
+                popup_f8b3d0b7bf20ce70be2b0480ddabcced.setContent(html_5a25c8d72e1a4744b78f437d08dbaa29);
+            
+        
+
+        polygon_a6e591e7c7d7bcbe6f1d1837663c2fb0.bindPopup(popup_f8b3d0b7bf20ce70be2b0480ddabcced)
+        ;
+
+        
+    
+    
+            polygon_a6e591e7c7d7bcbe6f1d1837663c2fb0.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 3</b> · DPE D · 56
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_5d7981e143b58413177411125f7e6cef = L.polygon(
+                [[48.37981601932717, 3.02205604307041], [48.34645998033968, 3.018365958762858], [48.34829996309334, 2.9785050154040422], [48.37506704362324, 2.922286983212429], [48.38552899029924, 2.900699992034491], [48.38742002469067, 2.903884945747934], [48.40634602530879, 2.974504939002124], [48.38131903000279, 3.0204689450156788], [48.37981601932717, 3.02205604307041]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_1c7c445349c865f28e38503d62538305 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_0d95f43e6967d942c540c310c0778ceb = $(`<div id="html_0d95f43e6967d942c540c310c0778ceb" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 4 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:14% <span style='color:#33cc31;font-weight:700;'>B</span>:9% <span style='color:#cbfc34;font-weight:700;'>C</span>:26% <span style='color:#fbfe06;font-weight:700;'>D</span>:21% <span style='color:#fbcc05;font-weight:700;'>E</span>:16% <span style='color:#f58221;font-weight:700;'>F</span>:5% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>115 diagnostics · 218 kWh/m²/an · 7.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>115 Tertiaire</span></div></div></div></div>`)[0];
+                popup_1c7c445349c865f28e38503d62538305.setContent(html_0d95f43e6967d942c540c310c0778ceb);
+            
+        
+
+        polygon_5d7981e143b58413177411125f7e6cef.bindPopup(popup_1c7c445349c865f28e38503d62538305)
+        ;
+
+        
+    
+    
+            polygon_5d7981e143b58413177411125f7e6cef.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 4</b> · DPE C · 115
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_f0568c442510f2f7e2bbffd9c636ffbc = L.polygon(
+                [[48.3424979568135, 2.692308051741341], [48.34657403674692, 2.731546047476105], [48.343626018216185, 2.7737900449024733], [48.334305022041534, 2.785616009893712], [48.27122703251344, 2.731470050421609], [48.258395978706375, 2.7188509792822786], [48.25170897756863, 2.701895013033875], [48.25047301662804, 2.691669000393382], [48.270106035194864, 2.67752403188242], [48.27272596791767, 2.677238040426868], [48.313985999615056, 2.683384970366322], [48.33316802711416, 2.6889900274122898], [48.3424979568135, 2.692308051741341]],
+                {"bubblingMouseEvents": true, "color": "#fbcc05", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbcc05", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_bba7053552e081d35ab88e7e1fabb82b = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_957fb7f5bd1ef1549af3d8819a45e8a3 = $(`<div id="html_957fb7f5bd1ef1549af3d8819a45e8a3" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbcc05;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 5 · DPE E</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:13% <span style='color:#33cc31;font-weight:700;'>B</span>:10% <span style='color:#cbfc34;font-weight:700;'>C</span>:20% <span style='color:#fbfe06;font-weight:700;'>D</span>:20% <span style='color:#fbcc05;font-weight:700;'>E</span>:21% <span style='color:#f58221;font-weight:700;'>F</span>:3% <span style='color:#ef1d29;font-weight:700;'>G</span>:13%</div><div style='font-size:12px;color:#555;'>86 diagnostics · 215 kWh/m²/an · 10.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>86 Tertiaire</span></div></div></div></div>`)[0];
+                popup_bba7053552e081d35ab88e7e1fabb82b.setContent(html_957fb7f5bd1ef1549af3d8819a45e8a3);
+            
+        
+
+        polygon_f0568c442510f2f7e2bbffd9c636ffbc.bindPopup(popup_bba7053552e081d35ab88e7e1fabb82b)
+        ;
+
+        
+    
+    
+            polygon_f0568c442510f2f7e2bbffd9c636ffbc.bindTooltip(
+                `<div>
+                     <b style='color:#fbcc05'>Zone 5</b> · DPE E · 86
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_672867710a6744ee966e934f17d56ff7 = L.polygon(
+                [[48.805288975103686, 3.084750039944755], [48.80888597219147, 3.0993480299752654], [48.80746398623005, 3.101814995903417], [48.806410961699264, 3.102926027891062], [48.80409202156894, 3.100949025913027], [48.8014800118092, 3.09613003320165], [48.80172197920208, 3.0862979338139334], [48.805288975103686, 3.084750039944755]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_d7d44b2af59a2227b28fe2fd531fe3b3 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_49c1807384891659fc5a9f34f096c193 = $(`<div id="html_49c1807384891659fc5a9f34f096c193" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 6 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:24% <span style='color:#cbfc34;font-weight:700;'>C</span>:24% <span style='color:#fbfe06;font-weight:700;'>D</span>:15% <span style='color:#fbcc05;font-weight:700;'>E</span>:12% <span style='color:#f58221;font-weight:700;'>F</span>:6% <span style='color:#ef1d29;font-weight:700;'>G</span>:12%</div><div style='font-size:12px;color:#555;'>33 diagnostics · 166 kWh/m²/an · 7.2 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>33 Tertiaire</span></div></div></div></div>`)[0];
+                popup_d7d44b2af59a2227b28fe2fd531fe3b3.setContent(html_49c1807384891659fc5a9f34f096c193);
+            
+        
+
+        polygon_672867710a6744ee966e934f17d56ff7.bindPopup(popup_d7d44b2af59a2227b28fe2fd531fe3b3)
+        ;
+
+        
+    
+    
+            polygon_672867710a6744ee966e934f17d56ff7.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 6</b> · DPE B · 33
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_16e6cf4f978ea5565b8ebe82d749cd85 = L.polygon(
+                [[48.81562001887831, 3.087956064750899], [48.80828303032168, 3.082838011572153], [48.81097101642255, 3.078875939880527], [48.81190299056174, 3.078099944667492], [48.81330899820127, 3.0788560538596945], [48.81645699910851, 3.0836370486492006], [48.816971960586194, 3.084544049854522], [48.81562001887831, 3.087956064750899]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_db8dfd0400f1b43e7b6fa3e19c3a1606 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_577725f35a6eee70889eebbb6763078a = $(`<div id="html_577725f35a6eee70889eebbb6763078a" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 7 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:9% <span style='color:#33cc31;font-weight:700;'>B</span>:3% <span style='color:#cbfc34;font-weight:700;'>C</span>:17% <span style='color:#fbfe06;font-weight:700;'>D</span>:34% <span style='color:#fbcc05;font-weight:700;'>E</span>:19% <span style='color:#f58221;font-weight:700;'>F</span>:9% <span style='color:#ef1d29;font-weight:700;'>G</span>:9%</div><div style='font-size:12px;color:#555;'>58 diagnostics · 213 kWh/m²/an · 6.2 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>58 Tertiaire</span></div></div></div></div>`)[0];
+                popup_db8dfd0400f1b43e7b6fa3e19c3a1606.setContent(html_577725f35a6eee70889eebbb6763078a);
+            
+        
+
+        polygon_16e6cf4f978ea5565b8ebe82d749cd85.bindPopup(popup_db8dfd0400f1b43e7b6fa3e19c3a1606)
+        ;
+
+        
+    
+    
+            polygon_16e6cf4f978ea5565b8ebe82d749cd85.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 7</b> · DPE D · 58
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_ce3b2c59b8b39724a9823aadf472ef71 = L.polygon(
+                [[48.37742201716827, 2.7907299620686934], [48.409261044461246, 2.784609975732948], [48.4110229735607, 2.786373007513166], [48.41144300955855, 2.7909089892614647], [48.38858298353432, 2.815049060015176], [48.37038899125334, 2.8277070513879305], [48.36876196330994, 2.827556020548115], [48.36886798301667, 2.8157439364746595], [48.37742201716827, 2.7907299620686934]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_c3735e49946b93e56e6885f6fa4134bd = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_4caa48ce9678d6f5589972e767cbe2f2 = $(`<div id="html_4caa48ce9678d6f5589972e767cbe2f2" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 8 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:11% <span style='color:#33cc31;font-weight:700;'>B</span>:9% <span style='color:#cbfc34;font-weight:700;'>C</span>:23% <span style='color:#fbfe06;font-weight:700;'>D</span>:16% <span style='color:#fbcc05;font-weight:700;'>E</span>:14% <span style='color:#f58221;font-weight:700;'>F</span>:12% <span style='color:#ef1d29;font-weight:700;'>G</span>:14%</div><div style='font-size:12px;color:#555;'>56 diagnostics · 241 kWh/m²/an · 7.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>56 Tertiaire</span></div></div></div></div>`)[0];
+                popup_c3735e49946b93e56e6885f6fa4134bd.setContent(html_4caa48ce9678d6f5589972e767cbe2f2);
+            
+        
+
+        polygon_ce3b2c59b8b39724a9823aadf472ef71.bindPopup(popup_c3735e49946b93e56e6885f6fa4134bd)
+        ;
+
+        
+    
+    
+            polygon_ce3b2c59b8b39724a9823aadf472ef71.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 8</b> · DPE C · 56
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_6869220bbe0b5f8e3268d158403114b9 = L.polygon(
+                [[48.41485497432007, 2.69928000559186], [48.43326301432051, 2.7520480579385587], [48.42658899909227, 2.770421955179412], [48.41490003907701, 2.7759379467291576], [48.40103402109048, 2.719249035142248], [48.39956096866427, 2.712775934110731], [48.39948801765885, 2.6871449853116043], [48.40491698455407, 2.683894967212232], [48.41485497432007, 2.69928000559186]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_fe56dab75f4ccc2abf2301cf1c63c3c1 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_28085be78eb62d3dc3ea0ea64dfdebe8 = $(`<div id="html_28085be78eb62d3dc3ea0ea64dfdebe8" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 9 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:8% <span style='color:#33cc31;font-weight:700;'>B</span>:12% <span style='color:#cbfc34;font-weight:700;'>C</span>:18% <span style='color:#fbfe06;font-weight:700;'>D</span>:27% <span style='color:#fbcc05;font-weight:700;'>E</span>:17% <span style='color:#f58221;font-weight:700;'>F</span>:6% <span style='color:#ef1d29;font-weight:700;'>G</span>:12%</div><div style='font-size:12px;color:#555;'>217 diagnostics · 221 kWh/m²/an · 9.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>217 Tertiaire</span></div></div></div></div>`)[0];
+                popup_fe56dab75f4ccc2abf2301cf1c63c3c1.setContent(html_28085be78eb62d3dc3ea0ea64dfdebe8);
+            
+        
+
+        polygon_6869220bbe0b5f8e3268d158403114b9.bindPopup(popup_fe56dab75f4ccc2abf2301cf1c63c3c1)
+        ;
+
+        
+    
+    
+            polygon_6869220bbe0b5f8e3268d158403114b9.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 9</b> · DPE D · 217
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_f9062cd1ce1b99d9339b0c927f6dcaf2 = L.polygon(
+                [[48.72645102946505, 2.8300510039302798], [48.73787277274746, 2.8698249748633606], [48.70010904450355, 2.888518061352231], [48.69904699918029, 2.888732024190778], [48.69832900526534, 2.8886720007803093], [48.64382798024313, 2.8296420431809546], [48.62761202052426, 2.807524003059709], [48.62734497537, 2.8057060341061546], [48.637841997730376, 2.778812972338623], [48.72645102946505, 2.8300510039302798]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_ef21ada64ceb5137ccff774c6c67ca8b = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_3fd1ed7e13bb9c497727d22903fdb398 = $(`<div id="html_3fd1ed7e13bb9c497727d22903fdb398" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 10 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:15% <span style='color:#33cc31;font-weight:700;'>B</span>:17% <span style='color:#cbfc34;font-weight:700;'>C</span>:24% <span style='color:#fbfe06;font-weight:700;'>D</span>:20% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:2% <span style='color:#ef1d29;font-weight:700;'>G</span>:11%</div><div style='font-size:12px;color:#555;'>46 diagnostics · 154 kWh/m²/an · 6.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>46 Tertiaire</span></div></div></div></div>`)[0];
+                popup_ef21ada64ceb5137ccff774c6c67ca8b.setContent(html_3fd1ed7e13bb9c497727d22903fdb398);
+            
+        
+
+        polygon_f9062cd1ce1b99d9339b0c927f6dcaf2.bindPopup(popup_ef21ada64ceb5137ccff774c6c67ca8b)
+        ;
+
+        
+    
+    
+            polygon_f9062cd1ce1b99d9339b0c927f6dcaf2.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 10</b> · DPE C · 46
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_cde5a6a5e0c6f91859e3c4c0318018ec = L.polygon(
+                [[49.03277396729975, 2.696867935696699], [49.0161139844861, 2.591631013998532], [49.0167079888725, 2.5900459702242378], [49.01915599758346, 2.585419968357392], [49.03704600236215, 2.5815270325966204], [49.063942956408304, 2.5886239380639706], [49.066599981845, 2.591950983030197], [49.06680799732905, 2.592652033172209], [49.08393999576154, 2.672119934788669], [49.079583002166, 2.6786660353022853], [49.06277303728029, 2.696426957010654], [49.05735795592333, 2.698032984911487], [49.03576897171063, 2.701433954163709], [49.03277396729975, 2.696867935696699]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_bb6c8514a42f0f51391704498ffeae19 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_ecac1b852e91c499e8ead840f9c7395f = $(`<div id="html_ecac1b852e91c499e8ead840f9c7395f" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 11 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:7% <span style='color:#33cc31;font-weight:700;'>B</span>:22% <span style='color:#cbfc34;font-weight:700;'>C</span>:24% <span style='color:#fbfe06;font-weight:700;'>D</span>:15% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:5% <span style='color:#ef1d29;font-weight:700;'>G</span>:16%</div><div style='font-size:12px;color:#555;'>123 diagnostics · 174 kWh/m²/an · 7.6 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>123 Tertiaire</span></div></div></div></div>`)[0];
+                popup_bb6c8514a42f0f51391704498ffeae19.setContent(html_ecac1b852e91c499e8ead840f9c7395f);
+            
+        
+
+        polygon_cde5a6a5e0c6f91859e3c4c0318018ec.bindPopup(popup_bb6c8514a42f0f51391704498ffeae19)
+        ;
+
+        
+    
+    
+            polygon_cde5a6a5e0c6f91859e3c4c0318018ec.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 11</b> · DPE C · 123
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_8bf52d7a56fd25dd2be471ad114d6a64 = L.polygon(
+                [[48.73421703959162, 2.788879978807692], [48.71547702527736, 2.741121009123927], [48.72824703128919, 2.7270129535521543], [48.73923597339465, 2.7216610140967634], [48.740394032065645, 2.72631494995914], [48.74049798144747, 2.726775942920181], [48.74146399511154, 2.731190934919006], [48.74333995521136, 2.7547769953372176], [48.743037023081925, 2.7595929707973745], [48.736731966339015, 2.7813179646787347], [48.73421703959162, 2.788879978807692]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_6dbbe6de0f89057fa80ac3d0b8232b9b = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_d50ded66a8525cb42396b395e5e93a30 = $(`<div id="html_d50ded66a8525cb42396b395e5e93a30" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 12 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:1% <span style='color:#33cc31;font-weight:700;'>B</span>:18% <span style='color:#cbfc34;font-weight:700;'>C</span>:26% <span style='color:#fbfe06;font-weight:700;'>D</span>:28% <span style='color:#fbcc05;font-weight:700;'>E</span>:23% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>74 diagnostics · 241 kWh/m²/an · 10.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>74 Tertiaire</span></div></div></div></div>`)[0];
+                popup_6dbbe6de0f89057fa80ac3d0b8232b9b.setContent(html_d50ded66a8525cb42396b395e5e93a30);
+            
+        
+
+        polygon_8bf52d7a56fd25dd2be471ad114d6a64.bindPopup(popup_6dbbe6de0f89057fa80ac3d0b8232b9b)
+        ;
+
+        
+    
+    
+            polygon_8bf52d7a56fd25dd2be471ad114d6a64.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 12</b> · DPE D · 74
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_16d4089298546575e743e6cb3851db50 = L.polygon(
+                [[48.67606403129646, 2.594280974758037], [48.71066102248047, 2.5776989839042703], [48.71100403033408, 2.57804305613493], [48.73899597310466, 2.60623798886572], [48.745783981309245, 2.61427600586846], [48.74682501496297, 2.6156010157415195], [48.74617101576411, 2.617271037462074], [48.70352003299028, 2.6229160051723066], [48.69866204416912, 2.623472960315911], [48.69118299702271, 2.623912939146204], [48.6876640269486, 2.618897007530571], [48.67606403129646, 2.594280974758037]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_7156d1f145b932be79199a44b4956e1b = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_7f8d1ae64bbac18125468824f8050972 = $(`<div id="html_7f8d1ae64bbac18125468824f8050972" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 13 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:8% <span style='color:#33cc31;font-weight:700;'>B</span>:14% <span style='color:#cbfc34;font-weight:700;'>C</span>:34% <span style='color:#fbfe06;font-weight:700;'>D</span>:21% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:3% <span style='color:#ef1d29;font-weight:700;'>G</span>:8%</div><div style='font-size:12px;color:#555;'>173 diagnostics · 162 kWh/m²/an · 5.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>173 Tertiaire</span></div></div></div></div>`)[0];
+                popup_7156d1f145b932be79199a44b4956e1b.setContent(html_7f8d1ae64bbac18125468824f8050972);
+            
+        
+
+        polygon_16d4089298546575e743e6cb3851db50.bindPopup(popup_7156d1f145b932be79199a44b4956e1b)
+        ;
+
+        
+    
+    
+            polygon_16d4089298546575e743e6cb3851db50.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 13</b> · DPE C · 173
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_6e1153e9651e0b3a34a97d3f198e4e21 = L.polygon(
+                [[48.75692696200685, 2.678969935225337], [48.76303303257473, 2.665630952080229], [48.77209797125028, 2.669305933593099], [48.80098297049537, 2.702974004148677], [48.79941099447765, 2.7069239377390275], [48.79603298149935, 2.7069389674887536], [48.7586560174507, 2.700303020299809], [48.75692696200685, 2.678969935225337]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_b7168e8c427b846ccbaa4f74098299b2 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_f3b9bcafcb906cf8d7ae3e018bda693c = $(`<div id="html_f3b9bcafcb906cf8d7ae3e018bda693c" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 14 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:15% <span style='color:#33cc31;font-weight:700;'>B</span>:13% <span style='color:#cbfc34;font-weight:700;'>C</span>:28% <span style='color:#fbfe06;font-weight:700;'>D</span>:25% <span style='color:#fbcc05;font-weight:700;'>E</span>:12% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>68 diagnostics · 158 kWh/m²/an · 5.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>68 Tertiaire</span></div></div></div></div>`)[0];
+                popup_b7168e8c427b846ccbaa4f74098299b2.setContent(html_f3b9bcafcb906cf8d7ae3e018bda693c);
+            
+        
+
+        polygon_6e1153e9651e0b3a34a97d3f198e4e21.bindPopup(popup_b7168e8c427b846ccbaa4f74098299b2)
+        ;
+
+        
+    
+    
+            polygon_6e1153e9651e0b3a34a97d3f198e4e21.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 14</b> · DPE C · 68
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_4d5361a0c595ff128ed13c8837d3d62b = L.polygon(
+                [[48.97677995731461, 2.614474059082771], [48.982976032685606, 2.6113599864360832], [48.99567101856029, 2.644583934549593], [48.99781097187761, 2.654468965941456], [48.9971769828396, 2.6557050224597805], [48.99461304203432, 2.6567679446207118], [48.98588801205653, 2.653327051014221], [48.98397501423438, 2.6523050225961327], [48.97196896503292, 2.642007039488301], [48.97208596653994, 2.6386819768583862], [48.97677995731461, 2.614474059082771]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_72d9427f00618a65940aa4b375fe3aa0 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_652fcff3639d2a73b2a6c09dff8d4a30 = $(`<div id="html_652fcff3639d2a73b2a6c09dff8d4a30" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 15 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:11% <span style='color:#33cc31;font-weight:700;'>B</span>:32% <span style='color:#cbfc34;font-weight:700;'>C</span>:23% <span style='color:#fbfe06;font-weight:700;'>D</span>:20% <span style='color:#fbcc05;font-weight:700;'>E</span>:6% <span style='color:#f58221;font-weight:700;'>F</span>:1% <span style='color:#ef1d29;font-weight:700;'>G</span>:6%</div><div style='font-size:12px;color:#555;'>81 diagnostics · 111 kWh/m²/an · 6.6 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>81 Tertiaire</span></div></div></div></div>`)[0];
+                popup_72d9427f00618a65940aa4b375fe3aa0.setContent(html_652fcff3639d2a73b2a6c09dff8d4a30);
+            
+        
+
+        polygon_4d5361a0c595ff128ed13c8837d3d62b.bindPopup(popup_72d9427f00618a65940aa4b375fe3aa0)
+        ;
+
+        
+    
+    
+            polygon_4d5361a0c595ff128ed13c8837d3d62b.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 15</b> · DPE B · 81
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_710444d9514e75f4db2a942a8d438f06 = L.polygon(
+                [[48.9425849702688, 2.6903409368344384], [48.93534402753273, 2.687358061307164], [48.94318099293911, 2.6687759701722413], [48.9511600258207, 2.663077958120472], [48.952434997463655, 2.663082942326114], [48.95372996968332, 2.6678070415599056], [48.95001497991719, 2.6764859666127], [48.94427100707616, 2.688371027759148], [48.9425849702688, 2.6903409368344384]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_19ab042484a9556c96565456cebde54e = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_dd1c6093bee52a5f4189a04ce0ee5129 = $(`<div id="html_dd1c6093bee52a5f4189a04ce0ee5129" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 16 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:2% <span style='color:#33cc31;font-weight:700;'>B</span>:9% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:30% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:11%</div><div style='font-size:12px;color:#555;'>54 diagnostics · 218 kWh/m²/an · 6.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>54 Tertiaire</span></div></div></div></div>`)[0];
+                popup_19ab042484a9556c96565456cebde54e.setContent(html_dd1c6093bee52a5f4189a04ce0ee5129);
+            
+        
+
+        polygon_710444d9514e75f4db2a942a8d438f06.bindPopup(popup_19ab042484a9556c96565456cebde54e)
+        ;
+
+        
+    
+    
+            polygon_710444d9514e75f4db2a942a8d438f06.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 16</b> · DPE C · 54
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_0405d0e369787e4191c3ded4f188653e = L.polygon(
+                [[48.97311800207223, 2.584680996453323], [48.941998024995485, 2.6476169384838664], [48.940163995291954, 2.645000066188373], [48.93866599671277, 2.6416429856216057], [48.93668999088373, 2.6176450444492105], [48.93546800971146, 2.602453058226178], [48.96951198268031, 2.573058978854463], [48.972197019496406, 2.5787550059848767], [48.97311800207223, 2.584680996453323]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_2151c5b2a27eb5f2c560712a740415f3 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_d29a2f2d4ab87fe02460f9cd27da3212 = $(`<div id="html_d29a2f2d4ab87fe02460f9cd27da3212" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 17 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:12% <span style='color:#cbfc34;font-weight:700;'>C</span>:27% <span style='color:#fbfe06;font-weight:700;'>D</span>:27% <span style='color:#fbcc05;font-weight:700;'>E</span>:12% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:11%</div><div style='font-size:12px;color:#555;'>120 diagnostics · 199 kWh/m²/an · 8.4 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>120 Tertiaire</span></div></div></div></div>`)[0];
+                popup_2151c5b2a27eb5f2c560712a740415f3.setContent(html_d29a2f2d4ab87fe02460f9cd27da3212);
+            
+        
+
+        polygon_0405d0e369787e4191c3ded4f188653e.bindPopup(popup_2151c5b2a27eb5f2c560712a740415f3)
+        ;
+
+        
+    
+    
+            polygon_0405d0e369787e4191c3ded4f188653e.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 17</b> · DPE C · 120
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_8af3f7406425b16620a71a2ace2bcd7d = L.polygon(
+                [[48.50403897095521, 2.564917963187339], [48.52453804061084, 2.511187943748826], [48.53990702408241, 2.519087938052529], [48.5400869835539, 2.5199669666902347], [48.53379901895671, 2.5703410613854936], [48.52690301225441, 2.587515009959968], [48.52571102557175, 2.5866240424176983], [48.50403897095521, 2.564917963187339]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_1ba494cd163120d1bfc202f740e05e26 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_971ce1f55f802aa096be8f9e0c4e4dc2 = $(`<div id="html_971ce1f55f802aa096be8f9e0c4e4dc2" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 18 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:7% <span style='color:#33cc31;font-weight:700;'>B</span>:15% <span style='color:#cbfc34;font-weight:700;'>C</span>:35% <span style='color:#fbfe06;font-weight:700;'>D</span>:29% <span style='color:#fbcc05;font-weight:700;'>E</span>:5% <span style='color:#f58221;font-weight:700;'>F</span>:2% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>55 diagnostics · 209 kWh/m²/an · 11.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>55 Tertiaire</span></div></div></div></div>`)[0];
+                popup_1ba494cd163120d1bfc202f740e05e26.setContent(html_971ce1f55f802aa096be8f9e0c4e4dc2);
+            
+        
+
+        polygon_8af3f7406425b16620a71a2ace2bcd7d.bindPopup(popup_1ba494cd163120d1bfc202f740e05e26)
+        ;
+
+        
+    
+    
+            polygon_8af3f7406425b16620a71a2ace2bcd7d.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 18</b> · DPE C · 55
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_e9a3d09b34739adc979b0849a91941c3 = L.polygon(
+                [[48.92941604125801, 2.8841880153835584], [48.93349100800939, 2.87493897227224], [48.93413304008487, 2.874128987820438], [48.93824901504789, 2.871406038718643], [48.939724985827645, 2.8726080153305475], [48.94016996519725, 2.8729739946669275], [48.942898955263445, 2.8790890640711], [48.93719202677145, 2.8868279457671324], [48.93299904043848, 2.8897990106645914], [48.93058502086982, 2.888969943046244], [48.92941604125801, 2.8841880153835584]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_bc9b2fafd2a661e4911879c40ce4db80 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_7f7864b318f36a3ed789df06226f0a05 = $(`<div id="html_7f7864b318f36a3ed789df06226f0a05" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 19 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:10% <span style='color:#33cc31;font-weight:700;'>B</span>:15% <span style='color:#cbfc34;font-weight:700;'>C</span>:19% <span style='color:#fbfe06;font-weight:700;'>D</span>:25% <span style='color:#fbcc05;font-weight:700;'>E</span>:10% <span style='color:#f58221;font-weight:700;'>F</span>:4% <span style='color:#ef1d29;font-weight:700;'>G</span>:17%</div><div style='font-size:12px;color:#555;'>48 diagnostics · 224 kWh/m²/an · 8.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>48 Tertiaire</span></div></div></div></div>`)[0];
+                popup_bc9b2fafd2a661e4911879c40ce4db80.setContent(html_7f7864b318f36a3ed789df06226f0a05);
+            
+        
+
+        polygon_e9a3d09b34739adc979b0849a91941c3.bindPopup(popup_bc9b2fafd2a661e4911879c40ce4db80)
+        ;
+
+        
+    
+    
+            polygon_e9a3d09b34739adc979b0849a91941c3.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 19</b> · DPE D · 48
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_381a840dec02c07643c1640ec4dc4151 = L.polygon(
+                [[48.83294495703762, 2.6908449943765587], [48.842833007774125, 2.6975829412519383], [48.83794795557533, 2.7280309641107165], [48.832222033482864, 2.736476036434711], [48.82389799758074, 2.724650939960524], [48.822729029205846, 2.721818960218561], [48.82070499263179, 2.7061239536192265], [48.8215940448304, 2.704352046312715], [48.83294495703762, 2.6908449943765587]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_2c340f227ad0cc0f7e1fcd99eaac7c2b = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_a0b3538d87a838bf9d400fb54a0bf4a4 = $(`<div id="html_a0b3538d87a838bf9d400fb54a0bf4a4" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 20 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:5% <span style='color:#33cc31;font-weight:700;'>B</span>:21% <span style='color:#cbfc34;font-weight:700;'>C</span>:26% <span style='color:#fbfe06;font-weight:700;'>D</span>:23% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:6% <span style='color:#ef1d29;font-weight:700;'>G</span>:8%</div><div style='font-size:12px;color:#555;'>140 diagnostics · 179 kWh/m²/an · 7.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>140 Tertiaire</span></div></div></div></div>`)[0];
+                popup_2c340f227ad0cc0f7e1fcd99eaac7c2b.setContent(html_a0b3538d87a838bf9d400fb54a0bf4a4);
+            
+        
+
+        polygon_381a840dec02c07643c1640ec4dc4151.bindPopup(popup_2c340f227ad0cc0f7e1fcd99eaac7c2b)
+        ;
+
+        
+    
+    
+            polygon_381a840dec02c07643c1640ec4dc4151.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 20</b> · DPE C · 140
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_9392d7edd507f2f8c0000630859caf42 = L.polygon(
+                [[48.63248801513655, 2.597860943627203], [48.627619990571056, 2.595583945558084], [48.627120988853214, 2.5923519351720814], [48.62710501756473, 2.588543977647983], [48.62862199159591, 2.589285034022194], [48.63228302785109, 2.595419943817856], [48.63248801513655, 2.597860943627203]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_bca43a5e605426cf7922ce53f233118f = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_5808e92c7cd72815d183bae4f99d135d = $(`<div id="html_5808e92c7cd72815d183bae4f99d135d" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 21 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#cbfc34;font-weight:700;'>C</span>:9% <span style='color:#fbfe06;font-weight:700;'>D</span>:34% <span style='color:#fbcc05;font-weight:700;'>E</span>:31% <span style='color:#f58221;font-weight:700;'>F</span>:9% <span style='color:#ef1d29;font-weight:700;'>G</span>:16%</div><div style='font-size:12px;color:#555;'>32 diagnostics · 320 kWh/m²/an · 9.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>32 Tertiaire</span></div></div></div></div>`)[0];
+                popup_bca43a5e605426cf7922ce53f233118f.setContent(html_5808e92c7cd72815d183bae4f99d135d);
+            
+        
+
+        polygon_9392d7edd507f2f8c0000630859caf42.bindPopup(popup_bca43a5e605426cf7922ce53f233118f)
+        ;
+
+        
+    
+    
+            polygon_9392d7edd507f2f8c0000630859caf42.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 21</b> · DPE D · 32
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_e404223422bc06ac98d9d96cd7a2548f = L.polygon(
+                [[48.66346397833442, 2.5669840531921286], [48.6626599669768, 2.566129016084552], [48.66393801492911, 2.5466870606601693], [48.66661598978083, 2.5459850077269697], [48.66635201992096, 2.5595629908728683], [48.66425099920644, 2.5665059413090945], [48.66346397833442, 2.5669840531921286]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_69748e489a5adfea9a24ff20e0d77e74 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_d911139b80e4f7caf652707b3a96c5db = $(`<div id="html_d911139b80e4f7caf652707b3a96c5db" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 22 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:7% <span style='color:#33cc31;font-weight:700;'>B</span>:13% <span style='color:#cbfc34;font-weight:700;'>C</span>:13% <span style='color:#fbfe06;font-weight:700;'>D</span>:27% <span style='color:#fbcc05;font-weight:700;'>E</span>:20% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:13%</div><div style='font-size:12px;color:#555;'>30 diagnostics · 231 kWh/m²/an · 10.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>30 Tertiaire</span></div></div></div></div>`)[0];
+                popup_69748e489a5adfea9a24ff20e0d77e74.setContent(html_d911139b80e4f7caf652707b3a96c5db);
+            
+        
+
+        polygon_e404223422bc06ac98d9d96cd7a2548f.bindPopup(popup_69748e489a5adfea9a24ff20e0d77e74)
+        ;
+
+        
+    
+    
+            polygon_e404223422bc06ac98d9d96cd7a2548f.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 22</b> · DPE D · 30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_e8de282326d3ea44c9ee5b4894c0b33a = L.polygon(
+                [[48.65702904280343, 2.5523280593042617], [48.65761802603148, 2.5631629372151683], [48.65139904132894, 2.562382950173454], [48.65117804471502, 2.5622630260340102], [48.64527703603093, 2.5587170425489214], [48.64164699862888, 2.55352296876618], [48.64286400565253, 2.546089970187827], [48.64382100526413, 2.5449630637924927], [48.64799897556347, 2.547057012233555], [48.65702904280343, 2.5523280593042617]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_66c580217ed99add88db341a9a2f025d = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_7c8c3cf6d5f66d2889b37f5dab398fa2 = $(`<div id="html_7c8c3cf6d5f66d2889b37f5dab398fa2" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 23 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:19% <span style='color:#33cc31;font-weight:700;'>B</span>:32% <span style='color:#cbfc34;font-weight:700;'>C</span>:26% <span style='color:#fbfe06;font-weight:700;'>D</span>:15% <span style='color:#fbcc05;font-weight:700;'>E</span>:2% <span style='color:#f58221;font-weight:700;'>F</span>:4% <span style='color:#ef1d29;font-weight:700;'>G</span>:2%</div><div style='font-size:12px;color:#555;'>53 diagnostics · 94 kWh/m²/an · 5.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>53 Tertiaire</span></div></div></div></div>`)[0];
+                popup_66c580217ed99add88db341a9a2f025d.setContent(html_7c8c3cf6d5f66d2889b37f5dab398fa2);
+            
+        
+
+        polygon_e8de282326d3ea44c9ee5b4894c0b33a.bindPopup(popup_66c580217ed99add88db341a9a2f025d)
+        ;
+
+        
+    
+    
+            polygon_e8de282326d3ea44c9ee5b4894c0b33a.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 23</b> · DPE B · 53
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_5d1cc233a7eaca61eeaeb04a11de7222 = L.polygon(
+                [[48.639504027676736, 2.5701819740946648], [48.640212982216575, 2.5725729529588923], [48.64015195527455, 2.5734149573275387], [48.63905403538149, 2.587208020793603], [48.638444966642766, 2.5843060623941345], [48.63920403467691, 2.573584060607575], [48.639504027676736, 2.5701819740946648]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_c903fb1d102da87f775af2600448e3a1 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_ef4db405b7b0417c8c2c3114535d2354 = $(`<div id="html_ef4db405b7b0417c8c2c3114535d2354" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 24 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#33cc31;font-weight:700;'>B</span>:58% <span style='color:#cbfc34;font-weight:700;'>C</span>:25% <span style='color:#fbfe06;font-weight:700;'>D</span>:14% <span style='color:#fbcc05;font-weight:700;'>E</span>:3%</div><div style='font-size:12px;color:#555;'>36 diagnostics · 71 kWh/m²/an · 2.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>36 Tertiaire</span></div></div></div></div>`)[0];
+                popup_c903fb1d102da87f775af2600448e3a1.setContent(html_ef4db405b7b0417c8c2c3114535d2354);
+            
+        
+
+        polygon_5d1cc233a7eaca61eeaeb04a11de7222.bindPopup(popup_c903fb1d102da87f775af2600448e3a1)
+        ;
+
+        
+    
+    
+            polygon_5d1cc233a7eaca61eeaeb04a11de7222.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 24</b> · DPE B · 36
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_295e38078d38a6f4964fd86340130f20 = L.polygon(
+                [[48.620650023357335, 2.5353530232103823], [48.633748988079546, 2.549796969551862], [48.63356198707915, 2.552760039060275], [48.63167403098322, 2.5721130306597417], [48.63100496543345, 2.574395054536352], [48.6178030047215, 2.581331945544637], [48.61597996797981, 2.5792700500832466], [48.60645497673597, 2.543843068005772], [48.61167399619237, 2.5346959444827863], [48.620650023357335, 2.5353530232103823]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_59430d360b098f0a432d4468221d4f78 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_f36685f8d2524adb3e6e86bf27b88b4c = $(`<div id="html_f36685f8d2524adb3e6e86bf27b88b4c" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 25 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:22% <span style='color:#33cc31;font-weight:700;'>B</span>:16% <span style='color:#cbfc34;font-weight:700;'>C</span>:26% <span style='color:#fbfe06;font-weight:700;'>D</span>:16% <span style='color:#fbcc05;font-weight:700;'>E</span>:5% <span style='color:#f58221;font-weight:700;'>F</span>:5% <span style='color:#ef1d29;font-weight:700;'>G</span>:11%</div><div style='font-size:12px;color:#555;'>108 diagnostics · 141 kWh/m²/an · 6.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>108 Tertiaire</span></div></div></div></div>`)[0];
+                popup_59430d360b098f0a432d4468221d4f78.setContent(html_f36685f8d2524adb3e6e86bf27b88b4c);
+            
+        
+
+        polygon_295e38078d38a6f4964fd86340130f20.bindPopup(popup_59430d360b098f0a432d4468221d4f78)
+        ;
+
+        
+    
+    
+            polygon_295e38078d38a6f4964fd86340130f20.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 25</b> · DPE C · 108
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_0190092a40f2dd567ec3675a59cf6930 = L.polygon(
+                [[48.57736699483445, 2.584183052111942], [48.58347499408258, 2.573177956742027], [48.59616998153523, 2.581937067783307], [48.5971490148892, 2.589791951234384], [48.59713202819656, 2.596216035661372], [48.58632601300897, 2.5961999411030754], [48.58122902431436, 2.5946130162171883], [48.57971299141757, 2.5923399850737243], [48.57736699483445, 2.584183052111942]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_86f7d088fec242736ee80225652df35a = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_c898e5dd36bcbde950997ba3e9aef840 = $(`<div id="html_c898e5dd36bcbde950997ba3e9aef840" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 26 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:9% <span style='color:#33cc31;font-weight:700;'>B</span>:11% <span style='color:#cbfc34;font-weight:700;'>C</span>:27% <span style='color:#fbfe06;font-weight:700;'>D</span>:36% <span style='color:#fbcc05;font-weight:700;'>E</span>:7% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>45 diagnostics · 211 kWh/m²/an · 10.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>45 Tertiaire</span></div></div></div></div>`)[0];
+                popup_86f7d088fec242736ee80225652df35a.setContent(html_c898e5dd36bcbde950997ba3e9aef840);
+            
+        
+
+        polygon_0190092a40f2dd567ec3675a59cf6930.bindPopup(popup_86f7d088fec242736ee80225652df35a)
+        ;
+
+        
+    
+    
+            polygon_0190092a40f2dd567ec3675a59cf6930.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 26</b> · DPE D · 45
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_15503748cf4d2d16d25ca2397764a320 = L.polygon(
+                [[48.88651698182812, 2.794773954330599], [48.89883597216895, 2.7946190004101266], [48.90414403763465, 2.8107360401812063], [48.8978970256862, 2.830853983608766], [48.894309030762585, 2.8386049512287834], [48.88952495630158, 2.8246549774736875], [48.88651698182812, 2.794773954330599]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_deb358b1e668dd110000b442a13f2f26 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_486825bf235b105d2d221db78f914bdf = $(`<div id="html_486825bf235b105d2d221db78f914bdf" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 27 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:5% <span style='color:#33cc31;font-weight:700;'>B</span>:5% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:22% <span style='color:#fbcc05;font-weight:700;'>E</span>:15% <span style='color:#f58221;font-weight:700;'>F</span>:10% <span style='color:#ef1d29;font-weight:700;'>G</span>:12%</div><div style='font-size:12px;color:#555;'>40 diagnostics · 273 kWh/m²/an · 10.3 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>40 Tertiaire</span></div></div></div></div>`)[0];
+                popup_deb358b1e668dd110000b442a13f2f26.setContent(html_486825bf235b105d2d221db78f914bdf);
+            
+        
+
+        polygon_15503748cf4d2d16d25ca2397764a320.bindPopup(popup_deb358b1e668dd110000b442a13f2f26)
+        ;
+
+        
+    
+    
+            polygon_15503748cf4d2d16d25ca2397764a320.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 27</b> · DPE C · 40
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_3da414b3365701a2c15a0ebc7ef73335 = L.polygon(
+                [[48.52746300550419, 2.6784229891927582], [48.53243600665015, 2.676252024207179], [48.537484984145806, 2.686159968580958], [48.538210981139024, 2.689189971465125], [48.53815495947688, 2.6895770469911597], [48.53668002814014, 2.691653950849924], [48.53321196072482, 2.6950949716623214], [48.53165402995372, 2.6906890643460506], [48.52746300550419, 2.6784229891927582]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_e09eb4dd990343c9979d08fb9b8fc9c3 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_dce92919065b73bac02c75a9937fb857 = $(`<div id="html_dce92919065b73bac02c75a9937fb857" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 28 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:3% <span style='color:#33cc31;font-weight:700;'>B</span>:23% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:37% <span style='color:#fbcc05;font-weight:700;'>E</span>:3% <span style='color:#ef1d29;font-weight:700;'>G</span>:3%</div><div style='font-size:12px;color:#555;'>30 diagnostics · 186 kWh/m²/an · 5.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>30 Tertiaire</span></div></div></div></div>`)[0];
+                popup_e09eb4dd990343c9979d08fb9b8fc9c3.setContent(html_dce92919065b73bac02c75a9937fb857);
+            
+        
+
+        polygon_3da414b3365701a2c15a0ebc7ef73335.bindPopup(popup_e09eb4dd990343c9979d08fb9b8fc9c3)
+        ;
+
+        
+    
+    
+            polygon_3da414b3365701a2c15a0ebc7ef73335.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 28</b> · DPE D · 30
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_66f60c9b176a782fe0b173fcd64d8ba4 = L.polygon(
+                [[48.52233297628217, 2.665487059995837], [48.51734398040792, 2.6550129514893546], [48.5213990150835, 2.64685397591598], [48.53651502358223, 2.623659980430664], [48.53881300043423, 2.621283975467859], [48.541371003422086, 2.623202052081252], [48.543814992250034, 2.6267209775678784], [48.54765595726994, 2.6396659465129177], [48.5470630399284, 2.6494130298207343], [48.543785976277306, 2.678199998506248], [48.54369999896669, 2.678706936276729], [48.54329597202, 2.6789619378038623], [48.54002596397266, 2.679534933891847], [48.52233297628217, 2.665487059995837]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_9fbf0dadb8ec632a9bfebe4d8d55c0bc = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_59d0a2a4f23c7a3a78eca218503488eb = $(`<div id="html_59d0a2a4f23c7a3a78eca218503488eb" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 29 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:9% <span style='color:#cbfc34;font-weight:700;'>C</span>:29% <span style='color:#fbfe06;font-weight:700;'>D</span>:25% <span style='color:#fbcc05;font-weight:700;'>E</span>:14% <span style='color:#f58221;font-weight:700;'>F</span>:8% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>240 diagnostics · 217 kWh/m²/an · 9.6 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>240 Tertiaire</span></div></div></div></div>`)[0];
+                popup_9fbf0dadb8ec632a9bfebe4d8d55c0bc.setContent(html_59d0a2a4f23c7a3a78eca218503488eb);
+            
+        
+
+        polygon_66f60c9b176a782fe0b173fcd64d8ba4.bindPopup(popup_9fbf0dadb8ec632a9bfebe4d8d55c0bc)
+        ;
+
+        
+    
+    
+            polygon_66f60c9b176a782fe0b173fcd64d8ba4.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 29</b> · DPE C · 240
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_2bf48e91d118459671673f04dddfeaae = L.polygon(
+                [[48.865492558034525, 2.823939532466956], [48.855533042913976, 2.808090946166451], [48.85665804127419, 2.80783194201704], [48.87433395553588, 2.804628970193381], [48.865492558034525, 2.823939532466956]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_a45d1dc226466fd8e9a04c3f0ea8c98c = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_bc1f679e08dd139ca9bb86dd41dfb237 = $(`<div id="html_bc1f679e08dd139ca9bb86dd41dfb237" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 30 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:12% <span style='color:#33cc31;font-weight:700;'>B</span>:7% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:14% <span style='color:#fbcc05;font-weight:700;'>E</span>:14% <span style='color:#f58221;font-weight:700;'>F</span>:2% <span style='color:#ef1d29;font-weight:700;'>G</span>:21%</div><div style='font-size:12px;color:#555;'>43 diagnostics · 182 kWh/m²/an · 6.1 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>43 Tertiaire</span></div></div></div></div>`)[0];
+                popup_a45d1dc226466fd8e9a04c3f0ea8c98c.setContent(html_bc1f679e08dd139ca9bb86dd41dfb237);
+            
+        
+
+        polygon_2bf48e91d118459671673f04dddfeaae.bindPopup(popup_a45d1dc226466fd8e9a04c3f0ea8c98c)
+        ;
+
+        
+    
+    
+            polygon_2bf48e91d118459671673f04dddfeaae.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 30</b> · DPE C · 43
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_f53e0c03025c1879c188e51f9fa7eb41 = L.polygon(
+                [[48.84293096587107, 2.8216630647443437], [48.84721396031938, 2.818028648103098], [48.85128398175763, 2.8190479789966503], [48.85403296144672, 2.827331066061556], [48.84870702333035, 2.8303260371256584], [48.84674696233393, 2.828579939078703], [48.84457808766072, 2.826551386895583], [48.84293096587107, 2.8216630647443437]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_58f9daf83c5404d1651217b60d246cea = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_afd4632020cfbdb03b66e3ade46bac22 = $(`<div id="html_afd4632020cfbdb03b66e3ade46bac22" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 31 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:12% <span style='color:#33cc31;font-weight:700;'>B</span>:25% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:10% <span style='color:#fbcc05;font-weight:700;'>E</span>:12% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>40 diagnostics · 141 kWh/m²/an · 4.2 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>40 Tertiaire</span></div></div></div></div>`)[0];
+                popup_58f9daf83c5404d1651217b60d246cea.setContent(html_afd4632020cfbdb03b66e3ade46bac22);
+            
+        
+
+        polygon_f53e0c03025c1879c188e51f9fa7eb41.bindPopup(popup_58f9daf83c5404d1651217b60d246cea)
+        ;
+
+        
+    
+    
+            polygon_f53e0c03025c1879c188e51f9fa7eb41.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 31</b> · DPE C · 40
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_88cfe9ad2a93b7d55b3c076a76dacc0e = L.polygon(
+                [[48.55691699511856, 2.5977229324061324], [48.554159974817146, 2.59300497670236], [48.554234987411526, 2.5923450312599456], [48.55812903160824, 2.594480940238602], [48.55875202251841, 2.596477959327263], [48.55691699511856, 2.5977229324061324]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_8372f403f1ca7b5f40c370969e5406e5 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_cf8cfdbd44f2c802e9a2c2fee7597009 = $(`<div id="html_cf8cfdbd44f2c802e9a2c2fee7597009" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 32 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:2% <span style='color:#33cc31;font-weight:700;'>B</span>:14% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:32% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:5% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>44 diagnostics · 190 kWh/m²/an · 5.4 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>44 Tertiaire</span></div></div></div></div>`)[0];
+                popup_8372f403f1ca7b5f40c370969e5406e5.setContent(html_cf8cfdbd44f2c802e9a2c2fee7597009);
+            
+        
+
+        polygon_88cfe9ad2a93b7d55b3c076a76dacc0e.bindPopup(popup_8372f403f1ca7b5f40c370969e5406e5)
+        ;
+
+        
+    
+    
+            polygon_88cfe9ad2a93b7d55b3c076a76dacc0e.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 32</b> · DPE D · 44
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_0bbc2e4ac4399ce950fe4162bca5dc86 = L.polygon(
+                [[48.56506102569202, 2.61148698941769], [48.55795695582378, 2.60847297303704], [48.558603042562645, 2.6059189689772744], [48.56494097026653, 2.596074943317149], [48.569902041189394, 2.590947951964809], [48.57137397079741, 2.59267595522862], [48.57555801314312, 2.607710969754664], [48.56506102569202, 2.61148698941769]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_0d9291720ef285b6d3398733fa41d34d = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_bde8092dd32b77a9121f8628ce8d2733 = $(`<div id="html_bde8092dd32b77a9121f8628ce8d2733" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 33 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:2% <span style='color:#33cc31;font-weight:700;'>B</span>:4% <span style='color:#cbfc34;font-weight:700;'>C</span>:27% <span style='color:#fbfe06;font-weight:700;'>D</span>:47% <span style='color:#fbcc05;font-weight:700;'>E</span>:9% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>55 diagnostics · 228 kWh/m²/an · 7.1 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>55 Tertiaire</span></div></div></div></div>`)[0];
+                popup_0d9291720ef285b6d3398733fa41d34d.setContent(html_bde8092dd32b77a9121f8628ce8d2733);
+            
+        
+
+        polygon_0bbc2e4ac4399ce950fe4162bca5dc86.bindPopup(popup_0d9291720ef285b6d3398733fa41d34d)
+        ;
+
+        
+    
+    
+            polygon_0bbc2e4ac4399ce950fe4162bca5dc86.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 33</b> · DPE D · 55
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_eae584b07afd3d202ea53d003e33bed3 = L.polygon(
+                [[48.959815012440565, 2.902293058865386], [48.94854596819968, 2.894212973900656], [48.951618965464, 2.879813057246728], [48.95566603149803, 2.868037059890874], [48.9641119584437, 2.8732270178958665], [48.96584295696714, 2.876391065415368], [48.959815012440565, 2.902293058865386]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_145119120e4ca2b9f1b6fa8e099d1431 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_2c1d71f60ceba563c394810c7ea6210f = $(`<div id="html_2c1d71f60ceba563c394810c7ea6210f" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 34 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:7% <span style='color:#33cc31;font-weight:700;'>B</span>:14% <span style='color:#cbfc34;font-weight:700;'>C</span>:24% <span style='color:#fbfe06;font-weight:700;'>D</span>:27% <span style='color:#fbcc05;font-weight:700;'>E</span>:12% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:9%</div><div style='font-size:12px;color:#555;'>155 diagnostics · 217 kWh/m²/an · 8.5 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>155 Tertiaire</span></div></div></div></div>`)[0];
+                popup_145119120e4ca2b9f1b6fa8e099d1431.setContent(html_2c1d71f60ceba563c394810c7ea6210f);
+            
+        
+
+        polygon_eae584b07afd3d202ea53d003e33bed3.bindPopup(popup_145119120e4ca2b9f1b6fa8e099d1431)
+        ;
+
+        
+    
+    
+            polygon_eae584b07afd3d202ea53d003e33bed3.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 34</b> · DPE D · 155
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_5301cf173a35d78c53bf9de122769682 = L.polygon(
+                [[48.95446298895017, 2.915900958399013], [48.95174002566697, 2.9115700091646426], [48.95209202186053, 2.910522976732517], [48.95665703602708, 2.9059630621464545], [48.96382699445219, 2.904357964542573], [48.96477498339246, 2.9041550498061395], [48.96551497128315, 2.907605050478941], [48.96542696780779, 2.908348988305704], [48.96251104295753, 2.917933019937347], [48.95708903841879, 2.919303000336945], [48.95446298895017, 2.915900958399013]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_5cf52e92ce59969374e9621d8cc1777c = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_a6404378233a4ac82a2652632e8171d6 = $(`<div id="html_a6404378233a4ac82a2652632e8171d6" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 35 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:5% <span style='color:#33cc31;font-weight:700;'>B</span>:22% <span style='color:#cbfc34;font-weight:700;'>C</span>:22% <span style='color:#fbfe06;font-weight:700;'>D</span>:15% <span style='color:#fbcc05;font-weight:700;'>E</span>:7% <span style='color:#f58221;font-weight:700;'>F</span>:11% <span style='color:#ef1d29;font-weight:700;'>G</span>:18%</div><div style='font-size:12px;color:#555;'>55 diagnostics · 198 kWh/m²/an · 8.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>55 Tertiaire</span></div></div></div></div>`)[0];
+                popup_5cf52e92ce59969374e9621d8cc1777c.setContent(html_a6404378233a4ac82a2652632e8171d6);
+            
+        
+
+        polygon_5301cf173a35d78c53bf9de122769682.bindPopup(popup_5cf52e92ce59969374e9621d8cc1777c)
+        ;
+
+        
+    
+    
+            polygon_5301cf173a35d78c53bf9de122769682.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 35</b> · DPE B · 55
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_560cea13a577e036e64acac888a75040 = L.polygon(
+                [[48.88545797180712, 2.6224040177874697], [48.87399473087609, 2.6559156248467537], [48.87162802547418, 2.65086199489854], [48.87034397186649, 2.646264969025982], [48.86925102299575, 2.6412169879402825], [48.86823298539652, 2.630076942359363], [48.879103971898665, 2.6229420329312627], [48.8843460344011, 2.6209989536090363], [48.88545797180712, 2.6224040177874697]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_48c16b7a33d81a8bc2273ec552fbee0a = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_3b3585058c387305ac063cd08fbe5d83 = $(`<div id="html_3b3585058c387305ac063cd08fbe5d83" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 36 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:14% <span style='color:#33cc31;font-weight:700;'>B</span>:9% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:16% <span style='color:#fbcc05;font-weight:700;'>E</span>:16% <span style='color:#f58221;font-weight:700;'>F</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:7%</div><div style='font-size:12px;color:#555;'>43 diagnostics · 199 kWh/m²/an · 5.9 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>43 Tertiaire</span></div></div></div></div>`)[0];
+                popup_48c16b7a33d81a8bc2273ec552fbee0a.setContent(html_3b3585058c387305ac063cd08fbe5d83);
+            
+        
+
+        polygon_560cea13a577e036e64acac888a75040.bindPopup(popup_48c16b7a33d81a8bc2273ec552fbee0a)
+        ;
+
+        
+    
+    
+            polygon_560cea13a577e036e64acac888a75040.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 36</b> · DPE C · 43
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_82c291648c2fff6901c89a5f0f149efb = L.polygon(
+                [[48.8840659825681, 2.6086410001556746], [48.87842904319676, 2.609920028651064], [48.86943032672396, 2.604831922460148], [48.8689430301104, 2.602482964614944], [48.86811000874334, 2.572834021549973], [48.8785599787906, 2.5777139688145603], [48.88011300698749, 2.585096016865166], [48.8840659825681, 2.6086410001556746]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_ca63b13fc36ff123b8960a398705d852 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_52da40455ae510b26612f0705ebf8b11 = $(`<div id="html_52da40455ae510b26612f0705ebf8b11" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 37 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:3% <span style='color:#33cc31;font-weight:700;'>B</span>:10% <span style='color:#cbfc34;font-weight:700;'>C</span>:22% <span style='color:#fbfe06;font-weight:700;'>D</span>:29% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:9% <span style='color:#ef1d29;font-weight:700;'>G</span>:15%</div><div style='font-size:12px;color:#555;'>97 diagnostics · 254 kWh/m²/an · 10.9 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>97 Tertiaire</span></div></div></div></div>`)[0];
+                popup_ca63b13fc36ff123b8960a398705d852.setContent(html_52da40455ae510b26612f0705ebf8b11);
+            
+        
+
+        polygon_82c291648c2fff6901c89a5f0f149efb.bindPopup(popup_ca63b13fc36ff123b8960a398705d852)
+        ;
+
+        
+    
+    
+            polygon_82c291648c2fff6901c89a5f0f149efb.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 37</b> · DPE D · 97
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_a6c459e3a7dc5b5dd35891d10b2bd542 = L.polygon(
+                [[48.89094496409165, 2.6111820180165264], [48.88599903616835, 2.6059779491607014], [48.88976501436346, 2.5919469322886], [48.89037697271424, 2.59104503694106], [48.891587992946846, 2.5905760544192757], [48.89250897562356, 2.5910250179815657], [48.8936540411212, 2.6081249896973184], [48.89094496409165, 2.6111820180165264]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_3b8ab1913d418df136f9e2b4276b74ae = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_eeac4b3e1e81893456c2e9ce2ad8b3f7 = $(`<div id="html_eeac4b3e1e81893456c2e9ce2ad8b3f7" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 38 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:14% <span style='color:#33cc31;font-weight:700;'>B</span>:8% <span style='color:#cbfc34;font-weight:700;'>C</span>:32% <span style='color:#fbfe06;font-weight:700;'>D</span>:27% <span style='color:#fbcc05;font-weight:700;'>E</span>:11% <span style='color:#f58221;font-weight:700;'>F</span>:3% <span style='color:#ef1d29;font-weight:700;'>G</span>:5%</div><div style='font-size:12px;color:#555;'>37 diagnostics · 161 kWh/m²/an · 6.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>37 Tertiaire</span></div></div></div></div>`)[0];
+                popup_3b8ab1913d418df136f9e2b4276b74ae.setContent(html_eeac4b3e1e81893456c2e9ce2ad8b3f7);
+            
+        
+
+        polygon_a6c459e3a7dc5b5dd35891d10b2bd542.bindPopup(popup_3b8ab1913d418df136f9e2b4276b74ae)
+        ;
+
+        
+    
+    
+            polygon_a6c459e3a7dc5b5dd35891d10b2bd542.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 38</b> · DPE C · 37
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_aa2ee08172cd0f2693deffb9ed7271a9 = L.polygon(
+                [[48.87265946535022, 2.7658459623177727], [48.8790939609994, 2.765080038083542], [48.87997997791171, 2.765732977325268], [48.885973374509824, 2.775059834987552], [48.88602903047254, 2.7776540278977646], [48.87845201946779, 2.7747099366839727], [48.87265946535022, 2.7658459623177727]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_670fe30261d60dd285b5e2ec9cd8b2d8 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_4e8ab4d099d09885862d779966df0806 = $(`<div id="html_4e8ab4d099d09885862d779966df0806" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 39 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:13% <span style='color:#cbfc34;font-weight:700;'>C</span>:74% <span style='color:#fbfe06;font-weight:700;'>D</span>:3% <span style='color:#fbcc05;font-weight:700;'>E</span>:3%</div><div style='font-size:12px;color:#555;'>31 diagnostics · 120 kWh/m²/an · 12.2 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>31 Tertiaire</span></div></div></div></div>`)[0];
+                popup_670fe30261d60dd285b5e2ec9cd8b2d8.setContent(html_4e8ab4d099d09885862d779966df0806);
+            
+        
+
+        polygon_aa2ee08172cd0f2693deffb9ed7271a9.bindPopup(popup_670fe30261d60dd285b5e2ec9cd8b2d8)
+        ;
+
+        
+    
+    
+            polygon_aa2ee08172cd0f2693deffb9ed7271a9.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 39</b> · DPE C · 31
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_af289ae597e655c8a791bf39332bf09f = L.polygon(
+                [[48.85602098893182, 2.5903609418707774], [48.852357019282216, 2.605649064235182], [48.82980998280317, 2.6047449804775504], [48.82747903356733, 2.5883229621317394], [48.82801900926, 2.5873319518540385], [48.84879198685452, 2.580331062008163], [48.85391197410376, 2.583901063666973], [48.85602098893182, 2.5903609418707774]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_4ee40ea47b0f596355acebfe1bb90e49 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_4a96541992773cfb3312f6d248a6631d = $(`<div id="html_4a96541992773cfb3312f6d248a6631d" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 40 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:12% <span style='color:#33cc31;font-weight:700;'>B</span>:13% <span style='color:#cbfc34;font-weight:700;'>C</span>:32% <span style='color:#fbfe06;font-weight:700;'>D</span>:23% <span style='color:#fbcc05;font-weight:700;'>E</span>:6% <span style='color:#f58221;font-weight:700;'>F</span>:4% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>121 diagnostics · 161 kWh/m²/an · 4.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>121 Tertiaire</span></div></div></div></div>`)[0];
+                popup_4ee40ea47b0f596355acebfe1bb90e49.setContent(html_4a96541992773cfb3312f6d248a6631d);
+            
+        
+
+        polygon_af289ae597e655c8a791bf39332bf09f.bindPopup(popup_4ee40ea47b0f596355acebfe1bb90e49)
+        ;
+
+        
+    
+    
+            polygon_af289ae597e655c8a791bf39332bf09f.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 40</b> · DPE C · 121
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_c778229700bd68289aba53bc782ac40f = L.polygon(
+                [[48.83719298702511, 2.801705955637057], [48.83556497124063, 2.78856093608045], [48.83739599769442, 2.7821290305265505], [48.83919200240935, 2.77978494654016], [48.84562577869872, 2.780038865946323], [48.84667998378574, 2.7848400076119413], [48.84655151197783, 2.787176831142463], [48.84505403480279, 2.802981949944008], [48.83719298702511, 2.801705955637057]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_98268f55e76e556048dc8ec2512ea784 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_5d5cfbe85b46c7bb9af0ca8630c3622a = $(`<div id="html_5d5cfbe85b46c7bb9af0ca8630c3622a" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 41 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:27% <span style='color:#33cc31;font-weight:700;'>B</span>:29% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:7% <span style='color:#fbcc05;font-weight:700;'>E</span>:2% <span style='color:#f58221;font-weight:700;'>F</span>:1% <span style='color:#ef1d29;font-weight:700;'>G</span>:3%</div><div style='font-size:12px;color:#555;'>134 diagnostics · 92 kWh/m²/an · 2.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>134 Tertiaire</span></div></div></div></div>`)[0];
+                popup_98268f55e76e556048dc8ec2512ea784.setContent(html_5d5cfbe85b46c7bb9af0ca8630c3622a);
+            
+        
+
+        polygon_c778229700bd68289aba53bc782ac40f.bindPopup(popup_98268f55e76e556048dc8ec2512ea784)
+        ;
+
+        
+    
+    
+            polygon_c778229700bd68289aba53bc782ac40f.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 41</b> · DPE C · 134
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_de7ed9879a3f4eb1b498f57c3d9dfcdd = L.polygon(
+                [[48.84996097635441, 2.768533950528141], [48.85028402642709, 2.7686790086583497], [48.85026896757488, 2.7688909793398597], [48.84996097635441, 2.768533950528141]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_994c744540fb31b08a42c49c738563c6 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_c2a706eef431416a03d113fa6b40f128 = $(`<div id="html_c2a706eef431416a03d113fa6b40f128" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 42 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:44% <span style='color:#33cc31;font-weight:700;'>B</span>:56%</div><div style='font-size:12px;color:#555;'>43 diagnostics · 60 kWh/m²/an · 3.4 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>43 Tertiaire</span></div></div></div></div>`)[0];
+                popup_994c744540fb31b08a42c49c738563c6.setContent(html_c2a706eef431416a03d113fa6b40f128);
+            
+        
+
+        polygon_de7ed9879a3f4eb1b498f57c3d9dfcdd.bindPopup(popup_994c744540fb31b08a42c49c738563c6)
+        ;
+
+        
+    
+    
+            polygon_de7ed9879a3f4eb1b498f57c3d9dfcdd.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 42</b> · DPE B · 43
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_8e060237ea5af621ee3d574f3bd6347a = L.polygon(
+                [[48.85369097710977, 2.785241026148958], [48.85766885635023, 2.783088664462777], [48.85754697268641, 2.785669988129619], [48.85369097710977, 2.785241026148958]],
+                {"bubblingMouseEvents": true, "color": "#f58221", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#f58221", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_ad5f8310da49a1fdfaeda5eb255ccfac = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_e8358eb9753449f3105f47953fd38749 = $(`<div id="html_e8358eb9753449f3105f47953fd38749" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#f58221;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 43 · DPE F</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#cbfc34;font-weight:700;'>C</span>:2% <span style='color:#fbfe06;font-weight:700;'>D</span>:17% <span style='color:#fbcc05;font-weight:700;'>E</span>:20% <span style='color:#f58221;font-weight:700;'>F</span>:32% <span style='color:#ef1d29;font-weight:700;'>G</span>:29%</div><div style='font-size:12px;color:#555;'>41 diagnostics · 447 kWh/m²/an · 12.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>41 Tertiaire</span></div></div></div></div>`)[0];
+                popup_ad5f8310da49a1fdfaeda5eb255ccfac.setContent(html_e8358eb9753449f3105f47953fd38749);
+            
+        
+
+        polygon_8e060237ea5af621ee3d574f3bd6347a.bindPopup(popup_ad5f8310da49a1fdfaeda5eb255ccfac)
+        ;
+
+        
+    
+    
+            polygon_8e060237ea5af621ee3d574f3bd6347a.bindTooltip(
+                `<div>
+                     <b style='color:#f58221'>Zone 43</b> · DPE F · 41
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_e7e95d54526722201e1e7a826b5fc4e2 = L.polygon(
+                [[48.85235103440791, 2.762748961552899], [48.85300396329127, 2.757331048737632], [48.859096041685, 2.769593954893165], [48.85928197503964, 2.7704119998015075], [48.85906596387432, 2.774816933539319], [48.85662597905047, 2.7790949643976526], [48.85469797307356, 2.774974956353016], [48.854522011943416, 2.774326052059749], [48.85235103440791, 2.762748961552899]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_d63790eb3e40b132f99f4b1c921bc0a2 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_8ea5db89ceec5f1ce0c110e00f54addc = $(`<div id="html_8ea5db89ceec5f1ce0c110e00f54addc" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 44 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:21% <span style='color:#33cc31;font-weight:700;'>B</span>:22% <span style='color:#cbfc34;font-weight:700;'>C</span>:21% <span style='color:#fbfe06;font-weight:700;'>D</span>:16% <span style='color:#fbcc05;font-weight:700;'>E</span>:9% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>107 diagnostics · 146 kWh/m²/an · 4.3 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>107 Tertiaire</span></div></div></div></div>`)[0];
+                popup_d63790eb3e40b132f99f4b1c921bc0a2.setContent(html_8ea5db89ceec5f1ce0c110e00f54addc);
+            
+        
+
+        polygon_e7e95d54526722201e1e7a826b5fc4e2.bindPopup(popup_d63790eb3e40b132f99f4b1c921bc0a2)
+        ;
+
+        
+    
+    
+            polygon_e7e95d54526722201e1e7a826b5fc4e2.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 44</b> · DPE B · 107
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_ddb7e195bb4396e54c872a8ae3d49092 = L.polygon(
+                [[48.79041197893928, 2.6135310510948724], [48.79135196514327, 2.6008200297967297], [48.80690895569767, 2.604714973274638], [48.80746696491384, 2.608168982451717], [48.80403501436671, 2.6322770559033457], [48.79981600307976, 2.632583981896445], [48.79498802235445, 2.624357944289011], [48.79041197893928, 2.6135310510948724]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_2117fbee926356f0a495d15c0a4cdb11 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_936bff185a3dc5ee7b5bec04c98af951 = $(`<div id="html_936bff185a3dc5ee7b5bec04c98af951" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 45 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:5% <span style='color:#33cc31;font-weight:700;'>B</span>:19% <span style='color:#cbfc34;font-weight:700;'>C</span>:18% <span style='color:#fbfe06;font-weight:700;'>D</span>:21% <span style='color:#fbcc05;font-weight:700;'>E</span>:20% <span style='color:#f58221;font-weight:700;'>F</span>:2% <span style='color:#ef1d29;font-weight:700;'>G</span>:16%</div><div style='font-size:12px;color:#555;'>107 diagnostics · 250 kWh/m²/an · 8.8 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>107 Tertiaire</span></div></div></div></div>`)[0];
+                popup_2117fbee926356f0a495d15c0a4cdb11.setContent(html_936bff185a3dc5ee7b5bec04c98af951);
+            
+        
+
+        polygon_ddb7e195bb4396e54c872a8ae3d49092.bindPopup(popup_2117fbee926356f0a495d15c0a4cdb11)
+        ;
+
+        
+    
+    
+            polygon_ddb7e195bb4396e54c872a8ae3d49092.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 45</b> · DPE D · 107
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_953da9cfe967644edf13162ada49766b = L.polygon(
+                [[48.78275200380955, 2.6159640413830103], [48.77805098065223, 2.612347066645297], [48.77750796289106, 2.6102849425579944], [48.77515096355837, 2.598457945662429], [48.77582198666748, 2.593558960633461], [48.77773396954695, 2.5893639655201945], [48.78557903386355, 2.5956199408145504], [48.78732196097096, 2.597966024436299], [48.78654703700868, 2.602966044194188], [48.785370971832975, 2.6094539601825946], [48.78275200380955, 2.6159640413830103]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_4fc12d7a8a47e0d75829330959938316 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_db36ac43c1711c94db04662a2f9b01aa = $(`<div id="html_db36ac43c1711c94db04662a2f9b01aa" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 46 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:5% <span style='color:#33cc31;font-weight:700;'>B</span>:17% <span style='color:#cbfc34;font-weight:700;'>C</span>:25% <span style='color:#fbfe06;font-weight:700;'>D</span>:19% <span style='color:#fbcc05;font-weight:700;'>E</span>:22% <span style='color:#ef1d29;font-weight:700;'>G</span>:11%</div><div style='font-size:12px;color:#555;'>63 diagnostics · 200 kWh/m²/an · 6.2 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>63 Tertiaire</span></div></div></div></div>`)[0];
+                popup_4fc12d7a8a47e0d75829330959938316.setContent(html_db36ac43c1711c94db04662a2f9b01aa);
+            
+        
+
+        polygon_953da9cfe967644edf13162ada49766b.bindPopup(popup_4fc12d7a8a47e0d75829330959938316)
+        ;
+
+        
+    
+    
+            polygon_953da9cfe967644edf13162ada49766b.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 46</b> · DPE C · 63
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_96b08a0bb073682ef7a37bae2876e96e = L.polygon(
+                [[48.83503000897188, 2.6413920432326554], [48.83303401298921, 2.641218051567957], [48.83241301622431, 2.6382039501608445], [48.83116599613132, 2.630269957038699], [48.8311720152568, 2.62997703371012], [48.83233497908198, 2.627951944009145], [48.84085495958072, 2.6155559663647567], [48.84396600537716, 2.6154839652108484], [48.84445301911222, 2.6242360611438755], [48.8410830182542, 2.6316140139184725], [48.83503000897188, 2.6413920432326554]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_be60f165896573436db7bce23ed2637d = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_ed7916f73e013f59a7622b36323feebb = $(`<div id="html_ed7916f73e013f59a7622b36323feebb" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 47 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:1% <span style='color:#33cc31;font-weight:700;'>B</span>:11% <span style='color:#cbfc34;font-weight:700;'>C</span>:36% <span style='color:#fbfe06;font-weight:700;'>D</span>:38% <span style='color:#fbcc05;font-weight:700;'>E</span>:7% <span style='color:#f58221;font-weight:700;'>F</span>:2% <span style='color:#ef1d29;font-weight:700;'>G</span>:5%</div><div style='font-size:12px;color:#555;'>87 diagnostics · 195 kWh/m²/an · 9.1 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>87 Tertiaire</span></div></div></div></div>`)[0];
+                popup_be60f165896573436db7bce23ed2637d.setContent(html_ed7916f73e013f59a7622b36323feebb);
+            
+        
+
+        polygon_96b08a0bb073682ef7a37bae2876e96e.bindPopup(popup_be60f165896573436db7bce23ed2637d)
+        ;
+
+        
+    
+    
+            polygon_96b08a0bb073682ef7a37bae2876e96e.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 47</b> · DPE D · 87
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_aac12c83f2fd426ba70ae5893631ad3e = L.polygon(
+                [[48.82712603427648, 2.626542942879418], [48.82698996286246, 2.632846067310312], [48.81136097971435, 2.6225129447814064], [48.81131800168592, 2.622175005225015], [48.811490995521176, 2.621848027996331], [48.81162095542903, 2.621621039212435], [48.81920404266316, 2.6124130665108853], [48.82399196551044, 2.618594955939904], [48.82710103586286, 2.626284998416649], [48.82712603427648, 2.626542942879418]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_46f0c81d4e27a495ac968d653abc33ec = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_76c4c114619b134fab796f006d9b3494 = $(`<div id="html_76c4c114619b134fab796f006d9b3494" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 48 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:25% <span style='color:#cbfc34;font-weight:700;'>C</span>:29% <span style='color:#fbfe06;font-weight:700;'>D</span>:20% <span style='color:#fbcc05;font-weight:700;'>E</span>:10% <span style='color:#f58221;font-weight:700;'>F</span>:6% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>51 diagnostics · 145 kWh/m²/an · 5.7 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>51 Tertiaire</span></div></div></div></div>`)[0];
+                popup_46f0c81d4e27a495ac968d653abc33ec.setContent(html_76c4c114619b134fab796f006d9b3494);
+            
+        
+
+        polygon_aac12c83f2fd426ba70ae5893631ad3e.bindPopup(popup_46f0c81d4e27a495ac968d653abc33ec)
+        ;
+
+        
+    
+    
+            polygon_aac12c83f2fd426ba70ae5893631ad3e.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 48</b> · DPE C · 51
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_0279983c5175c45fced612c9360d888c = L.polygon(
+                [[48.8129589618947, 2.637860938629073], [48.815848004050245, 2.627329007068404], [48.81632504431246, 2.6277100474960218], [48.827800006320025, 2.640482006719441], [48.83042497995386, 2.648388997711927], [48.83074602455877, 2.649483966694129], [48.827002957314114, 2.64906698635124], [48.82045297332781, 2.6440860037997447], [48.81811800208943, 2.6421699591538825], [48.8129589618947, 2.637860938629073]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_b77924b733f711451d3748e7f2462752 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_a706c7803e3faa78b4ee4b7427b479da = $(`<div id="html_a706c7803e3faa78b4ee4b7427b479da" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 49 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:3% <span style='color:#33cc31;font-weight:700;'>B</span>:23% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:32% <span style='color:#fbcc05;font-weight:700;'>E</span>:7% <span style='color:#ef1d29;font-weight:700;'>G</span>:4%</div><div style='font-size:12px;color:#555;'>69 diagnostics · 165 kWh/m²/an · 5.6 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>69 Tertiaire</span></div></div></div></div>`)[0];
+                popup_b77924b733f711451d3748e7f2462752.setContent(html_a706c7803e3faa78b4ee4b7427b479da);
+            
+        
+
+        polygon_0279983c5175c45fced612c9360d888c.bindPopup(popup_b77924b733f711451d3748e7f2462752)
+        ;
+
+        
+    
+    
+            polygon_0279983c5175c45fced612c9360d888c.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 49</b> · DPE D · 69
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_9015048f338ac1ee304648b32816563a = L.polygon(
+                [[48.85086801741148, 2.6443079461453327], [48.852552966769, 2.652309940306516], [48.846596010831696, 2.662826041645495], [48.84445299995903, 2.665525006214821], [48.83667201877025, 2.671935052689163], [48.8382240071997, 2.653993011796179], [48.83859799915319, 2.653169938893452], [48.83897604483744, 2.65241304157714], [48.85086801741148, 2.6443079461453327]],
+                {"bubblingMouseEvents": true, "color": "#cbfc34", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cbfc34", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_7cc45e88db03f8f9c3974444f01ecf39 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_0c1687fb4c785f1aa3242402df67aaf5 = $(`<div id="html_0c1687fb4c785f1aa3242402df67aaf5" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#cbfc34;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 50 · DPE C</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:3% <span style='color:#33cc31;font-weight:700;'>B</span>:24% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:24% <span style='color:#fbcc05;font-weight:700;'>E</span>:14% <span style='color:#f58221;font-weight:700;'>F</span>:3% <span style='color:#ef1d29;font-weight:700;'>G</span>:3%</div><div style='font-size:12px;color:#555;'>76 diagnostics · 184 kWh/m²/an · 6.4 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>76 Tertiaire</span></div></div></div></div>`)[0];
+                popup_7cc45e88db03f8f9c3974444f01ecf39.setContent(html_0c1687fb4c785f1aa3242402df67aaf5);
+            
+        
+
+        polygon_9015048f338ac1ee304648b32816563a.bindPopup(popup_7cc45e88db03f8f9c3974444f01ecf39)
+        ;
+
+        
+    
+    
+            polygon_9015048f338ac1ee304648b32816563a.bindTooltip(
+                `<div>
+                     <b style='color:#cbfc34'>Zone 50</b> · DPE C · 76
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_4f6d39e899638b0498471cd91d8bf333 = L.polygon(
+                [[48.82940644214675, 2.6721585735532343], [48.83456698887311, 2.6734389524087896], [48.829977983434105, 2.6809730160111425], [48.82201401241388, 2.682384009327382], [48.82166196094271, 2.679871932800032], [48.8254350338482, 2.673785048553387], [48.82940644214675, 2.6721585735532343]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_e183fea8424221d91bede0355a001ae8 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_189ed899f0a86afa69b7f35a1e114ec6 = $(`<div id="html_189ed899f0a86afa69b7f35a1e114ec6" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 51 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:10% <span style='color:#33cc31;font-weight:700;'>B</span>:37% <span style='color:#cbfc34;font-weight:700;'>C</span>:29% <span style='color:#fbfe06;font-weight:700;'>D</span>:10% <span style='color:#fbcc05;font-weight:700;'>E</span>:4% <span style='color:#ef1d29;font-weight:700;'>G</span>:10%</div><div style='font-size:12px;color:#555;'>51 diagnostics · 101 kWh/m²/an · 4.3 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>51 Tertiaire</span></div></div></div></div>`)[0];
+                popup_e183fea8424221d91bede0355a001ae8.setContent(html_189ed899f0a86afa69b7f35a1e114ec6);
+            
+        
+
+        polygon_4f6d39e899638b0498471cd91d8bf333.bindPopup(popup_e183fea8424221d91bede0355a001ae8)
+        ;
+
+        
+    
+    
+            polygon_4f6d39e899638b0498471cd91d8bf333.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 51</b> · DPE B · 51
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_d85180db0578559b0a37747c32ee9b09 = L.polygon(
+                [[48.87477589937065, 2.7060723325216967], [48.877460011082974, 2.687202973303024], [48.87922299371242, 2.691386064632735], [48.88231604355736, 2.7037999331669567], [48.88109701372381, 2.7057980380276043], [48.8788220413995, 2.707047971224731], [48.87477589937065, 2.7060723325216967]],
+                {"bubblingMouseEvents": true, "color": "#fbfe06", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#fbfe06", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_3e34d5cbbbd32b5af7aa7318cce08b64 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_85d0fd2f2cf27eade9b87d9dd214908b = $(`<div id="html_85d0fd2f2cf27eade9b87d9dd214908b" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#fbfe06;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 52 · DPE D</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:7% <span style='color:#33cc31;font-weight:700;'>B</span>:8% <span style='color:#cbfc34;font-weight:700;'>C</span>:18% <span style='color:#fbfe06;font-weight:700;'>D</span>:23% <span style='color:#fbcc05;font-weight:700;'>E</span>:21% <span style='color:#f58221;font-weight:700;'>F</span>:4% <span style='color:#ef1d29;font-weight:700;'>G</span>:19%</div><div style='font-size:12px;color:#555;'>73 diagnostics · 239 kWh/m²/an · 8.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>73 Tertiaire</span></div></div></div></div>`)[0];
+                popup_3e34d5cbbbd32b5af7aa7318cce08b64.setContent(html_85d0fd2f2cf27eade9b87d9dd214908b);
+            
+        
+
+        polygon_d85180db0578559b0a37747c32ee9b09.bindPopup(popup_3e34d5cbbbd32b5af7aa7318cce08b64)
+        ;
+
+        
+    
+    
+            polygon_d85180db0578559b0a37747c32ee9b09.bindTooltip(
+                `<div>
+                     <b style='color:#fbfe06'>Zone 52</b> · DPE D · 73
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_0174ef441c1d826e628ae984726b2384 = L.polygon(
+                [[48.86442203113627, 2.670428008942211], [48.8772570371652, 2.682964040376149], [48.87633100092052, 2.687162988718503], [48.87465795947817, 2.688626933586749], [48.86172498967595, 2.6766700330858986], [48.86061200692868, 2.672215017173276], [48.86349397307667, 2.670410980240929], [48.86442203113627, 2.670428008942211]],
+                {"bubblingMouseEvents": true, "color": "#33cc31", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#33cc31", "fillOpacity": 0.12, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_058617268a53bb90488cb969e145d1a1);
+        
+    
+        var popup_fc1b348c6ecf49b71f363584f0dbdf19 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_541d35e4861c7fb6fd88b6fb0eb8b5a1 = $(`<div id="html_541d35e4861c7fb6fd88b6fb0eb8b5a1" style="width: 100.0%; height: 100.0%;"><div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'><div style='background:#33cc31;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>Zone 53 · DPE B</div><div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'><div style='font-size:11px;margin-bottom:6px;'><span style='color:#319834;font-weight:700;'>A</span>:6% <span style='color:#33cc31;font-weight:700;'>B</span>:35% <span style='color:#cbfc34;font-weight:700;'>C</span>:30% <span style='color:#fbfe06;font-weight:700;'>D</span>:16% <span style='color:#fbcc05;font-weight:700;'>E</span>:4% <span style='color:#f58221;font-weight:700;'>F</span>:5% <span style='color:#ef1d29;font-weight:700;'>G</span>:5%</div><div style='font-size:12px;color:#555;'>81 diagnostics · 131 kWh/m²/an · 4.0 kgCO₂/m²/an<br><span style='font-size:10px;color:#888;'>81 Tertiaire</span></div></div></div></div>`)[0];
+                popup_fc1b348c6ecf49b71f363584f0dbdf19.setContent(html_541d35e4861c7fb6fd88b6fb0eb8b5a1);
+            
+        
+
+        polygon_0174ef441c1d826e628ae984726b2384.bindPopup(popup_fc1b348c6ecf49b71f363584f0dbdf19)
+        ;
+
+        
+    
+    
+            polygon_0174ef441c1d826e628ae984726b2384.bindTooltip(
+                `<div>
+                     <b style='color:#33cc31'>Zone 53</b> · DPE B · 81
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            feature_group_058617268a53bb90488cb969e145d1a1.addTo(map_7f39b37ae6af841c1526af2c8e81f54b);
+        
+    
+            var layer_control_fed3fd82ee91bf83c6bf2385a41a7fe4_layers = {
+                base_layers : {
+                    "Dark (d\u00e9faut)" : tile_layer_fe2d23295feb1cd334844da8af3d3387,
+                    "Light" : tile_layer_89108db296f81ee8d7fcf456d3002a3f,
+                },
+                overlays :  {
+                    "\ud83d\uddfa\ufe0f Micro-zones DPE" : feature_group_058617268a53bb90488cb969e145d1a1,
+                },
+            };
+            let layer_control_fed3fd82ee91bf83c6bf2385a41a7fe4 = L.control.layers(
+                layer_control_fed3fd82ee91bf83c6bf2385a41a7fe4_layers.base_layers,
+                layer_control_fed3fd82ee91bf83c6bf2385a41a7fe4_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": true,
+  "autoZIndex": true,
+}
+            ).addTo(map_7f39b37ae6af841c1526af2c8e81f54b);
+
+        
+</script>
+<script>
+(function() {
+  var DPE_LABELS = ['A','B','C','D','E','F','G'];
+  var DPE_COLORS = ['#319834','#33cc31','#cbfc34','#fbfe06','#fbcc05','#f58221','#ef1d29'];
+  var DPE_THRESHOLDS = ['\u226470','71-110','111-180','181-250','251-330','331-420','\u2265421'];
+  var SRC_LABELS = ['Existant','Neuf','Tertiaire'];
+  var SRC_TOTALS = [0, 0, 5114];
+  var DPE_COUNTS = [455,846,1328,1144,610,261,470];
+  var TOTAL = 5114;
+  var N_ZONES = 54;
+  var PCT_FG = '14';
+  var MED_CONSO = '188';
+
+  var COMMUNES = ["Amillis","Amponville","Annet-sur-Marne","Arbonne-la-Forêt","Aubepierre-Ozouer-le-Repos","Aufferville","Avon","Bailly-Romainvilliers","Barbizon","Bazoches-lès-Bray","Beaumont-du-Gâtinais","Beautheil-Saints","Bernay-Vilbert","Beton-Bazoches","Bois-le-Roi","Boissettes","Boissise-la-Bertrand","Boissise-le-Roi","Boissy-le-Châtel","Bombon","Bourron-Marlotte","Bray-sur-Seine","Brie-Comte-Robert","Brou-sur-Chantereine","Bréau","Bussy-Saint-Georges","Bussy-Saint-Martin","Buthiers","Cannes-Écluse","Cesson","Chailly-en-Bière","Chailly-en-Brie","Chaintreaux","Chalautre-la-Petite","Chalifert","Chalmaison","Chambry","Champagne-sur-Seine","Champeaux","Champs-sur-Marne","Chanteloup-en-Brie","Charny","Chartrettes","Chauconin-Neufmontiers","Chauffry","Chaumes-en-Brie","Chelles","Chenoise-Cucharmoy","Chessy","Chevry-Cossigny","Choisy-en-Brie","Château-Landon","Châtres","Claye-Souilly","Clos-Fontaine","Cocherel","CollÃ gien","Collégien","Combs-la-Ville","Compans","Conches-sur-Gondoire","Condé-Sainte-Libiaire","Congis-sur-Thérouanne","Coubert","Couilly-Pont-aux-Dames","Coulombs-en-Valois","Coulommiers","Coupvray","Courpalay","Courquetaine","Courtry","Croissy-Beaubourg","Crouy-sur-Ourcq","Crécy-la-Chapelle","Crégy-lès-Meaux","Cély","Dammarie-les-Lys","Dammartin-en-GoÃ«le","Dammartin-en-Goële","Dammartin-sur-Tigeaux","Dampmart","Darvault","Donnemarie-Dontilly","Dormelles","Esbly","Esmans","Faremoutiers","Faÿ-lès-Nemours","FerriÃ¨res-en-Brie","Ferrières-en-Brie","Flagy","Fontaine-Fourches","Fontaine-le-Port","Fontainebleau","Fontenay-Trésigny","Fublaines","Féricy","Gastins","Germigny-l'Évêque","Gironville","Gouaix","Gouvernes","Grandpuits-Bailly-Carrois","Gretz-Armainvilliers","Grez-sur-Loing","Grisy-Suisnes","Guermantes","Guignes","Guérard","Hermé","Héricy","Isles-lès-Villenoy","Jossigny","Jouarre","Jouy-le-Châtel","Jouy-sur-Morin","La Brosse-Montceaux","La Chapelle-Gauthier","La Chapelle-la-Reine","La Ferté-Gaucher","La Ferté-sous-Jouarre","La Grande-Paroisse","La Houssaye-en-Brie","La Rochette","Lagny-sur-Marne","Larchant","Le Châtelet-en-Brie","Le Mesnil-Amelot","Le Mée-sur-Seine","Le Pin","Lesches","Lieusaint","Limoges-Fourches","Livry-sur-Seine","Lizy-sur-Ourcq","Lognes","Longperrier","Longueville","Lorrez-le-Bocage-Préaux","Lumigny-Nesles-Ormeaux","Lésigny","Magny-le-Hongre","Maincy","Maison-Rouge","Mareuil-lÃ¨s-Meaux","Mareuil-lès-Meaux","Marles-en-Brie","Marolles-sur-Seine","Mauperthuis","Mauregard","Meaux","Melun","Messy","Misy-sur-Yonne","Mitry-Mory","Moisenay","Moissy-Cramayel","Mons-en-Montois","Montceaux-lès-Meaux","Montcourt-Fromonville","Montereau-Fault-Yonne","Montereau-sur-le-Jard","Monthyon","Montigny-sur-Loing","Montry","MontÃ©vrain","Montévrain","Moret-Loing-et-Orvanne","Mormant","Mortcerf","Mouroux","Mousseaux-lès-Bray","Moussy-le-Neuf","Moussy-le-Vieux","Mouy-sur-Seine","Nandy","Nangis","Nanteuil-lès-Meaux","Nemours","Neufmoutiers-en-Brie","Noisiel","Noisy-sur-École","Ocquerre","Oissery","Orly-sur-Morin","Othis","Ozoir-la-Ferrière","Ozouer-le-Voulgis","Paley","Penchard","Perthes","Pierre-Levée","Poincy","Poligny","Pommeuse","Pomponne","Pontault-Combault","Pontcarré","Presles-en-Brie","Pringy","Provins","Pécy","Pézarches","Quiers","Quincy-Voisins","Rebais","Roissy-en-Brie","Rozay-en-Brie","Rubelles","Réau","Saint-Brice","Saint-Cyr-sur-Morin","Saint-Fargeau-Ponthierry","Saint-Germain-Laval","Saint-Germain-Laxis","Saint-Germain-sous-Doue","Saint-Germain-sur-Morin","Saint-Germain-sur-École","Saint-Jean-les-Deux-Jumeaux","Saint-Mammès","Saint-Mard","Saint-Mesmes","Saint-Pathus","Saint-Pierre-lès-Nemours","Saint-Rémy-la-Vanne","Saint-Siméon","Saint-Soupplets","Saint-Thibault-des-Vignes","Sainte-Colombe","Salins","Samois-sur-Seine","Samoreau","Sancy","Sancy-lès-Provins","Savigny-le-Temple","Saâcy-sur-Marne","Seine-Port","Sept-Sorts","Serris","Servon","Signy-Signets","Sivry-Courtry","Soignolles-en-Brie","Souppes-sur-Loing","Sourdun","Thieux","Thomery","Thorigny-sur-Marne","Torcy","Touquin","Tournan-en-Brie","Trilbardou","Trilport","Ury","Vaires-sur-Marne","Varennes-sur-Seine","Vaux-le-Pénil","Vaux-sur-Lunain","Verneuil-l'Étang","Vernou-la-Celle-sur-Seine","Vert-Saint-Denis","Ville-Saint-Jacques","Villebéon","Villecerf","Villemer","Villeneuve-Saint-Denis","Villeneuve-le-Comte","Villeneuve-sous-Dammartin","Villeneuve-sur-Bellot","Villenoy","Villeparisis","Villevaudé","Villiers-Saint-Georges","Villiers-en-Bière","Villiers-sur-Morin","Voinsles","Voisenon","Voulx","Vulaines-sur-Seine","Yèbles","Égreville","Émerainville","Évry-Grégy-sur-Yerre"];
+  var COM_BB = [[48.7405,3.112,48.7405,3.1121],[48.2813,2.5279,48.2813,2.5279],[48.9183,2.7127,48.9274,2.7199],[48.4142,2.5664,48.4142,2.5664],[48.6193,2.8864,48.6303,2.9186],[48.2171,2.6069,48.2171,2.6069],[48.401,2.716,48.4232,2.7398],[48.8314,2.7963,48.854,2.8303],[48.443,2.6019,48.455,2.6253],[48.3977,3.1903,48.3977,3.1903],[48.1376,2.4727,48.1414,2.4778],[48.7629,3.0877,48.7629,3.0877],[48.6822,2.9244,48.6822,2.9244],[48.7016,3.2516,48.7016,3.2516],[48.4654,2.6857,48.4816,2.7089],[48.5267,2.6211,48.529,2.624],[48.5257,2.5703,48.5338,2.5875],[48.504,2.5646,48.5287,2.5755],[48.8206,3.1348,48.8254,3.1416],[48.5666,2.8602,48.5666,2.8602],[48.3332,2.689,48.3426,2.7185],[48.4085,3.2354,48.4168,3.251],[48.6761,2.5943,48.704,2.6239],[48.8791,2.6239,48.8822,2.6315],[48.5528,2.8766,48.5528,2.8766],[48.8299,2.6908,48.8428,2.7365],[48.8405,2.6603,48.8466,2.6665],[48.2999,2.4235,48.2999,2.4235],[48.3583,2.9838,48.3647,2.9853],[48.5487,2.5909,48.5756,2.6088],[48.4575,2.5909,48.4702,2.6188],[48.79,3.121,48.79,3.121],[48.196,2.8129,48.196,2.8129],[48.53,3.3126,48.53,3.3126],[48.886,2.7707,48.8988,2.7777],[48.4977,3.2489,48.4977,3.2489],[48.995,2.8905,48.995,2.8905],[48.3938,2.7985,48.4024,2.802],[48.584,2.8063,48.5844,2.8075],[48.8342,2.5803,48.856,2.6056],[48.8494,2.7386,48.8616,2.7531],[48.9663,2.7543,48.9685,2.7585],[48.4846,2.6812,48.4909,2.7029],[48.9578,2.8437,48.9672,2.8615],[48.814,3.1765,48.814,3.1765],[48.6492,2.8208,48.674,2.8515],[48.8681,2.5728,48.9044,2.6229],[48.6184,3.1946,48.6184,3.1946],[48.8553,2.7651,48.8825,2.7862],[48.7092,2.6533,48.7274,2.6758],[48.7494,3.2063,48.7594,3.2262],[48.1474,2.6927,48.1517,2.7016],[48.7075,2.8096,48.7265,2.8301],[48.9353,2.6389,48.9537,2.6903],[48.5972,3.0092,48.5972,3.0092],[49.0219,3.1035,49.0219,3.1035],[48.83,2.681,48.83,2.681],[48.8217,2.6647,48.8367,2.6824],[48.6453,2.546,48.6666,2.5726],[48.982,2.6446,48.9978,2.6568],[48.8552,2.7148,48.8646,2.726],[48.8943,2.8308,48.8979,2.8394],[49.003,2.9974,49.003,2.9974],[48.6681,2.684,48.6801,2.7002],[48.8722,2.8547,48.8847,2.8681],[49.0696,3.1255,49.0696,3.1255],[48.8015,3.0761,48.8273,3.1033],[48.869,2.791,48.8988,2.7996],[48.6483,2.96,48.6483,2.96],[48.6779,2.7454,48.6779,2.7454],[48.9076,2.5987,48.9117,2.6086],[48.813,2.6273,48.8307,2.6745],[49.0907,3.0721,49.0929,3.0798],[48.8562,2.8877,48.8641,2.9132],[48.9767,2.8641,48.9792,2.8759],[48.4599,2.5303,48.4599,2.5303],[48.501,2.6088,48.5318,2.6534],[49.0536,2.6863,49.0536,2.6863],[49.0489,2.6698,49.0673,2.698],[48.8164,2.9237,48.8164,2.9237],[48.8839,2.7366,48.8894,2.744],[48.2712,2.7315,48.2712,2.7315],[48.4764,3.1127,48.4807,3.1397],[48.316,2.9012,48.316,2.9012],[48.8942,2.8105,48.9041,2.8213],[48.3483,2.9577,48.3651,2.9785],[48.7986,2.9856,48.8003,2.9972],[48.232,2.6807,48.232,2.6807],[48.8252,2.716,48.8252,2.716],[48.8207,2.6994,48.829,2.7247],[48.3124,2.9203,48.3133,2.9216],[48.4201,3.3836,48.4201,3.3836],[48.4867,2.7574,48.4867,2.7574],[48.3995,2.6839,48.4213,2.7747],[48.6917,2.8566,48.7121,2.8887],[48.9374,2.9364,48.9374,2.9364],[48.4587,2.8008,48.4587,2.8008],[48.63,3.0348,48.63,3.0348],[48.9945,2.9452,48.9945,2.9452],[48.1596,2.5276,48.1596,2.5276],[48.4724,3.2877,48.4838,3.2934],[48.8623,2.6916,48.8623,2.6916],[48.5953,2.9866,48.5953,2.9866],[48.7309,2.7217,48.7417,2.7408],[48.3105,2.6834,48.314,2.6845],[48.6786,2.6656,48.6858,2.6681],[48.852,2.7017,48.8549,2.7168],[48.6273,2.7989,48.6305,2.8083],[48.8243,2.9574,48.8243,2.9574],[48.4833,3.3509,48.4833,3.3509],[48.441,2.7629,48.4495,2.7814],[48.9124,2.8149,48.9157,2.827],[48.8328,2.7533,48.8503,2.7689],[48.9133,3.0907,48.9334,3.1301],[48.6405,3.1169,48.6705,3.1366],[48.7915,3.2677,48.7977,3.2771],[48.3465,3.0184,48.3465,3.0184],[48.5497,2.8883,48.5502,2.8884],[48.3164,2.5682,48.3255,2.5791],[48.7734,3.2915,48.784,3.3097],[48.9384,3.1185,48.9512,3.1329],[48.385,2.9007,48.3874,2.9259],[48.7379,2.8698,48.7543,2.8759],[48.5173,2.655,48.5247,2.6661],[48.8655,2.6776,48.88,2.7282],[48.2703,2.6103,48.2703,2.6103],[48.4969,2.7857,48.5234,2.8105],[49.0161,2.5854,49.0258,2.6039],[48.5316,2.6162,48.5477,2.6466],[48.9136,2.6267,48.9158,2.6335],[48.9049,2.778,48.9049,2.778],[48.6117,2.5347,48.648,2.5726],[48.6338,2.6681,48.6338,2.6681],[48.5113,2.678,48.5113,2.678],[49.0224,3.0193,49.031,3.042],[48.8233,2.6182,48.8411,2.6414],[49.0458,2.6607,49.0524,2.6626],[48.5133,3.2392,48.5193,3.2498],[48.2373,2.901,48.2418,2.9016],[48.7274,2.9742,48.7274,2.9742],[48.7382,2.6055,48.7468,2.6173],[48.8555,2.8046,48.8762,2.8239],[48.5453,2.705,48.5453,2.705],[48.5592,3.155,48.5592,3.155],[48.9429,2.8791,48.9429,2.8791],[48.9122,2.8533,48.9418,2.8794],[48.7222,2.8684,48.7222,2.8684],[48.3798,3.0205,48.3813,3.0221],[48.7694,3.0403,48.7694,3.0403],[49.037,2.5815,49.037,2.5815],[48.9484,2.868,48.9675,2.9313],[48.5256,2.6354,48.5563,2.679],[48.9655,2.6813,48.9673,2.6965],[48.3611,3.0824,48.3611,3.0824],[48.9534,2.5731,48.9879,2.6503],[48.5618,2.7396,48.5618,2.7396],[48.607,2.5636,48.6402,2.6258],[48.4885,3.1466,48.4885,3.1466],[48.9414,2.9857,48.9414,2.9857],[48.3006,2.6992,48.3012,2.7027],[48.3761,2.9449,48.3994,2.9782],[48.5939,2.6621,48.6116,2.693],[49.0081,2.8351,49.0095,2.8378],[48.3348,2.7315,48.3466,2.7738],[48.8834,2.8247,48.8895,2.8299],[48.8775,2.7493,48.8775,2.7493],[48.8524,2.7442,48.8779,2.7709],[48.3343,2.7856,48.3784,2.8489],[48.6043,2.8687,48.6155,2.8969],[48.7887,2.9159,48.7892,2.916],[48.8065,3.0241,48.8293,3.0675],[48.416,3.2342,48.416,3.2342],[49.0629,2.5886,49.0668,2.6073],[49.0428,2.6272,49.0428,2.6272],[48.4206,3.2373,48.4206,3.2373],[48.5798,2.5623,48.5885,2.5732],[48.5518,3.0113,48.5623,3.037],[48.9289,2.8799,48.9414,2.8975],[48.2517,2.6856,48.2812,2.7204],[48.7702,2.8298,48.7702,2.8298],[48.8409,2.6145,48.8561,2.6279],[48.3744,2.4832,48.3744,2.4832],[49.02,3.0429,49.02,3.0429],[49.0704,2.8165,49.0707,2.8175],[48.9062,3.23,48.9062,3.23],[49.074,2.6721,49.0839,2.6787],[48.7569,2.6656,48.7775,2.7003],[48.6571,2.7495,48.6663,2.7791],[48.2373,2.8714,48.2373,2.8714],[48.9921,2.8546,48.9921,2.8546],[48.4722,2.5475,48.4765,2.5558],[48.8997,3.0416,48.8997,3.0416],[48.9662,2.9179,48.97,2.922],[48.2246,2.7462,48.2246,2.7462],[48.8124,2.9819,48.8192,3.0184],[48.8816,2.6939,48.8819,2.7042],[48.7752,2.5894,48.8121,2.6299],[48.7932,2.6957,48.801,2.7069],[48.7155,2.727,48.7283,2.7418],[48.5173,2.5503,48.5276,2.5684],[48.5461,3.2819,48.5738,3.3107],[48.6532,3.0709,48.6579,3.0796],[48.736,2.9866,48.736,2.9866],[48.6086,2.9703,48.6086,2.9703],[48.8964,2.8709,48.9074,2.8828],[48.844,3.2319,48.8518,3.2399],[48.7897,2.6285,48.804,2.6622],[48.6794,2.9563,48.6871,2.9641],[48.5524,2.6711,48.556,2.6796],[48.5971,2.5962,48.6138,2.6235],[48.5624,3.3109,48.5628,3.315],[48.9063,3.1795,48.9075,3.1838],[48.5245,2.5013,48.5653,2.5487],[48.4063,2.9745,48.4063,2.9745],[48.5817,2.7084,48.5817,2.7084],[48.8499,3.1447,48.8499,3.1447],[48.8753,2.8391,48.8833,2.8535],[48.474,2.5117,48.474,2.5117],[48.9511,3.0111,48.9528,3.0198],[48.3821,2.8042,48.3886,2.8162],[49.0328,2.6829,49.0386,2.7014],[48.9863,2.6923,48.9863,2.6923],[49.0661,2.7759,49.0761,2.7924],[48.2505,2.6772,48.2825,2.6918],[48.8111,3.2385,48.8111,3.2385],[48.7987,3.1991,48.8069,3.2014],[49.0297,2.7972,49.0426,2.8163],[48.8539,2.6665,48.8737,2.6881],[48.5227,3.2439,48.5301,3.2525],[48.422,3.0215,48.422,3.0215],[48.4511,2.7552,48.4514,2.7579],[48.4149,2.7515,48.4294,2.7759],[48.8859,2.9576,48.8859,2.9576],[48.6924,3.3952,48.6924,3.3952],[48.5774,2.5438,48.6065,2.5962],[48.9616,3.21,48.9619,3.2105],[48.5531,2.5477,48.5578,2.5485],[48.9454,3.1062,48.9472,3.1108],[48.8356,2.7743,48.8577,2.7966],[48.7057,2.5777,48.7176,2.6019],[48.9259,3.063,48.9259,3.063],[48.5284,2.7462,48.5428,2.7674],[48.6526,2.6986,48.6575,2.6997],[48.1755,2.7313,48.1854,2.7453],[48.5363,3.3558,48.5363,3.3558],[49.0076,2.6658,49.0089,2.6705],[48.4093,2.7846,48.4114,2.7916],[48.8811,2.7038,48.8983,2.7243],[48.8382,2.6376,48.8573,2.6596],[48.7345,3.0112,48.7345,3.0112],[48.734,2.7548,48.7433,2.7889],[48.9547,2.806,48.9547,2.806],[48.9577,2.9457,48.9589,2.9637],[48.3379,2.6001,48.3482,2.6072],[48.8682,2.6239,48.8774,2.6559],[48.3663,2.9223,48.3765,2.9587],[48.5178,2.6727,48.5402,2.7045],[48.2095,2.9711,48.2095,2.9711],[48.6438,2.8179,48.6462,2.8296],[48.3887,2.8469,48.3918,2.8491],[48.558,2.6085,48.5701,2.6372],[48.3425,2.8958,48.3425,2.8958],[48.2097,2.9417,48.2097,2.9417],[48.3266,2.846,48.3274,2.8515],[48.3016,2.8263,48.3016,2.8263],[48.817,2.7951,48.817,2.7951],[48.8131,2.8294,48.8149,2.8357],[49.0327,2.6346,49.0346,2.641],[48.8615,3.3415,48.8625,3.3423],[48.94,2.8576,48.9565,2.8724],[48.9355,2.5986,48.9549,2.6243],[48.9003,2.6433,48.9145,2.6725],[48.6468,3.4051,48.6517,3.4101],[48.5018,2.5827,48.5041,2.6028],[48.8606,2.8809,48.8606,2.8809],[48.6828,2.9958,48.6828,2.9958],[48.5708,2.6621,48.5736,2.6648],[48.2778,2.9692,48.2831,2.9708],[48.4257,2.7467,48.4333,2.7704],[48.6378,2.7788,48.6378,2.7788],[48.1685,2.8719,48.1811,2.8937],[48.8113,2.5867,48.832,2.6225],[48.6349,2.631,48.66,2.6361]];
+
+  var map = map_7f39b37ae6af841c1526af2c8e81f54b;
+
+  // ── Build dashboard HTML (zones only, no individual points) ──
+  var dash = document.getElementById('dpe-app');
+  dash.innerHTML = '<div id="dpe-dash">' +
+    '<div class="dpe-hdr">' +
+      '<span class="dpe-toggle" id="dpe-tog">\u25B2</span>' +
+      '<h2>\uD83C\uDFF7\uFE0F ' + 'DPE Tertiaire \\u00B7 Seine-et-Marne (77)' + '</h2>' +
+      '<p>' + 'B\\u00E2timents tertiaires \\u00B7 ADEME' + '</p>' +
+    '</div>' +
+    '<div class="dpe-body" id="dpe-body">' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-dist-bar" id="dpe-bar"></div>' +
+        '<div class="dpe-kpi-grid">' +
+          '<div class="dpe-kpi"><div class="val">' + TOTAL.toLocaleString('fr') + '</div><div class="lbl">Diagnostics</div></div>' +
+          '<div class="dpe-kpi"><div class="val">' + N_ZONES + '</div><div class="lbl">Micro-zones</div></div>' +
+          '<div class="dpe-kpi"><div class="val" style="color:#ef1d29">' + PCT_FG + '%</div><div class="lbl">Passoires (F+G)</div></div>' +
+          '<div class="dpe-kpi"><div class="val">' + MED_CONSO + '</div><div class="lbl">kWh/m\u00B2/an m\u00E9d.</div></div>' +
+        '</div>' +
+        '<div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:6px">' +
+          SRC_TOTALS.map(function(n,i) { return n > 0 ? n.toLocaleString('fr') + ' ' + SRC_LABELS[i] : ''; }).filter(Boolean).join(' + ') +
+        '</div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Chercher une commune</div>' +
+        '<input type="text" class="dpe-search" id="dpe-search" placeholder="Tapez un nom de commune...">' +
+        '<div class="dpe-search-results" id="dpe-search-res"></div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">L\u00E9gende DPE (kWh/m\u00B2/an)</div>' +
+        '<div id="dpe-legend"></div>' +
+      '</div>' +
+      '<a href="index.html" class="back-link">\u2190 Vue d\u2019ensemble Seine-et-Marne</a>' +
+      '<a href="https://www.datamerry.com" target="_top" class="back-link">\u2190 Retour \u00E0 datamerry.com</a>' +
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center">' +
+        '\u00A9 2026 Samuel Bruno \u00B7 datamerry.com' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  // ── Toggle collapse ──
+  document.getElementById('dpe-tog').onclick = function() {
+    var b = document.getElementById('dpe-body');
+    if (b.style.display === 'none') { b.style.display = 'block'; this.textContent = '\u25B2'; }
+    else { b.style.display = 'none'; this.textContent = '\u25BC'; }
+  };
+
+  // ── Build distribution bar (pre-computed) ──
+  var barEl = document.getElementById('dpe-bar');
+  DPE_LABELS.forEach(function(lb, i) {
+    if (DPE_COUNTS[i] <= 0 || TOTAL <= 0) return;
+    var pct = DPE_COUNTS[i] / TOTAL * 100;
+    var seg = document.createElement('div');
+    seg.style.cssText = 'width:' + pct + '%;background:' + DPE_COLORS[i] + ';height:100%';
+    seg.title = 'DPE ' + lb + ': ' + pct.toFixed(0) + '% (' + DPE_COUNTS[i].toLocaleString('fr') + ')';
+    barEl.appendChild(seg);
+  });
+
+  // ── Build legend ──
+  var legEl = document.getElementById('dpe-legend');
+  DPE_LABELS.forEach(function(lb, i) {
+    var row = document.createElement('div');
+    row.className = 'dpe-legend-row';
+    row.innerHTML = '<div class="dpe-legend-swatch" style="background:' + DPE_COLORS[i] + '"></div>' +
+      '<span style="font-weight:700;color:' + DPE_COLORS[i] + ';width:14px">' + lb + '</span>' +
+      '<span style="color:rgba(255,255,255,.5)">' + DPE_THRESHOLDS[i] + ' kWh/m\u00B2/an</span>';
+    legEl.appendChild(row);
+  });
+
+  // ── Commune search ──
+  var searchInput = document.getElementById('dpe-search');
+  var searchRes = document.getElementById('dpe-search-res');
+
+  searchInput.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    searchRes.innerHTML = '';
+    if (q.length < 2) return;
+    var matches = [];
+    COMMUNES.forEach(function(c, i) {
+      if (c.toLowerCase().indexOf(q) >= 0) matches.push(i);
+    });
+    matches.slice(0, 8).forEach(function(ci) {
+      var item = document.createElement('div');
+      item.className = 'dpe-search-item';
+      item.textContent = COMMUNES[ci];
+      item.onclick = function() {
+        var bb = COM_BB[ci];
+        map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], {padding: [30, 30], maxZoom: 15});
+        searchRes.innerHTML = '';
+        searchInput.value = COMMUNES[ci];
+      };
+      searchRes.appendChild(item);
+    });
+  });
+})();
+</script>
+</html>

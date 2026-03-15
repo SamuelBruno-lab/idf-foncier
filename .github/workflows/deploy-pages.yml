@@ -1,0 +1,115 @@
+name: Deploy maps to GitHub Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      departments:
+        description: "Départements à déployer (séparés par des espaces, ou 'all')"
+        required: true
+        default: "all"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dept: "60"
+            repo: "oise-foncier"
+          - dept: "75"
+            repo: "paris-foncier"
+          - dept: "77"
+            repo: "seine-et-marne-foncier"
+          - dept: "78"
+            repo: "yvelines-foncier"
+          - dept: "91"
+            repo: "essonne-foncier"
+          - dept: "92"
+            repo: "hauts-de-seine-foncier"
+          - dept: "93"
+            repo: "seine-saint-denis-foncier"
+          - dept: "94"
+            repo: "val-de-marne-foncier"
+          - dept: "95"
+            repo: "val-d-oise-foncier"
+
+    steps:
+      - name: Check if department should be deployed
+        id: check
+        run: |
+          INPUT="${{ github.event.inputs.departments }}"
+          if [ "$INPUT" = "all" ] || echo "$INPUT" | grep -qw "${{ matrix.dept }}"; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout source repo
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/checkout@v4
+
+      - name: Create or update target repo
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          REPO="${{ matrix.repo }}"
+          OWNER="SamuelBruno-lab"
+
+          # Check if repo exists
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$OWNER/$REPO")
+
+          if [ "$HTTP_CODE" = "404" ]; then
+            echo "Creating repo $REPO..."
+            curl -s -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/user/repos" \
+              -d "{\"name\":\"$REPO\",\"description\":\"Analyse foncière · Département ${{ matrix.dept }} · datamerry.com\",\"homepage\":\"https://$OWNER.github.io/$REPO/\",\"private\":false,\"has_pages\":true}"
+            sleep 3
+          else
+            echo "Repo $REPO already exists (HTTP $HTTP_CODE)"
+          fi
+
+      - name: Push maps to target repo
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          DEPT="${{ matrix.dept }}"
+          REPO="${{ matrix.repo }}"
+          OWNER="SamuelBruno-lab"
+          WORK_DIR=$(mktemp -d)
+
+          cd "$WORK_DIR"
+          git init -q
+          git config user.name "datamerry-bot"
+          git config user.email "bot@datamerry.com"
+
+          # Copy HTML files
+          cp "$GITHUB_WORKSPACE/maps/${DEPT}"/*.html .
+
+          git add -A
+          git commit -q -m "feat: cartes foncières dept ${DEPT} · datamerry.com"
+          git branch -M main
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${OWNER}/${REPO}.git"
+          git push -f -u origin main
+
+      - name: Enable GitHub Pages
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          REPO="${{ matrix.repo }}"
+          OWNER="SamuelBruno-lab"
+
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$OWNER/$REPO/pages" \
+            -d '{"source":{"branch":"main","path":"/"}}' || echo "GitHub Pages already enabled"
+
+          echo "✅ https://$OWNER.github.io/$REPO/"

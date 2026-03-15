@@ -189,6 +189,7 @@ def main():
     batch_size = 50
     inserted = 0
     errors = 0
+    include_insee = True  # will be set to False if column not in schema cache
 
     for i in range(0, len(buildings), batch_size):
         batch = buildings[i:i+batch_size]
@@ -201,7 +202,7 @@ def main():
                 "footprint_m2": b["footprint_m2"],
                 "geom": f"SRID=2154;{b['geom_wkt']}",
             }
-            if "insee_code" in b:
+            if include_insee and "insee_code" in b:
                 row["insee_code"] = b["insee_code"]
             rows.append(row)
 
@@ -214,6 +215,20 @@ def main():
         if r.status_code < 300:
             inserted += len(batch)
         else:
+            # If insee_code column is not in schema cache, retry without it
+            if include_insee and "insee_code" in r.text:
+                logger.warning("Column 'insee_code' not in schema cache, retrying without it...")
+                include_insee = False
+                rows_no_insee = [{k: v for k, v in row.items() if k != "insee_code"} for row in rows]
+                r_retry = SESSION.post(
+                    f"{supabase_url()}/rest/v1/buildings",
+                    headers=headers_upsert(),
+                    json=rows_no_insee,
+                )
+                if r_retry.status_code < 300:
+                    inserted += len(batch)
+                    continue
+
             # Try one by one on failure
             if errors == 0:
                 logger.warning("Batch insert failed: %s", r.text[:300])
@@ -227,7 +242,7 @@ def main():
                     "footprint_m2": b["footprint_m2"],
                     "geom": f"SRID=2154;{b['geom_wkt']}",
                 }
-                if "insee_code" in b:
+                if include_insee and "insee_code" in b:
                     row["insee_code"] = b["insee_code"]
                 r2 = SESSION.post(
                     f"{supabase_url()}/rest/v1/buildings",

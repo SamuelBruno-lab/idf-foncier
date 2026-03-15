@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
     step?: string;
   };
   const insee = body.insee;
-  const step = body.step ?? "all"; // "ingest", "score", "all"
+  const step = body.step ?? "all"; // "ingest", "score", "enrich", "all"
 
   if (!insee || !/^\d{5}$/.test(insee)) {
     return NextResponse.json(
@@ -439,6 +439,43 @@ export async function POST(req: NextRequest) {
       }
 
       logs.push(`Scored: ${scoreResult ?? "?"} parcels`);
+    }
+
+    // ===== STEP 3: Enrich surface habitable (DPE > DVF > estimation) =====
+    if (step === "all" || step === "enrich") {
+      logs.push(`Enriching surface habitable for ${insee}...`);
+
+      try {
+        // Call the enrich-surface endpoint internally
+        const enrichUrl = new URL("/api/foncier/enrich-surface", req.url);
+        const enrichRes = await fetch(enrichUrl.toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": ADMIN_SECRET ?? "",
+          },
+          body: JSON.stringify({ insee }),
+          signal: AbortSignal.timeout(120000),
+        });
+
+        if (enrichRes.ok) {
+          const enrichData = (await enrichRes.json()) as {
+            stats?: { dpe?: number; dvf?: number; estimation?: number };
+            logs?: string[];
+          };
+          if (enrichData.stats) {
+            logs.push(
+              `Surface hab: ${enrichData.stats.dpe ?? 0} DPE, ${enrichData.stats.dvf ?? 0} DVF, ${enrichData.stats.estimation ?? 0} estimation`
+            );
+          }
+        } else {
+          logs.push(`Surface hab enrichment warning: ${enrichRes.status}`);
+        }
+      } catch (e) {
+        logs.push(
+          `Surface hab enrichment error: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
     }
 
     // Count final results

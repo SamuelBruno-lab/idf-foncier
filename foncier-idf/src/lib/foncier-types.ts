@@ -46,4 +46,10 @@ export type ParcelDetail = {
   max_height_est: number | null;
   setback_front_m: number | null;
   setback_side_m: number | null;
+  // Surface habitable cascade
+  surface_habitable_reelle: number | null;
+  surface_hab_source: string | null;
+  dpe_count: number | null;
+  surface_dvf: number | null;
+  surface_estimation: number | null;
 };

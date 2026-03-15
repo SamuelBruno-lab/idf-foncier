@@ -48,6 +48,170 @@ type CadastreFeature = {
   };
 };
 
+// BD TOPO WFS configuration
+const WFS_BASE_URL = "https://data.geopf.fr/wfs/ows";
+const WFS_TYPENAME = "BDTOPO_V3:batiment";
+const WFS_PAGE_SIZE = 1000;
+const FLOOR_HEIGHT_M = 3.0;
+
+type BDTopoFeature = {
+  properties: {
+    cleabs: string;
+    hauteur?: number | null;
+    nombre_d_etages?: number | null;
+    etat_de_l_objet?: string;
+    usage_1?: string;
+  };
+  geometry: {
+    type: string;
+    coordinates: unknown;
+  };
+};
+
+/**
+ * Compute building levels from BD TOPO data.
+ * Priority: hauteur (measured, most reliable) > nombre_d_etages > heuristic.
+ */
+function computeLevels(
+  hauteur: number | null | undefined,
+  nombreEtages: number | null | undefined,
+  footprintM2: number
+): number {
+  // Prefer hauteur (measured from LiDAR/photogrammetry, most reliable)
+  if (hauteur != null && hauteur > 0) {
+    return Math.max(1, Math.floor(hauteur / FLOOR_HEIGHT_M));
+  }
+
+  // nombre_d_etages as secondary source
+  if (nombreEtages != null && nombreEtages > 0) {
+    return nombreEtages;
+  }
+
+  // Heuristic fallback based on footprint
+  if (footprintM2 >= 2000) return 10;
+  if (footprintM2 >= 800) return 6;
+  if (footprintM2 >= 300) return 4;
+  if (footprintM2 >= 100) return 2;
+  return 1;
+}
+
+/**
+ * Approximate footprint area in m² from WGS84 coordinates using
+ * a simple latitude-based scaling (accurate enough for IDF region).
+ */
+function approxAreaM2(geojson: { type: string; coordinates: unknown }): number {
+  try {
+    // For a rough area, use the bounding box of the first polygon ring
+    const coords = geojson.type === "MultiPolygon"
+      ? (geojson.coordinates as number[][][][])[0][0]
+      : geojson.type === "Polygon"
+        ? (geojson.coordinates as number[][][])[0]
+        : null;
+    if (!coords || coords.length < 3) return 0;
+
+    // Shoelace formula on projected coordinates
+    const latMid = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+    const mPerDegLat = 111320;
+    const mPerDegLon = 111320 * Math.cos((latMid * Math.PI) / 180);
+
+    let area = 0;
+    for (let i = 0; i < coords.length; i++) {
+      const j = (i + 1) % coords.length;
+      const xi = coords[i][0] * mPerDegLon;
+      const yi = coords[i][1] * mPerDegLat;
+      const xj = coords[j][0] * mPerDegLon;
+      const yj = coords[j][1] * mPerDegLat;
+      area += xi * yj - xj * yi;
+    }
+    return Math.abs(area) / 2;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Fetch all buildings from IGN BD TOPO WFS for a commune (paginated).
+ */
+async function fetchBDTopoBuildings(
+  insee: string,
+  bbox: string
+): Promise<BDTopoFeature[]> {
+  const allFeatures: BDTopoFeature[] = [];
+  let startIndex = 0;
+
+  while (true) {
+    const params = new URLSearchParams({
+      SERVICE: "WFS",
+      VERSION: "2.0.0",
+      REQUEST: "GetFeature",
+      TYPENAME: WFS_TYPENAME,
+      OUTPUTFORMAT: "application/json",
+      SRSNAME: "EPSG:4326",
+      BBOX: bbox,
+      COUNT: String(WFS_PAGE_SIZE),
+      STARTINDEX: String(startIndex),
+      CQL_FILTER: `code_insee='${insee}'`,
+    });
+
+    const res = await fetch(`${WFS_BASE_URL}?${params.toString()}`, {
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!res.ok) {
+      // Retry without CQL filter if it fails
+      if (startIndex === 0) {
+        const params2 = new URLSearchParams({
+          SERVICE: "WFS",
+          VERSION: "2.0.0",
+          REQUEST: "GetFeature",
+          TYPENAME: WFS_TYPENAME,
+          OUTPUTFORMAT: "application/json",
+          SRSNAME: "EPSG:4326",
+          BBOX: bbox,
+          COUNT: String(WFS_PAGE_SIZE),
+          STARTINDEX: String(startIndex),
+        });
+        const res2 = await fetch(`${WFS_BASE_URL}?${params2.toString()}`, {
+          signal: AbortSignal.timeout(120000),
+        });
+        if (!res2.ok) break;
+        const data = (await res2.json()) as { features: BDTopoFeature[] };
+        allFeatures.push(...data.features);
+        if (data.features.length < WFS_PAGE_SIZE) break;
+        startIndex += WFS_PAGE_SIZE;
+        continue;
+      }
+      break;
+    }
+
+    const data = (await res.json()) as { features: BDTopoFeature[] };
+    allFeatures.push(...data.features);
+
+    if (data.features.length < WFS_PAGE_SIZE) break;
+    startIndex += WFS_PAGE_SIZE;
+  }
+
+  return allFeatures;
+}
+
+/**
+ * Get WGS84 bbox string for a commune from parcels in Supabase.
+ */
+async function getCommuneBbox(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  insee: string
+): Promise<string | null> {
+  const { data } = await supabase.rpc("parcels_bbox", { code_insee: insee });
+  if (data) {
+    const d = Array.isArray(data) ? data[0] : data;
+    if (d?.xmin != null && d?.ymin != null && d?.xmax != null && d?.ymax != null) {
+      // WFS bbox is lat,lon order
+      return `${d.ymin},${d.xmin},${d.ymax},${d.xmax},EPSG:4326`;
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   // Auth
   const auth = req.headers.get("x-admin-key");
@@ -60,7 +224,7 @@ export async function POST(req: NextRequest) {
     step?: string;
   };
   const insee = body.insee;
-  const step = body.step ?? "all"; // "ingest", "score", "all"
+  const step = body.step ?? "all"; // "ingest", "score", "enrich", "all"
 
   if (!insee || !/^\d{5}$/.test(insee)) {
     return NextResponse.json(
@@ -150,6 +314,88 @@ export async function POST(req: NextRequest) {
       }
 
       logs.push(`Inserted ${inserted}/${features.length} parcels`);
+
+      // ===== STEP 1b: Ingest BD TOPO buildings =====
+      logs.push(`Fetching BD TOPO buildings for ${insee}...`);
+
+      const bbox = await getCommuneBbox(supabase, insee);
+      if (!bbox) {
+        logs.push("Warning: could not determine commune bbox, skipping buildings");
+      } else {
+        const bdtopoFeatures = await fetchBDTopoBuildings(insee, bbox);
+        logs.push(`Fetched ${bdtopoFeatures.length} buildings from BD TOPO WFS`);
+
+        // Delete existing buildings for this commune
+        const { error: delBldErr } = await supabase
+          .from("buildings")
+          .delete()
+          .eq("insee_code", insee);
+        if (delBldErr) {
+          logs.push(`Warning: delete existing buildings: ${delBldErr.message}`);
+        }
+
+        // Process and insert buildings
+        const buildingBatchSize = 50;
+        let bldInserted = 0;
+        let bldSkipped = 0;
+
+        const validBuildings = bdtopoFeatures.filter((f) => {
+          if (f.properties.etat_de_l_objet === "En projet") return false;
+          if (!f.geometry) return false;
+          return true;
+        });
+
+        for (let i = 0; i < validBuildings.length; i += buildingBatchSize) {
+          const batch = validBuildings.slice(i, i + buildingBatchSize);
+          const buildingsJson = batch.map((f) => {
+            const footprint = approxAreaM2(f.geometry);
+            const levels = computeLevels(
+              f.properties.hauteur,
+              f.properties.nombre_d_etages,
+              footprint
+            );
+            return {
+              building_id: f.properties.cleabs || `BDTOPO_${insee}_${i}_${bldInserted}`,
+              source: "BDTOPO",
+              levels_est: levels,
+              footprint_m2: Math.round(footprint * 10) / 10,
+              insee_code: insee,
+              geojson: JSON.stringify(f.geometry),
+            };
+          });
+
+          const { error: bldErr } = await supabase.rpc(
+            "ingest_buildings_batch",
+            { buildings_json: JSON.stringify(buildingsJson) }
+          );
+
+          if (bldErr) {
+            bldSkipped += batch.length;
+            if (bldSkipped <= buildingBatchSize) {
+              logs.push(`Buildings batch error: ${bldErr.message}`);
+            }
+          } else {
+            bldInserted += batch.length;
+          }
+        }
+
+        logs.push(
+          `Inserted ${bldInserted}/${validBuildings.length} buildings (${bldSkipped} errors)`
+        );
+
+        // Log height data quality
+        const withHeight = bdtopoFeatures.filter(
+          (f) => f.properties.hauteur != null && f.properties.hauteur > 0
+        ).length;
+        const withFloors = bdtopoFeatures.filter(
+          (f) =>
+            f.properties.nombre_d_etages != null &&
+            f.properties.nombre_d_etages > 0
+        ).length;
+        logs.push(
+          `Height data: ${withHeight} with hauteur, ${withFloors} with nombre_d_etages (of ${bdtopoFeatures.length})`
+        );
+      }
     }
 
     // ===== STEP 2: Score =====
@@ -193,6 +439,43 @@ export async function POST(req: NextRequest) {
       }
 
       logs.push(`Scored: ${scoreResult ?? "?"} parcels`);
+    }
+
+    // ===== STEP 3: Enrich surface habitable (DPE > DVF > estimation) =====
+    if (step === "all" || step === "enrich") {
+      logs.push(`Enriching surface habitable for ${insee}...`);
+
+      try {
+        // Call the enrich-surface endpoint internally
+        const enrichUrl = new URL("/api/foncier/enrich-surface", req.url);
+        const enrichRes = await fetch(enrichUrl.toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": ADMIN_SECRET ?? "",
+          },
+          body: JSON.stringify({ insee }),
+          signal: AbortSignal.timeout(120000),
+        });
+
+        if (enrichRes.ok) {
+          const enrichData = (await enrichRes.json()) as {
+            stats?: { dpe?: number; dvf?: number; estimation?: number };
+            logs?: string[];
+          };
+          if (enrichData.stats) {
+            logs.push(
+              `Surface hab: ${enrichData.stats.dpe ?? 0} DPE, ${enrichData.stats.dvf ?? 0} DVF, ${enrichData.stats.estimation ?? 0} estimation`
+            );
+          }
+        } else {
+          logs.push(`Surface hab enrichment warning: ${enrichRes.status}`);
+        }
+      } catch (e) {
+        logs.push(
+          `Surface hab enrichment error: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
     }
 
     // Count final results

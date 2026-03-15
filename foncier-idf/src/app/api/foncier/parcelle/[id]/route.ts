@@ -39,7 +39,12 @@ const FULL_SELECT = `
   parking_cost,
   parking_surface_m2,
   taxe_amenagement,
-  taxe_amenagement_taux
+  taxe_amenagement_taux,
+  surface_habitable_reelle,
+  surface_hab_source,
+  dpe_count,
+  surface_dvf,
+  surface_estimation
 `;
 
 const LEGACY_SELECT = `

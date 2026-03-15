@@ -182,17 +182,17 @@ def compute_levels(props: dict, footprint_m2: float) -> int:
     """Compute building levels from BD TOPO data.
 
     Priority:
-    1. nombre_d_etages (direct from BD TOPO)
-    2. hauteur / 3m (from measured height)
+    1. hauteur / 3m (measured from LiDAR/photogrammetry, most reliable)
+    2. nombre_d_etages (declared, can be unreliable for tall buildings)
     3. Heuristic from footprint area (fallback)
     """
-    etages = props.get("nombre_d_etages")
-    if etages is not None and etages > 0:
-        return int(etages)
-
     hauteur = props.get("hauteur")
     if hauteur is not None and hauteur > 0:
         return max(1, math.floor(hauteur / FLOOR_HEIGHT_M))
+
+    etages = props.get("nombre_d_etages")
+    if etages is not None and etages > 0:
+        return int(etages)
 
     # Fallback heuristic
     if footprint_m2 >= 2000:

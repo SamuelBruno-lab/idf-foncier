@@ -67,6 +67,13 @@ export default function ParcelDetailsPanel({ item, loading = false }: Props) {
   const zoneCode = item.plu_zone_code ?? (ej.plu_zone_code as string | null) ?? null;
   const vocation = item.zone_vocation ?? (ej.zone_vocation as string | null) ?? null;
 
+  // Surface habitable cascade
+  const surfaceHabReelle = item.surface_habitable_reelle ?? null;
+  const surfaceHabSource = item.surface_hab_source ?? null;
+  const dpeCount = item.dpe_count ?? 0;
+  const surfaceDvf = item.surface_dvf ?? null;
+  const surfaceEstimation = item.surface_estimation ?? null;
+
   // Calculs derives
   const residualGfa = computeResidualGfa(estimatedGfa, existingGfa);
   const residualHab = computeResidualHabitable(residualGfa);
@@ -120,6 +127,52 @@ export default function ParcelDetailsPanel({ item, loading = false }: Props) {
           <Row label="Batiments" value={String(buildingCount)} />
         </div>
       </div>
+
+      {/* Bloc 2b — Surface habitable (cascade DPE > DVF > estimation) */}
+      {surfaceHabReelle != null && (
+        <div className="rounded-xl border border-neutral-200 p-3">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            Surface habitable
+          </h3>
+          <div className="divide-y divide-neutral-100">
+            <div className="flex items-baseline justify-between py-1.5">
+              <span className="text-xs text-neutral-500">Surface habitable</span>
+              <span className="text-sm font-bold text-neutral-900">
+                {formatNumber(surfaceHabReelle)} m²
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between py-1.5">
+              <span className="text-xs text-neutral-500">Source</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                surfaceHabSource === "dpe"
+                  ? "bg-green-100 text-green-700"
+                  : surfaceHabSource === "dvf"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-neutral-100 text-neutral-500"
+              }`}>
+                {surfaceHabSource === "dpe"
+                  ? `DPE ADEME (${dpeCount} DPE)`
+                  : surfaceHabSource === "dvf"
+                    ? "DVF (transaction)"
+                    : "Estimation BD TOPO"}
+              </span>
+            </div>
+            {surfaceHabSource !== "estimation" && surfaceEstimation != null && surfaceEstimation > 0 && (
+              <Row label="Estimation BD TOPO" value={`${formatNumber(surfaceEstimation)} m²`} />
+            )}
+            {surfaceDvf != null && surfaceDvf > 0 && surfaceHabSource !== "dvf" && (
+              <Row label="Surface DVF" value={`${formatNumber(surfaceDvf)} m²`} />
+            )}
+          </div>
+          <div className="mt-2 text-[10px] text-neutral-400">
+            {surfaceHabSource === "dpe"
+              ? "Donnee reelle issue du DPE (ADEME open data)"
+              : surfaceHabSource === "dvf"
+                ? "Surface reelle batie de la derniere transaction DVF"
+                : "Estimation = SDP existante x 0.85 (pas de DPE ni DVF)"}
+          </div>
+        </div>
+      )}
 
       {/* Bloc 3 — Potentiel */}
       <div className="rounded-xl border border-neutral-200 p-3">

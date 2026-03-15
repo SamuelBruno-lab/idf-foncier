@@ -67,7 +67,7 @@ export default function DeptPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
   const dept = DEPT_INFO[code] ?? { nom: code, nomFull: `Département ${code}`, color: "#00d4ff", description: "", emoji: "📍" };
-  const [activeTab, setActiveTab] = useState("dpe");
+  const [activeTab, setActiveTab] = useState(code === "75" ? "appartements" : "maisons");
   const staticMapUrl = getStaticMapUrl(code, activeTab);
 
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"], dept: [code] });

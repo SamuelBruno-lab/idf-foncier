@@ -374,6 +374,7 @@ export default function HomePage() {
 
           {/* CTAs — 5 boutons centrés */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            {/* Radar foncier — masqué temporairement, en cours de développement
             <Link href="/foncier" style={{ textDecoration: "none" }}>
               <div
                 style={{
@@ -395,6 +396,7 @@ export default function HomePage() {
                 Trouver 50 terrains mutables en IDF
               </div>
             </Link>
+            */}
             <button
               onClick={() => setShowHero(false)}
               style={{

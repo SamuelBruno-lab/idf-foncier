@@ -351,18 +351,8 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
 
     folium.LayerControl(collapsed=True, position="topright").add_to(m)
 
-    # ── Build compact point data for JS ──
-    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx]
-    src_map = {"existant": 0, "neuf": 1, "tertiaire": 2}
-    dpe_map = {lb: i for i, lb in enumerate(DPE_LABELS)}
-
-    # Build commune lookup
+    # Build commune lookup (for search)
     communes_list = sorted(data["commune"].dropna().unique().tolist())
-    commune_to_idx = {c: i for i, c in enumerate(communes_list)}
-
-    # Build address lookup (indexed dict to save space)
-    adresses_list = sorted(data["adresse"].dropna().unique().tolist())
-    adresse_to_idx = {a: i for i, a in enumerate(adresses_list)}
 
     # Commune bounding boxes
     com_bboxes = []
@@ -374,21 +364,6 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
             round(float(csub["latitude"].max()), 4),
             round(float(csub["longitude"].max()), 4),
         ])
-
-    # Build compact point array
-    # Format: [lat4, lon4, dpeIdx, srcIdx, surface, conso, communeIdx, adresseIdx, dvfZone]
-    pts_data = []
-    for _, row in data.iterrows():
-        lat = round(float(row.get("lat_j", row["latitude"])), 4)
-        lon = round(float(row.get("lon_j", row["longitude"])), 4)
-        dpe_idx = dpe_map.get(row["etiquette_dpe"], 3)
-        src_idx = src_map.get(row.get("source", ""), 0)
-        surf = int(round(float(row["surface"]), 0)) if pd.notna(row.get("surface")) else 0
-        conso = int(round(float(row["conso_m2"]), 0)) if pd.notna(row.get("conso_m2")) else 0
-        com_idx = commune_to_idx.get(str(row.get("commune", "")), 0)
-        adr_idx = adresse_to_idx.get(str(row.get("adresse", "")), 0)
-        dvf_z = int(row.get("dvf_zone", -1))
-        pts_data.append([lat, lon, dpe_idx, src_idx, surf, conso, com_idx, adr_idx, dvf_z])
 
     # Stats for dashboard
     n_clusters = int(data[data["cluster"] >= 0]["cluster"].nunique()) if "cluster" in data.columns else 0
@@ -404,7 +379,7 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     m.get_root().html.add_child(folium.Element("<div id='dpe-app'></div>"))
     m.save(out_path)
 
-    # ── Post-process: inject compact data + full interactive system ──
+    # ── Post-process: inject dashboard + commune search (zones only, no individual points) ──
     with open(out_path, "r") as f:
         html = f.read()
 
@@ -413,11 +388,8 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     map_var_match = re.search(r'var (map_[a-f0-9]+)\s*=\s*L\.map', html)
     map_var = map_var_match.group(1) if map_var_match else "map_unknown"
 
-    pts_json = json.dumps(pts_data, separators=(',', ':'))
     communes_json = json.dumps(communes_list, separators=(',', ':'), ensure_ascii=False)
-    adresses_json = json.dumps(adresses_list, separators=(',', ':'), ensure_ascii=False)
     bboxes_json = json.dumps(com_bboxes, separators=(',', ':'))
-    dvf_stats_json = json.dumps(dvf_zone_stats, separators=(',', ':'))
 
     custom_css = f"""<style>
   .leaflet-popup-content-wrapper {{ border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }}
@@ -453,23 +425,6 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
   .dpe-kpi .lbl {{ font-size:10px; color:rgba(255,255,255,.45); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }}
   .dpe-dist-bar {{ width:100%; height:10px; border-radius:5px; overflow:hidden; background:rgba(255,255,255,0.08); display:flex; }}
   .dpe-filter-row {{ display:flex; flex-wrap:wrap; gap:4px; }}
-  .dpe-chip {{
-    display:inline-flex; align-items:center; gap:3px; padding:4px 8px;
-    border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;
-    border:1.5px solid; transition:all 0.15s; user-select:none;
-  }}
-  .dpe-chip.active {{ opacity:1; }}
-  .dpe-chip.inactive {{ opacity:0.3; }}
-  .dpe-chip:hover {{ opacity:0.8; }}
-  .dpe-chip .dot {{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }}
-  .src-chip {{
-    display:inline-flex; align-items:center; gap:4px; padding:4px 8px;
-    border-radius:6px; cursor:pointer; font-size:11px; font-weight:500;
-    border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,.7);
-    transition:all 0.15s; user-select:none;
-  }}
-  .src-chip.active {{ background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); }}
-  .src-chip.inactive {{ opacity:0.3; }}
   .dpe-search {{
     width:100%; padding:7px 10px; border-radius:8px;
     border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06);
@@ -503,6 +458,8 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
   }}
 </style>"""
 
+    dpe_counts_json = json.dumps(dpe_counts, separators=(',', ':'))
+
     custom_js = f"""<script>
 (function() {{
   var DPE_LABELS = ['A','B','C','D','E','F','G'];
@@ -510,24 +467,18 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
   var DPE_THRESHOLDS = ['\\u226470','71-110','111-180','181-250','251-330','331-420','\\u2265421'];
   var SRC_LABELS = ['Existant','Neuf','Tertiaire'];
   var SRC_TOTALS = {json.dumps(src_totals)};
-  var DEPT_COLOR = '{dept_color}';
-
-  var PTS = {pts_json};
-  var COMMUNES = {communes_json};
-  var ADRESSES = {adresses_json};
-  var COM_BB = {bboxes_json};
-  var DVF_ZONES = {dvf_stats_json};
-  var TOTAL = PTS.length;
+  var DPE_COUNTS = {dpe_counts_json};
+  var TOTAL = {len(data)};
   var N_ZONES = {n_clusters};
+  var PCT_FG = '{pct_passoires:.0f}';
+  var MED_CONSO = '{med_conso_s}';
+
+  var COMMUNES = {communes_json};
+  var COM_BB = {bboxes_json};
 
   var map = {map_var};
-  var currentLayer = null;
 
-  // Filter state: F+G checked by default
-  var fDpe = [false,false,false,false,false,true,true];
-  var fSrc = [true,true,true];
-
-  // ── Build dashboard HTML ──
+  // ── Build dashboard HTML (zones only, no individual points) ──
   var dash = document.getElementById('dpe-app');
   dash.innerHTML = '<div id="dpe-dash">' +
     '<div class="dpe-hdr">' +
@@ -539,25 +490,14 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
       '<div class="dpe-section">' +
         '<div class="dpe-dist-bar" id="dpe-bar"></div>' +
         '<div class="dpe-kpi-grid">' +
-          '<div class="dpe-kpi"><div class="val" id="kpi-diag">-</div><div class="lbl">Affich\\u00E9s</div></div>' +
+          '<div class="dpe-kpi"><div class="val">' + TOTAL.toLocaleString('fr') + '</div><div class="lbl">Diagnostics</div></div>' +
           '<div class="dpe-kpi"><div class="val">' + N_ZONES + '</div><div class="lbl">Micro-zones</div></div>' +
-          '<div class="dpe-kpi"><div class="val" id="kpi-fg" style="color:#ef1d29">-</div><div class="lbl">Passoires (F+G)</div></div>' +
-          '<div class="dpe-kpi"><div class="val" id="kpi-conso">-</div><div class="lbl">kWh/m\\u00B2/an m\\u00E9d.</div></div>' +
+          '<div class="dpe-kpi"><div class="val" style="color:#ef1d29">' + PCT_FG + '%</div><div class="lbl">Passoires (F+G)</div></div>' +
+          '<div class="dpe-kpi"><div class="val">' + MED_CONSO + '</div><div class="lbl">kWh/m\\u00B2/an m\\u00E9d.</div></div>' +
         '</div>' +
-        '<div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:6px" id="kpi-src"></div>' +
-      '</div>' +
-      '<div class="dpe-section">' +
-        '<div class="dpe-section-title">Filtres DPE</div>' +
-        '<div class="dpe-filter-row" id="dpe-filters"></div>' +
-        '<div style="display:flex;gap:6px;margin-top:6px">' +
-          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-all">Tout</span>' +
-          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-none">Aucun</span>' +
-          '<span style="font-size:10px;color:rgba(255,255,255,.35);cursor:pointer;text-decoration:underline" id="dpe-fg">F+G seul.</span>' +
+        '<div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:6px">' +
+          SRC_TOTALS.map(function(n,i) {{ return n > 0 ? n.toLocaleString('fr') + ' ' + SRC_LABELS[i] : ''; }}).filter(Boolean).join(' + ') +
         '</div>' +
-      '</div>' +
-      '<div class="dpe-section">' +
-        '<div class="dpe-section-title">Sources</div>' +
-        '<div class="dpe-filter-row" id="src-filters"></div>' +
       '</div>' +
       '<div class="dpe-section">' +
         '<div class="dpe-section-title">Chercher une commune</div>' +
@@ -583,52 +523,15 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     else {{ b.style.display = 'none'; this.textContent = '\\u25BC'; }}
   }};
 
-  // ── Build DPE filter chips ──
-  var filtersEl = document.getElementById('dpe-filters');
+  // ── Build distribution bar (pre-computed) ──
+  var barEl = document.getElementById('dpe-bar');
   DPE_LABELS.forEach(function(lb, i) {{
-    var chip = document.createElement('span');
-    chip.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
-    chip.style.borderColor = DPE_COLORS[i];
-    chip.style.color = DPE_COLORS[i];
-    chip.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
-    chip.innerHTML = '<span class="dot" style="background:' + DPE_COLORS[i] + '"></span>' + lb;
-    chip.dataset.idx = i;
-    chip.onclick = function() {{
-      fDpe[i] = !fDpe[i];
-      this.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
-      this.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
-      applyFilters();
-    }};
-    filtersEl.appendChild(chip);
-  }});
-
-  // Quick select buttons
-  document.getElementById('dpe-all').onclick = function() {{ fDpe = [true,true,true,true,true,true,true]; syncChips(); applyFilters(); }};
-  document.getElementById('dpe-none').onclick = function() {{ fDpe = [false,false,false,false,false,false,false]; syncChips(); applyFilters(); }};
-  document.getElementById('dpe-fg').onclick = function() {{ fDpe = [false,false,false,false,false,true,true]; syncChips(); applyFilters(); }};
-
-  function syncChips() {{
-    var chips = filtersEl.querySelectorAll('.dpe-chip');
-    chips.forEach(function(c, i) {{
-      c.className = 'dpe-chip ' + (fDpe[i] ? 'active' : 'inactive');
-      c.style.background = fDpe[i] ? DPE_COLORS[i] + '22' : 'transparent';
-    }});
-  }}
-
-  // ── Build source filter chips ──
-  var srcEl = document.getElementById('src-filters');
-  SRC_LABELS.forEach(function(lb, i) {{
-    if (SRC_TOTALS[i] === 0) return;
-    var chip = document.createElement('span');
-    chip.className = 'src-chip active';
-    chip.textContent = lb + ' (' + SRC_TOTALS[i].toLocaleString('fr') + ')';
-    chip.dataset.idx = i;
-    chip.onclick = function() {{
-      fSrc[i] = !fSrc[i];
-      this.className = 'src-chip ' + (fSrc[i] ? 'active' : 'inactive');
-      applyFilters();
-    }};
-    srcEl.appendChild(chip);
+    if (DPE_COUNTS[i] <= 0 || TOTAL <= 0) return;
+    var pct = DPE_COUNTS[i] / TOTAL * 100;
+    var seg = document.createElement('div');
+    seg.style.cssText = 'width:' + pct + '%;background:' + DPE_COLORS[i] + ';height:100%';
+    seg.title = 'DPE ' + lb + ': ' + pct.toFixed(0) + '% (' + DPE_COUNTS[i].toLocaleString('fr') + ')';
+    barEl.appendChild(seg);
   }});
 
   // ── Build legend ──
@@ -667,122 +570,6 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
       searchRes.appendChild(item);
     }});
   }});
-
-  // ── Render points ──
-  function applyFilters() {{
-    if (currentLayer) {{ map.removeLayer(currentLayer); currentLayer = null; }}
-    var group = L.layerGroup();
-    var count = 0;
-    var dpeCounts = [0,0,0,0,0,0,0];
-    var consoSum = 0, consoN = 0;
-    var srcCounts = [0,0,0];
-
-    for (var i = 0; i < PTS.length; i++) {{
-      var p = PTS[i];
-      var dpe = p[2], src = p[3];
-      if (!fDpe[dpe] || !fSrc[src]) continue;
-      count++;
-      dpeCounts[dpe]++;
-      srcCounts[src]++;
-      if (p[5] > 0) {{ consoSum += p[5]; consoN++; }}
-
-      var marker = L.circleMarker([p[0], p[1]], {{
-        radius: 3.5, color: '#ffffff22', weight: 0.5,
-        fillColor: DPE_COLORS[dpe], fillOpacity: 0.8
-      }});
-      marker.bindTooltip(
-        '<b style="color:' + DPE_COLORS[dpe] + '">DPE ' + DPE_LABELS[dpe] + '</b> · ' +
-        p[4] + ' m\\u00B2 · ' + p[5] + ' kWh/m\\u00B2/an',
-        {{direction: 'top', offset: [0, -6]}}
-      );
-      var addr = ADRESSES[p[7]] || '';
-      var dvfZone = p[8];
-      var zoneInfo = (dvfZone >= 0 && DVF_ZONES[dvfZone]) ? DVF_ZONES[dvfZone] : null;
-
-      // Build DVF price + décote section
-      var dvfHtml = '';
-      if (zoneInfo) {{
-        var medM2 = zoneInfo.median_m2;
-        dvfHtml += '<hr style="margin:6px 0;border:none;border-top:1px solid #eee;">' +
-          '<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">\\uD83D\\uDCCA Micro-march\\u00E9 DVF (zone ' + dvfZone + ')</div>' +
-          '<div style="font-size:12px;color:#555;line-height:1.7">' +
-          'M\\u00E9diane zone: <b style="color:#1a1a2e">' + Math.round(medM2).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
-          ' <span style="font-size:10px;color:#999">(' + zoneInfo.count + ' tx)</span><br>';
-        if (zoneInfo.median_m2_good_dpe) {{
-          dvfHtml += 'M\\u00E9diane DPE A-D: <b style="color:#319834">' + Math.round(zoneInfo.median_m2_good_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
-            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_good + ' tx)</span><br>';
-        }}
-        if (zoneInfo.median_m2_mid_dpe) {{
-          dvfHtml += 'M\\u00E9diane DPE E: <b style="color:#fbcc05">' + Math.round(zoneInfo.median_m2_mid_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
-            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_mid + ' tx)</span><br>';
-        }}
-        if (zoneInfo.median_m2_bad_dpe) {{
-          dvfHtml += 'M\\u00E9diane DPE F-G: <b style="color:#ef1d29">' + Math.round(zoneInfo.median_m2_bad_dpe).toLocaleString('fr') + ' \\u20AC/m\\u00B2</b>' +
-            ' <span style="font-size:10px;color:#999">(' + zoneInfo.n_bad + ' tx)</span><br>';
-        }}
-        // Décote calculation: compare bad DPE vs good DPE median
-        if (zoneInfo.median_m2_good_dpe && zoneInfo.median_m2_bad_dpe) {{
-          var decote = ((zoneInfo.median_m2_good_dpe - zoneInfo.median_m2_bad_dpe) / zoneInfo.median_m2_good_dpe * 100);
-          if (decote > 0) {{
-            var estVal;
-            if (dpe >= 5) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_bad_dpe); }}
-            else if (dpe === 4 && zoneInfo.median_m2_mid_dpe) {{ estVal = Math.round(p[4] * zoneInfo.median_m2_mid_dpe); }}
-            else {{ estVal = Math.round(p[4] * zoneInfo.median_m2_good_dpe); }}
-            dvfHtml += '<div style="margin-top:4px;padding:5px 8px;background:#ef1d2912;border-left:3px solid #ef1d29;border-radius:0 4px 4px 0;font-size:11px;line-height:1.5">' +
-              '\\u26A0\\uFE0F <b>D\\u00E9cote passoire \\u00E9nerg\\u00E9tique: -' + decote.toFixed(0) + '%</b><br>' +
-              '<span style="color:#666">Valeur estim\\u00E9e (' + p[4] + ' m\\u00B2): <b>' + estVal.toLocaleString('fr') + ' \\u20AC</b></span>' +
-              '</div>';
-          }}
-        }}
-        dvfHtml += '</div>';
-      }}
-
-      marker.bindPopup(
-        '<div style="font-family:Segoe UI,sans-serif;padding:10px;min-width:220px">' +
-        '<div style="font-size:15px;font-weight:800;color:' + DPE_COLORS[dpe] + ';margin-bottom:6px">DPE ' + DPE_LABELS[dpe] + '</div>' +
-        (addr ? '<div style="font-size:12px;color:#333;font-weight:600;margin-bottom:4px">' + addr + '</div>' : '') +
-        '<div style="font-size:12px;color:#555;line-height:1.7">' +
-        'Commune: <b>' + COMMUNES[p[6]] + '</b><br>' +
-        'Surface: <b>' + p[4] + ' m\\u00B2</b><br>' +
-        'Conso: <b>' + p[5] + ' kWh/m\\u00B2/an</b><br>' +
-        'Source: ' + SRC_LABELS[src] +
-        '</div>' + dvfHtml + '</div>',
-        {{maxWidth: 320}}
-      );
-      group.addLayer(marker);
-    }}
-    group.addTo(map);
-    currentLayer = group;
-
-    // Update KPIs
-    document.getElementById('kpi-diag').textContent = count.toLocaleString('fr') + ' / ' + TOTAL.toLocaleString('fr');
-    var nFG = dpeCounts[5] + dpeCounts[6];
-    var pctFG = count > 0 ? (nFG / count * 100).toFixed(0) : '0';
-    document.getElementById('kpi-fg').textContent = pctFG + '%';
-    // Median approximation: use mean for speed
-    var medConso = consoN > 0 ? Math.round(consoSum / consoN) : '\\u2014';
-    document.getElementById('kpi-conso').textContent = medConso;
-
-    // Source breakdown
-    var srcParts = [];
-    SRC_LABELS.forEach(function(lb, i) {{ if (srcCounts[i] > 0) srcParts.push(srcCounts[i].toLocaleString('fr') + ' ' + lb); }});
-    document.getElementById('kpi-src').textContent = srcParts.join(' + ');
-
-    // Update distribution bar
-    var barEl = document.getElementById('dpe-bar');
-    barEl.innerHTML = '';
-    DPE_LABELS.forEach(function(lb, i) {{
-      if (dpeCounts[i] <= 0 || count <= 0) return;
-      var pct = dpeCounts[i] / count * 100;
-      var seg = document.createElement('div');
-      seg.style.cssText = 'width:' + pct + '%;background:' + DPE_COLORS[i] + ';height:100%';
-      seg.title = 'DPE ' + lb + ': ' + pct.toFixed(0) + '% (' + dpeCounts[i].toLocaleString('fr') + ')';
-      barEl.appendChild(seg);
-    }});
-  }}
-
-  // Initial render
-  applyFilters();
 }})();
 </script>"""
 

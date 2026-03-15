@@ -12,7 +12,7 @@ import sys, os, json, time
 import pandas as pd
 import numpy as np
 import folium
-from folium.plugins import HeatMap, MiniMap, Fullscreen
+from folium.plugins import MiniMap, Fullscreen
 import hdbscan
 from scipy.spatial import ConvexHull
 import requests
@@ -291,24 +291,7 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     Fullscreen(position="topright").add_to(m)
     MiniMap(position="bottomleft", tile_layer="CartoDB dark_matter", zoom_level_offset=-5).add_to(m)
 
-    # ── Heatmap: consommation énergie ──
-    heat_data = data[["latitude", "longitude", "conso_m2"]].dropna().copy()
-    if len(heat_data) > 0:
-        vmin_h = heat_data["conso_m2"].quantile(0.05)
-        vmax_h = heat_data["conso_m2"].quantile(0.95)
-        if vmin_h < vmax_h:
-            heat_data["w"] = ((heat_data["conso_m2"] - vmin_h) / (vmax_h - vmin_h)).clip(0, 1)
-        else:
-            heat_data["w"] = 0.5
-        hm_fg = folium.FeatureGroup(name="🌡️ Heatmap conso. énergie", show=False)
-        HeatMap(
-            data=heat_data[["latitude", "longitude", "w"]].values.tolist(),
-            radius=18, blur=14, min_opacity=0.3,
-            gradient={0.2: "#319834", 0.4: "#cbfc34", 0.6: "#fbfe06", 0.8: "#f58221", 1.0: "#ef1d29"},
-        ).add_to(hm_fg)
-        hm_fg.add_to(m)
-
-    # ── Polygones micro-zones DPE ──
+    # ── Polygones micro-zones DPE (zones only, no individual points or heatmap) ──
     poly_fg = folium.FeatureGroup(name="🗺️ Micro-zones DPE", show=True)
     for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
         pts = data[data["cluster"] == cid][["latitude", "longitude"]].values
@@ -797,10 +780,10 @@ def main():
             data_hab = assign_dpe_to_dvf_zone(data_hab, dvf)
         else:
             data_hab["dvf_zone"] = -1
-        out_hab = os.path.join(out_dir, "carte_dpe_habitation.html")
+        out_hab = os.path.join(out_dir, "carte_dpe.html")
         make_dpe_map(data_hab, cfg, out_hab, dvf_zone_stats=dvf_zone_stats,
-                     map_label=f"DPE Habitation \\u00B7 {cfg['nom']} ({dept_code})",
-                     map_subtitle="Logements existants + neufs \\u00B7 ADEME")
+                     map_label=f"DPE \\u00B7 {cfg['nom']} ({dept_code})",
+                     map_subtitle="Logements existants + neufs + tertiaire \\u00B7 ADEME")
     else:
         print("  Aucune donnée DPE habitation.")
 

@@ -14,15 +14,13 @@ type Props = {
   disabled?: boolean;
 };
 
-const BEST_USE_OPTIONS = [
-  { value: "", label: "Tous" },
-  { value: "densification_residentielle", label: "Densification résidentielle" },
+const VOCATION_OPTIONS = [
+  { value: "", label: "Toutes vocations" },
+  { value: "densification_residentielle", label: "Residentiel" },
+  { value: "mixte_logements_activite", label: "Mixte" },
+  { value: "activite_economique", label: "Activite economique" },
   { value: "division_parcellaire", label: "Division parcellaire" },
   { value: "dent_creuse", label: "Dent creuse" },
-  { value: "activite_economique", label: "Activité économique" },
-  { value: "bureaux_commerces", label: "Bureaux / Commerces" },
-  { value: "mixte_logements_activite", label: "Mixte logements + activité" },
-  { value: "analyse_complementaire", label: "Analyse complémentaire" },
 ];
 
 export default function FoncierFilters({
@@ -34,16 +32,13 @@ export default function FoncierFilters({
     key: K,
     nextValue: FoncierFiltersState[K]
   ) {
-    onChange({
-      ...value,
-      [key]: nextValue,
-    });
+    onChange({ ...value, [key]: nextValue });
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
+        <label className="mb-1 block text-xs font-medium text-neutral-600">
           Code INSEE
         </label>
         <input
@@ -52,13 +47,13 @@ export default function FoncierFilters({
           onChange={(e) => update("insee", e.target.value)}
           placeholder="92078"
           disabled={disabled}
-          className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-400"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
-          Score minimum
+        <label className="mb-1 block text-xs font-medium text-neutral-600">
+          Sous-exploitation min
         </label>
         <input
           type="range"
@@ -70,12 +65,12 @@ export default function FoncierFilters({
           onChange={(e) => update("minScore", Number(e.target.value))}
           className="w-full"
         />
-        <div className="mt-1 text-xs text-neutral-600">{value.minScore}/10</div>
+        <div className="mt-0.5 text-xs text-neutral-500">Score {value.minScore}/10</div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
-          Surface minimum (m²)
+        <label className="mb-1 block text-xs font-medium text-neutral-600">
+          Surface parcelle min (m²)
         </label>
         <input
           type="number"
@@ -83,37 +78,37 @@ export default function FoncierFilters({
           value={value.minArea}
           onChange={(e) => update("minArea", Number(e.target.value))}
           disabled={disabled}
-          className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-400"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
-          Usage suggéré
+        <label className="mb-1 block text-xs font-medium text-neutral-600">
+          Vocation
         </label>
         <select
           value={value.bestUse}
           onChange={(e) => update("bestUse", e.target.value)}
           disabled={disabled}
-          className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-400"
         >
-          {BEST_USE_OPTIONS.map((option) => (
-            <option key={option.value || "all"} value={option.value}>
-              {option.label}
+          {VOCATION_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800">
-          Nombre de résultats
+        <label className="mb-1 block text-xs font-medium text-neutral-600">
+          Resultats
         </label>
         <select
           value={value.limit}
           onChange={(e) => update("limit", Number(e.target.value))}
           disabled={disabled}
-          className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-400"
         >
           {[20, 50, 100, 200].map((n) => (
             <option key={n} value={n}>

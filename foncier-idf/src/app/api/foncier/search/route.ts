@@ -18,12 +18,15 @@ export async function GET(req: NextRequest) {
         `
         parcel_id,
         insee_code,
+        city_name,
         area_m2,
         mutability_score,
         best_use,
-        land_value_est,
         estimated_gfa,
-        residual_potential_est
+        residual_potential_est,
+        existing_gfa_est,
+        underuse_ratio,
+        plu_zone_code
         `
       )
       .gte("mutability_score", minScore)

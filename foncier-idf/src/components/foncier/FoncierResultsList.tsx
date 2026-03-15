@@ -1,6 +1,15 @@
 "use client";
 
-type ParcelListItem = {
+import {
+  formatNumber,
+  computeResidualGfa,
+  computeResidualHabitable,
+  computeTheoreticalUnits,
+  getOperationBadge,
+  getBadgeColor,
+} from "@/lib/foncier-helpers";
+
+export type ParcelListItem = {
   parcel_id: string;
   insee_code: string;
   city_name?: string | null;
@@ -9,6 +18,9 @@ type ParcelListItem = {
   best_use: string | null;
   estimated_gfa: number | null;
   residual_potential_est?: number | null;
+  existing_gfa_est?: number | null;
+  underuse_ratio?: number | null;
+  plu_zone_code?: string | null;
 };
 
 type Props = {
@@ -18,23 +30,6 @@ type Props = {
   onSelectParcel: (parcelId: string) => void;
 };
 
-function formatNumber(value: number | null | undefined) {
-  if (value == null) return "—";
-  return new Intl.NumberFormat("fr-FR", {
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-const BEST_USE_LABELS: Record<string, string> = {
-  densification_residentielle: "Densification résidentielle",
-  division_parcellaire: "Division parcellaire",
-  dent_creuse: "Dent creuse",
-  activite_economique: "Activité économique",
-  bureaux_commerces: "Bureaux / Commerces",
-  mixte_logements_activite: "Mixte logements + activité",
-  analyse_complementaire: "Analyse complémentaire",
-};
-
 export default function FoncierResultsList({
   items,
   loading = false,
@@ -42,13 +37,13 @@ export default function FoncierResultsList({
   onSelectParcel,
 }: Props) {
   if (loading) {
-    return <div className="p-4 text-sm text-neutral-600">Chargement…</div>;
+    return <div className="p-4 text-sm text-neutral-500">Chargement...</div>;
   }
 
   if (items.length === 0) {
     return (
-      <div className="p-4 text-sm text-neutral-600">
-        Aucun résultat pour ces filtres.
+      <div className="p-4 text-sm text-neutral-500">
+        Aucun resultat pour ces filtres.
       </div>
     );
   }
@@ -58,6 +53,15 @@ export default function FoncierResultsList({
       <div className="divide-y divide-neutral-100">
         {items.map((item, index) => {
           const selected = item.parcel_id === selectedParcelId;
+
+          const residualGfa = computeResidualGfa(item.estimated_gfa, item.existing_gfa_est ?? null);
+          const residualHab = computeResidualHabitable(residualGfa);
+          const units = computeTheoreticalUnits(residualHab);
+          const underusePct = item.underuse_ratio != null
+            ? Math.round(item.underuse_ratio * 100)
+            : null;
+          const badge = getOperationBadge(units);
+          const badgeColor = getBadgeColor(badge);
 
           return (
             <button
@@ -70,32 +74,42 @@ export default function FoncierResultsList({
                   : "bg-white hover:bg-neutral-50"
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
                   <div
                     className={`text-xs ${
                       selected ? "text-neutral-300" : "text-neutral-500"
                     }`}
                   >
-                    #{index + 1} · {item.city_name ?? item.insee_code} · {item.parcel_id}
+                    #{index + 1} · {item.city_name ?? item.insee_code}
                   </div>
-                  <div className="mt-1 text-sm font-semibold">
-                    {BEST_USE_LABELS[item.best_use ?? ""] ?? item.best_use ?? "Analyse complémentaire"}
+                  <div className="mt-0.5 text-sm font-medium truncate">
+                    {item.parcel_id}
                   </div>
                   <div
-                    className={`mt-1 text-xs ${
+                    className={`mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs ${
                       selected ? "text-neutral-300" : "text-neutral-600"
                     }`}
                   >
-                    Surface {formatNumber(item.area_m2)} m² · GFA{" "}
-                    {formatNumber(item.estimated_gfa)} m²
+                    {item.plu_zone_code && (
+                      <span>{item.plu_zone_code}</span>
+                    )}
+                    <span>{formatNumber(item.area_m2)} m²</span>
+                    {underusePct != null && (
+                      <span className="font-medium">{underusePct}% sous-exploit.</span>
+                    )}
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-sm font-semibold">
-                    {item.mutability_score?.toFixed(1) ?? "—"}/10
-                  </div>
+                <div className="flex flex-col items-end gap-1">
+                  {units > 0 && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium text-white ${badgeColor}`}>
+                      ~{units} logt
+                    </span>
+                  )}
+                  <span className={`text-xs ${selected ? "text-neutral-300" : "text-neutral-500"}`}>
+                    {formatNumber(residualGfa)} m²
+                  </span>
                 </div>
               </div>
             </button>

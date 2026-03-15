@@ -63,11 +63,12 @@ export async function GET(req: NextRequest) {
     // Fallback if new columns don't exist yet in the view
     if (error && error.message?.includes("column")) {
       const fallback = await buildQuery(supabase, LEGACY_SELECT, params);
-      data = (fallback.data ?? []).map((r: Record<string, unknown>) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data = (fallback.data ?? []).map((r: any) => ({
         ...r,
         existing_gfa_est: 0,
         plu_zone_code: null,
-      }));
+      })) as typeof data;
       error = fallback.error;
     }
 

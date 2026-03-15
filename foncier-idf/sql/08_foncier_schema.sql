@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.buildings (
   source TEXT,
   levels_est INTEGER DEFAULT 1,
   footprint_m2 NUMERIC,
+  insee_code TEXT,
   geom geometry(MultiPolygon, 2154),
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -42,6 +43,9 @@ CREATE TABLE IF NOT EXISTS public.buildings (
 CREATE INDEX IF NOT EXISTS idx_buildings_geom
   ON public.buildings
   USING GIST (geom);
+
+CREATE INDEX IF NOT EXISTS idx_buildings_insee_code
+  ON public.buildings (insee_code);
 
 -- =========================
 -- 3) PARCEL_BUILDING_STATS

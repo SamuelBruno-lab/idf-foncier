@@ -141,6 +141,7 @@ def main():
             "levels_est": levels,
             "footprint_m2": round(footprint_m2, 1),
             "geom_wkt": geom_l93.wkt,
+            "insee_code": "92078",
         })
 
     logger.info("Prepared %d buildings (skipped %d 'en projet')", len(buildings), skipped)
@@ -167,16 +168,22 @@ def main():
     logger.info("Level source: %d direct (nombre_d_etages), %d from hauteur, %d heuristic",
                 src_direct, src_height, src_heuristic)
 
-    # Delete existing VLG buildings
+    # Delete existing VLG buildings (commune-specific only, not all!)
     logger.info("Deleting existing VLG buildings...")
-    # Delete both old BAT92078* and new BATIMENT* entries
-    for pattern in ["like.BAT92078*", "like.BATIMENT*"]:
-        r = SESSION.delete(
-            f"{supabase_url()}/rest/v1/buildings",
-            headers=headers(),
-            params={"building_id": pattern},
-        )
-        logger.info("Delete %s: %s", pattern, r.status_code)
+    # Delete by insee_code (commune-specific)
+    r = SESSION.delete(
+        f"{supabase_url()}/rest/v1/buildings",
+        headers=headers(),
+        params={"insee_code": "eq.92078"},
+    )
+    logger.info("Delete insee_code=92078: %s", r.status_code)
+    # Also delete old-style BAT92078* IDs
+    r = SESSION.delete(
+        f"{supabase_url()}/rest/v1/buildings",
+        headers=headers(),
+        params={"building_id": "like.BAT92078*"},
+    )
+    logger.info("Delete BAT92078*: %s", r.status_code)
 
     # Insert in batches
     batch_size = 50
@@ -187,13 +194,16 @@ def main():
         batch = buildings[i:i+batch_size]
         rows = []
         for b in batch:
-            rows.append({
+            row = {
                 "building_id": b["building_id"],
                 "source": b["source"],
                 "levels_est": b["levels_est"],
                 "footprint_m2": b["footprint_m2"],
                 "geom": f"SRID=2154;{b['geom_wkt']}",
-            })
+            }
+            if "insee_code" in b:
+                row["insee_code"] = b["insee_code"]
+            rows.append(row)
 
         r = SESSION.post(
             f"{supabase_url()}/rest/v1/buildings",
@@ -217,6 +227,8 @@ def main():
                     "footprint_m2": b["footprint_m2"],
                     "geom": f"SRID=2154;{b['geom_wkt']}",
                 }
+                if "insee_code" in b:
+                    row["insee_code"] = b["insee_code"]
                 r2 = SESSION.post(
                     f"{supabase_url()}/rest/v1/buildings",
                     headers=headers_upsert(),

@@ -48,6 +48,7 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   scored_count INTEGER;
+  building_total INTEGER;
   v_h NUMERIC := 12;        -- max height (Zone U default)
   v_fp NUMERIC := 0.40;     -- max footprint ratio
   v_gr NUMERIC := 0.20;     -- min green ratio
@@ -59,6 +60,16 @@ DECLARE
   v_sf NUMERIC := 0.03;     -- selling fees ratio
   v_mg NUMERIC := 0.08;     -- margin ratio
 BEGIN
+  -- Check if buildings exist for this commune (warn if none)
+  SELECT count(*) INTO building_total
+  FROM public.buildings b
+  JOIN public.parcels p ON ST_Intersects(b.geom, p.geom)
+  WHERE p.insee_code = p_insee;
+
+  IF building_total = 0 THEN
+    RAISE WARNING 'No buildings found intersecting parcels for commune %. Building stats will be zero. Import buildings first.', p_insee;
+  END IF;
+
   -- Step 1: building stats (spatial intersection parcels × buildings)
   INSERT INTO public.parcel_building_stats (parcel_id, built_footprint_m2, building_count, existing_gfa_est, coverage_ratio, updated_at)
   SELECT

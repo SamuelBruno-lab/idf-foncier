@@ -207,7 +207,7 @@ def compute_levels(props: dict, footprint_m2: float) -> int:
         return 1
 
 
-def process_features(features: list[dict]) -> list[dict]:
+def process_features(features: list[dict], insee: str | None = None) -> list[dict]:
     """Convert raw GeoJSON features to building dicts ready for insert."""
     buildings = []
     skipped = 0
@@ -245,13 +245,16 @@ def process_features(features: list[dict]) -> list[dict]:
         # Use BD TOPO cleabs as building_id (globally unique)
         cleabs = props.get("cleabs", f"BDTOPO_UNKNOWN_{i:06d}")
 
-        buildings.append({
+        building = {
             "building_id": cleabs,
             "source": "BDTOPO",
             "levels_est": levels,
             "footprint_m2": round(footprint_m2, 1),
             "geom_wkt": geom_l93.wkt,
-        })
+        }
+        if insee:
+            building["insee_code"] = insee
+        buildings.append(building)
 
     logger.info("Processed %d buildings (skipped %d)", len(buildings), skipped)
     return buildings
@@ -270,6 +273,19 @@ def delete_existing(pattern: str):
         logger.warning("Delete response: %s", r.text[:300])
 
 
+def delete_by_commune(insee: str):
+    """Delete existing buildings for a specific commune using insee_code column."""
+    logger.info("Deleting existing buildings for commune %s...", insee)
+    r = SESSION.delete(
+        f"{supabase_url()}/rest/v1/buildings",
+        headers=headers(),
+        params={"insee_code": f"eq.{insee}"},
+    )
+    logger.info("Delete commune %s: status %s", insee, r.status_code)
+    if r.status_code >= 300:
+        logger.warning("Delete response: %s", r.text[:300])
+
+
 def batch_insert(buildings: list[dict], batch_size: int = 50):
     """Insert buildings into Supabase in batches, with per-row fallback on errors."""
     inserted = 0
@@ -277,16 +293,18 @@ def batch_insert(buildings: list[dict], batch_size: int = 50):
 
     for i in range(0, len(buildings), batch_size):
         batch = buildings[i:i + batch_size]
-        rows = [
-            {
+        rows = []
+        for b in batch:
+            row = {
                 "building_id": b["building_id"],
                 "source": b["source"],
                 "levels_est": b["levels_est"],
                 "footprint_m2": b["footprint_m2"],
                 "geom": f"SRID=2154;{b['geom_wkt']}",
             }
-            for b in batch
-        ]
+            if "insee_code" in b:
+                row["insee_code"] = b["insee_code"]
+            rows.append(row)
 
         r = SESSION.post(
             f"{supabase_url()}/rest/v1/buildings",
@@ -310,6 +328,8 @@ def batch_insert(buildings: list[dict], batch_size: int = 50):
                     "footprint_m2": b["footprint_m2"],
                     "geom": f"SRID=2154;{b['geom_wkt']}",
                 }
+                if "insee_code" in b:
+                    row["insee_code"] = b["insee_code"]
                 r2 = SESSION.post(
                     f"{supabase_url()}/rest/v1/buildings",
                     headers=headers_upsert(),
@@ -389,7 +409,7 @@ def import_commune(insee: str):
         features = fetch_buildings_wfs(bbox)
 
     logger.info("Downloaded %d features for commune %s", len(features), insee)
-    buildings = process_features(features)
+    buildings = process_features(features, insee=insee)
 
     if not buildings:
         logger.warning("No buildings to insert for commune %s", insee)
@@ -397,12 +417,9 @@ def import_commune(insee: str):
 
     log_stats(features, buildings)
 
-    # Delete existing buildings for this commune
-    # BD TOPO cleabs for buildings start with BATIMENT
-    delete_existing("BATIMENT%")
-
+    # Delete existing buildings for this commune only (not all communes!)
+    delete_by_commune(insee)
     # Also delete any old-style IDs that might exist for this commune
-    dept = insee[:2] if not insee.startswith("97") else insee[:3]
     delete_existing(f"BAT{insee}%")
 
     batch_insert(buildings)
@@ -423,6 +440,7 @@ def import_department(dept: str):
     features = fetch_buildings_wfs(bbox)
     logger.info("Downloaded %d features for department %s", len(features), dept)
 
+    # For department import, try to extract insee_code from each feature
     buildings = process_features(features)
 
     if not buildings:
@@ -431,8 +449,7 @@ def import_department(dept: str):
 
     log_stats(features, buildings)
 
-    # Delete existing buildings for this department pattern
-    delete_existing("BATIMENT%")
+    # Delete existing buildings for this department only
     delete_existing(f"BAT{dept}%")
 
     batch_insert(buildings)

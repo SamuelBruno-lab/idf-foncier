@@ -94,6 +94,10 @@ SELECT
   pms.median_price_m2,
   pms.hdbscan_zone_id,
   COALESCE(pbs.coverage_ratio, 0) AS coverage_ratio,
+  -- Bâti existant
+  COALESCE(pbs.existing_gfa_est, 0) AS existing_gfa_est,
+  COALESCE(pbs.built_footprint_m2, 0) AS built_footprint_m2,
+  COALESCE(pbs.building_count, 0) AS building_count,
   pcs.nb_logements_est,
   pcs.nb_parking_places,
   pcs.parking_cost,

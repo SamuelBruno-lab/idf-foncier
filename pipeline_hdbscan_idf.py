@@ -36,7 +36,7 @@ from scipy.spatial import ConvexHull
 # ── Config ────────────────────────────────────────────────────────────────────
 
 DATA_DIR = Path("/home/user")
-ENV_FILE = DATA_DIR / "foncier-idf" / ".env.local"
+ENV_FILE = Path("/home/user/idf-foncier/foncier-idf/.env.local")
 
 IDF_DEPTS = ["75", "77", "78", "91", "92", "93", "94", "95"]
 
@@ -59,7 +59,7 @@ PRIX_M2_MIN = 500  # plancher global
 
 # URLs DVF géocodées par année/département (geo-dvf.etalab.gouv.fr)
 DVF_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv/{year}/departements/{dept}.csv.gz"
-DVF_YEARS = [2020, 2021, 2022, 2023, 2024]  # 2025 partiel selon disponibilité
+DVF_YEARS = [2020, 2021, 2022, 2023, 2024, 2025]
 
 
 # ── Utilitaires ───────────────────────────────────────────────────────────────

@@ -67,18 +67,22 @@ export async function GET(
   let byTypeResult: { type: string | null; count: number; prix_median: number | null; prix_m2_median: number | null }[];
   let evolution: { annee: number; count: number; prix_m2_median: number }[];
 
+  // Types affichés (exclut Dépendance, Autre…)
+  const DISPLAYED_TYPES = new Set(["Appartement", "Maison", "Local industriel. commercial ou assimilé"]);
+
   if (hasPoints) {
-    // Source de vérité : dvf_points
+    // Source de vérité : dvf_points — filtré sur les types affichés
+    const filtered = points.filter((p) => p.type_local != null && DISPLAYED_TYPES.has(p.type_local));
     const byYear: Record<number, { prices: number[]; count: number }> = {};
     const byType: Record<string, { prices: number[]; valeurs: number[]; count: number }> = {};
 
-    for (const p of points) {
+    for (const p of filtered) {
       if (p.annee) {
         if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
         byYear[p.annee].count++;
         if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
       }
-      const type = p.type_local ?? "Autre";
+      const type = p.type_local!;
       if (!byType[type]) byType[type] = { prices: [], valeurs: [], count: 0 };
       byType[type].count++;
       if (p.prix_m2) byType[type].prices.push(p.prix_m2);
@@ -93,8 +97,8 @@ export async function GET(
       }))
       .sort((a, b) => a.annee - b.annee);
 
-    totalCount = points.length;
-    const allPrixM2 = points.map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
+    totalCount = filtered.length;
+    const allPrixM2 = filtered.map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
     prixM2Median = median(allPrixM2);
     byTypeResult = Object.entries(byType).map(([type, data]) => ({
       type,

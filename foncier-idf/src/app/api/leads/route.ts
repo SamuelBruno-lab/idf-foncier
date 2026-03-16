@@ -63,18 +63,33 @@ export async function POST(req: NextRequest) {
   // Notification email non-bloquante
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const intentLabels: Record<string, string> = {
+      acheteur: "J'achète",
+      vendeur: "Je vends",
+      investisseur: "J'investis",
+      agent: "Je suis agent",
+    };
+    const intentDisplay = intent ? (intentLabels[intent] ?? intent) : "—";
+    const subjectSuffix = intent && commune_nom
+      ? ` · ${intentDisplay} · ${commune_nom}`
+      : "";
+
     resend.emails.send({
       from: "datamerry <no-reply@datamerry.com>",
       to: "contact@datamerry.com",
-      subject: `[datamerry] Nouveau lead · ${nom || email}`,
+      subject: `[datamerry] Nouveau lead · ${nom || email}${subjectSuffix}`,
       text: [
-        `Nouvelle inscription accès anticipé.`,
+        intent ? `Nouveau lead — ${intentDisplay}` : `Nouvelle inscription accès anticipé.`,
         ``,
         `Prénom   : ${prenom || "—"}`,
         `Nom      : ${nom_famille || "—"}`,
         `Email    : ${email}`,
         `Société  : ${societe || "—"}`,
         `Téléphone: ${telephone || "—"}`,
+        `Intent   : ${intentDisplay}`,
+        `Commune  : ${commune_nom || "—"}${commune_code ? ` (${commune_code})` : ""}`,
+        `Budget   : ${budget || "—"}`,
+        `Horizon  : ${timeline || "—"}`,
         `Source   : ${(body.source ?? "carte_idf")}`,
         ``,
         `→ Supabase leads : https://supabase.com/dashboard/project/zexkxstcwkdsqjgsppvx/editor`,

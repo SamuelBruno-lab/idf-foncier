@@ -27,8 +27,9 @@ export async function GET(
     .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,lat,lon")
     .like("cluster_id", `${code}_%`);
 
-  // Période d'analyse : 2020-2025 pour toutes les communes IDF + 60
-  const anneeMin = 2020;
+  // Paris (75xxx) et Boulogne-Billancourt (92012) : trop de volume → 2024-2025
+  // Toutes les autres communes IDF + 60 : historique complet 2020-2025
+  const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
 
   // Points DVF bruts — source de vérité quand disponibles
   const { data: points, error: err2 } = await supabase

@@ -138,19 +138,16 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     const byType: Record<string, { prices: number[]; valeurs: number[]; count: number }> = {};
 
     for (const p of points) {
+      if (p.annee) {
+        if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
+        byYear[p.annee].count++;
+        if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
+      }
       const type = p.type_local ?? "Autre";
       if (!byType[type]) byType[type] = { prices: [], valeurs: [], count: 0 };
       byType[type].count++;
       if (p.prix_m2) byType[type].prices.push(p.prix_m2);
       if (p.valeur_fonciere) byType[type].valeurs.push(p.valeur_fonciere);
-
-      // Évolution annuelle : uniquement Appartement + Maison
-      const isResidential = p.type_local === "Appartement" || p.type_local === "Maison";
-      if (p.annee && isResidential) {
-        if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
-        byYear[p.annee].count++;
-        if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
-      }
     }
 
     evolution = Object.entries(byYear)
@@ -161,21 +158,15 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
       }))
       .sort((a, b) => a.annee - b.annee);
 
+    totalCount = points.length;
+    const allPrixM2 = points.map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
+    prixM2Median = median(allPrixM2);
     byTypeResult = Object.entries(byType).map(([type, data]) => ({
       type,
       count: data.count,
       prix_median: data.valeurs.length > 0 ? median(data.valeurs) : null,
       prix_m2_median: data.prices.length > 0 ? median(data.prices) : null,
     }));
-    // totalCount = somme Appartement + Maison (les seuls types affichés)
-    totalCount = byTypeResult
-      .filter((t) => t.type === "Appartement" || t.type === "Maison")
-      .reduce((s, t) => s + t.count, 0);
-    const residentialPoints = points.filter(
-      (p) => p.type_local === "Appartement" || p.type_local === "Maison"
-    );
-    const allPrixM2 = residentialPoints.map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
-    prixM2Median = median(allPrixM2);
   } else {
     // Fallback : utiliser dvf_clusters_commune
     totalCount = (clusters ?? []).reduce((s, c) => s + c.count, 0);
@@ -302,7 +293,7 @@ export default async function AnalysePage({
   const yearMax = stats.evolution.length > 0 ? stats.evolution[stats.evolution.length - 1].annee : 2025;
 
   const mainTypes = stats.byType
-    .filter((t) => t.type === "Appartement" || t.type === "Maison")
+    .filter((t) => t.type === "Appartement" || t.type === "Maison" || t.type === "Local industriel. commercial ou assimilé")
     .sort((a, b) => b.count - a.count);
 
   return (
@@ -378,7 +369,7 @@ export default async function AnalysePage({
             {stats.nom}
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 6 }}>
-            {stats.totalCount.toLocaleString("fr-FR")} transactions résidentielles · {yearMin}–{yearMax} · Source DVF
+            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF
           </p>
         </div>
 

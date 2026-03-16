@@ -95,18 +95,40 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Récupérer les clusters pré-calculés (pour loyer, rendement, nom commune)
   const { data: clusters } = await supabase
     .from("dvf_clusters_commune")
-    .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,loyer_median_m2,rendement_brut")
+    .select("cluster_id,nom,dept,type_local,loyer_median_m2,rendement_brut")
     .like("cluster_id", `${code}_%`);
 
-  if (!clusters || clusters.length === 0) return null;
-
+  // Récupérer TOUS les points DVF pour cette commune (source de vérité)
   const { data: points } = await supabase
     .from("dvf_points")
-    .select("annee,prix_m2")
+    .select("annee,prix_m2,type_local,valeur_fonciere")
     .eq("code_commune", code)
-    .limit(5000);
+    .limit(50000);
+
+  if ((!clusters || clusters.length === 0) && (!points || points.length === 0)) return null;
+
+  // Récupérer le nom/dept depuis clusters ou depuis les points
+  let nom = code;
+  let dept = code.slice(0, 2);
+  if (clusters && clusters.length > 0) {
+    nom = clusters[0].nom ?? code;
+    dept = clusters[0].dept ?? dept;
+  } else {
+    // Fallback: chercher le nom dans dvf_points
+    const { data: pointInfo } = await supabase
+      .from("dvf_points")
+      .select("commune,dept")
+      .eq("code_commune", code)
+      .limit(1)
+      .single();
+    if (pointInfo) {
+      nom = pointInfo.commune ?? code;
+      dept = pointInfo.dept ?? dept;
+    }
+  }
 
   const { data: zones } = await supabase
     .from("dvf_hdbscan_zones")
@@ -117,12 +139,24 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     .order("type_local")
     .order("cluster_id");
 
+  // Calculer les stats directement depuis dvf_points (source de vérité)
   const byYear: Record<number, { prices: number[]; count: number }> = {};
+  const byType: Record<string, { prices: number[]; valeurs: number[]; count: number }> = {};
+
   for (const p of points ?? []) {
-    if (!p.annee) continue;
-    if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
-    byYear[p.annee].count++;
-    if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
+    // Évolution par année
+    if (p.annee) {
+      if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
+      byYear[p.annee].count++;
+      if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
+    }
+
+    // Stats par type de bien
+    const type = p.type_local ?? "Autre";
+    if (!byType[type]) byType[type] = { prices: [], valeurs: [], count: 0 };
+    byType[type].count++;
+    if (p.prix_m2) byType[type].prices.push(p.prix_m2);
+    if (p.valeur_fonciere) byType[type].valeurs.push(p.valeur_fonciere);
   }
 
   const evolution = Object.entries(byYear)
@@ -133,10 +167,11 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     }))
     .sort((a, b) => a.annee - b.annee);
 
-  const allPrixM2 = clusters.map((c) => c.prix_m2_median).filter(Boolean) as number[];
+  const totalCount = (points ?? []).length;
+  const allPrixM2 = (points ?? []).map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
 
-  // Loyer et rendement : uniquement sur les biens résidentiels
-  const residentialClusters = clusters.filter(
+  // Loyer et rendement : depuis les clusters pré-calculés
+  const residentialClusters = (clusters ?? []).filter(
     (c) => c.type_local === "Appartement" || c.type_local === "Maison"
   );
   const loyerVals = residentialClusters
@@ -148,17 +183,17 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
 
   return {
     code,
-    nom: clusters[0].nom,
-    dept: clusters[0].dept,
-    totalCount: clusters.reduce((s, c) => s + c.count, 0),
+    nom,
+    dept,
+    totalCount,
     prix_m2_median: median(allPrixM2),
     loyer_median_m2: loyerVals.length > 0 ? Math.round(median(loyerVals) * 10) / 10 : null,
     rendement_brut: rendementVals.length > 0 ? Math.round(median(rendementVals) * 10) / 10 : null,
-    byType: clusters.map((c) => ({
-      type: c.type_local,
-      count: c.count,
-      prix_median: c.prix_median,
-      prix_m2_median: c.prix_m2_median,
+    byType: Object.entries(byType).map(([type, data]) => ({
+      type,
+      count: data.count,
+      prix_median: data.valeurs.length > 0 ? median(data.valeurs) : null,
+      prix_m2_median: data.prices.length > 0 ? median(data.prices) : null,
     })),
     evolution,
     zones: (zones ?? []) as Zone[],

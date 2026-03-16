@@ -127,6 +127,13 @@ def load_csv_dept(dept: str, csv_path: Path) -> pd.DataFrame:
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
 
+    # Correction DVF multi-lots : valeur_fonciere est la valeur totale de la mutation,
+    # répétée sur chaque lot. On divise par le nombre de lots par id_mutation.
+    # (cohérent avec 02_import_dvf.py)
+    if "id_mutation" in df.columns:
+        lots_par_mutation = df.groupby("id_mutation")["id_mutation"].transform("count")
+        df["valeur_fonciere"] = (df["valeur_fonciere"] / lots_par_mutation).round()
+
     # Prix au m²
     df["prix_m2"] = np.where(
         df["surface_reelle_bati"] > 0,

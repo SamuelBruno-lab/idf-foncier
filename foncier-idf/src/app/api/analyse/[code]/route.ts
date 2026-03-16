@@ -27,11 +27,16 @@ export async function GET(
     .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,lat,lon")
     .like("cluster_id", `${code}_%`);
 
+  // Communes avec historique complet (2020-2025)
+  const COMMUNES_HISTORIQUE_COMPLET = ["92078", "93029"]; // Villeneuve-la-Garenne, Drancy
+  const anneeMin = COMMUNES_HISTORIQUE_COMPLET.includes(code) ? 2020 : 2024;
+
   // Points DVF bruts — source de vérité quand disponibles
   const { data: points, error: err2 } = await supabase
     .from("dvf_points")
     .select("annee,prix_m2,type_local,valeur_fonciere")
     .eq("code_commune", code)
+    .gte("annee", anneeMin)
     .limit(50000);
 
   if (err1) return NextResponse.json({ error: err1.message }, { status: 500 });

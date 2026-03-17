@@ -7,6 +7,8 @@ import WaitlistBox from "@/components/WaitlistBox";
 // Pages statiques pré-générées pour le SEO (top 100 communes par volume)
 // Les autres communes restent accessibles en rendu dynamique
 export const dynamicParams = true;
+// Revalidation ISR : les pages se mettent à jour toutes les 6 heures
+export const revalidate = 21600;
 
 export async function generateStaticParams() {
   try {

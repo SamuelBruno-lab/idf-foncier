@@ -474,6 +474,26 @@ export default function HomePage() {
             >
               Contact
             </button>
+            <Link href="/methodologie" style={{ textDecoration: "none" }}>
+              <div
+                style={{
+                  padding: "12px 28px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,255,136,0.4)",
+                  background: "rgba(0,255,136,0.1)",
+                  color: "#00ff88",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontFamily: "Segoe UI, sans-serif",
+                  transition: "transform 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
+              >
+                Méthodologie
+              </div>
+            </Link>
           </div>
 
           {/* Panneau dépliable À propos / Contact */}
@@ -528,10 +548,15 @@ export default function HomePage() {
               fontSize: 11,
               color: "rgba(255,255,255,0.2)",
               fontFamily: "Segoe UI, sans-serif",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
             }}
           >
-            Built with open data{" "}
-            <span style={{ color: "rgba(0,212,255,0.5)", fontWeight: 600 }}>DVF / data.gouv.fr</span>
+            <Link href="/cgu" style={{ color: "rgba(255,255,255,0.25)", textDecoration: "none", fontSize: 11 }}>CGU</Link>
+            <Link href="/methodologie" style={{ color: "rgba(255,255,255,0.25)", textDecoration: "none", fontSize: 11 }}>Méthodologie</Link>
+            <span>Built with open data{" "}
+            <span style={{ color: "rgba(0,212,255,0.5)", fontWeight: 600 }}>DVF / data.gouv.fr</span></span>
           </div>
         </div>
       )}

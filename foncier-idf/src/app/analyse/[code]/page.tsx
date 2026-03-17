@@ -7,6 +7,8 @@ import WaitlistBox from "@/components/WaitlistBox";
 // Pages statiques pré-générées pour le SEO (top 100 communes par volume)
 // Les autres communes restent accessibles en rendu dynamique
 export const dynamicParams = true;
+// Revalidation ISR : les pages se mettent à jour toutes les 6 heures
+export const revalidate = 21600;
 
 export async function generateStaticParams() {
   try {
@@ -76,6 +78,8 @@ interface CommuneStats {
   byType: TypeRow[];
   evolution: EvolutionRow[];
   zones: Zone[];
+  /** IDF median prix_m2 by type_local (from dvf_clusters_region) */
+  idfMedians: Record<string, number>;
 }
 
 function median(arr: number[]): number {
@@ -189,6 +193,19 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const nom = clusters?.[0]?.nom ?? code;
   const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
+  // Médianes IDF par type (depuis dvf_clusters_region)
+  const { data: regionClusters } = await supabase
+    .from("dvf_clusters_region")
+    .select("type_local,prix_m2_median")
+    .not("type_local", "is", null);
+
+  const idfMedians: Record<string, number> = {};
+  for (const rc of regionClusters ?? []) {
+    if (rc.type_local && rc.prix_m2_median) {
+      idfMedians[rc.type_local] = rc.prix_m2_median;
+    }
+  }
+
   return {
     code,
     nom,
@@ -198,18 +215,14 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
+    idfMedians,
   };
 }
 
-// Médiane IDF de référence (source OLAP 2024 / DVF 2020-2024)
-const IDF_PRIX_M2_MEDIAN = 5500;
-
-function getContextPhrase(stats: CommuneStats): string | null {
-  if (stats.prix_m2_median > IDF_PRIX_M2_MEDIAN * 1.4)
-    return `Marché premium — prix médian ${Math.round(((stats.prix_m2_median - IDF_PRIX_M2_MEDIAN) / IDF_PRIX_M2_MEDIAN) * 100)}% au-dessus de la médiane IDF.`;
-  if (stats.prix_m2_median < IDF_PRIX_M2_MEDIAN * 0.7)
-    return `Marché accessible — prix médian ${Math.round(((IDF_PRIX_M2_MEDIAN - stats.prix_m2_median) / IDF_PRIX_M2_MEDIAN) * 100)}% sous la médiane IDF.`;
-  return null;
+/** Compute % difference vs IDF median. Positive = more expensive, negative = cheaper. */
+function pctVsIdf(communePrix: number | null, idfPrix: number | undefined): number | null {
+  if (!communePrix || !idfPrix || idfPrix === 0) return null;
+  return Math.round(((communePrix - idfPrix) / idfPrix) * 100);
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -275,6 +288,13 @@ export default async function AnalysePage({
   const mainTypes = stats.byType
     .filter((t) => t.type === "Appartement" || t.type === "Maison" || t.type === "Local industriel. commercial ou assimilé")
     .sort((a, b) => b.count - a.count);
+
+  // Global % vs IDF (weighted across types)
+  const allIdfPrices = Object.values(stats.idfMedians);
+  const idfGlobalMedian = allIdfPrices.length > 0
+    ? Math.round(allIdfPrices.reduce((s, v) => s + v, 0) / allIdfPrices.length)
+    : null;
+  const globalDelta = pctVsIdf(stats.prix_m2_median, idfGlobalMedian ?? undefined);
 
   return (
     <div
@@ -372,6 +392,16 @@ export default async function AnalysePage({
               show: true,
             },
             {
+              label: "vs médiane IDF",
+              value: globalDelta !== null
+                ? `${globalDelta > 0 ? "+" : ""}${globalDelta}%`
+                : "N/A",
+              color: globalDelta !== null
+                ? (globalDelta > 0 ? "#ff6b6b" : globalDelta < 0 ? "#51cf66" : "rgba(255,255,255,0.5)")
+                : "rgba(255,255,255,0.5)",
+              show: true,
+            },
+            {
               label: "Transactions totales",
               value: stats.totalCount.toLocaleString("fr-FR"),
               color: "#00d4ff",
@@ -403,30 +433,29 @@ export default async function AnalysePage({
 
         {/* Phrase de contexte marché */}
         {(() => {
-          const phrase = getContextPhrase(stats);
-          if (!phrase) return null;
-          return (
-            <div
-              style={{
-                marginBottom: 28,
-                padding: "14px 20px",
-                borderRadius: 10,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                display: "flex",
-                gap: 12,
-                alignItems: "flex-start",
-              }}
-            >
-              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
-              <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
-                {phrase}
-              </p>
-            </div>
-          );
+          if (globalDelta === null) return null;
+          if (globalDelta > 40)
+            return (
+              <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+                  Marché premium — prix médian {globalDelta}% au-dessus de la médiane IDF.
+                </p>
+              </div>
+            );
+          if (globalDelta < -30)
+            return (
+              <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+                  Marché accessible — prix médian {Math.abs(globalDelta)}% sous la médiane IDF.
+                </p>
+              </div>
+            );
+          return null;
         })()}
 
-        {/* Par type de bien */}
+        {/* Par type de bien — avec comparaison IDF */}
         {mainTypes.length > 0 && (
           <div style={{ marginBottom: 36 }}>
             <h2
@@ -439,36 +468,82 @@ export default async function AnalysePage({
                 marginBottom: 14,
               }}
             >
-              Par type de bien
+              Par type de bien — vs médiane Île-de-France
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              {mainTypes.map((t) => (
-                <div
-                  key={t.type}
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 12,
-                    padding: "18px 20px",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
-                    {TYPE_LABEL[t.type ?? ""] ?? t.type}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
+              {mainTypes.map((t) => {
+                const idfPrix = stats.idfMedians[t.type ?? ""];
+                const delta = pctVsIdf(t.prix_m2_median, idfPrix);
+                const isAbove = delta !== null && delta > 0;
+                const isBelow = delta !== null && delta < 0;
+                const deltaColor = isAbove ? "#ff6b6b" : isBelow ? "#51cf66" : "rgba(255,255,255,0.4)";
+                const deltaLabel = delta !== null
+                  ? (isAbove ? `+${delta}%` : `${delta}%`)
+                  : null;
+
+                return (
+                  <div
+                    key={t.type}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 12,
+                      padding: "18px 20px",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
+                      {TYPE_LABEL[t.type ?? ""] ?? t.type}
+                    </div>
+
+                    {/* Prix commune */}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Prix médian €/m²</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#ffdd00" }}>
+                        {t.prix_m2_median?.toLocaleString("fr-FR") ?? "N/A"} €
+                      </span>
+                    </div>
+
+                    {/* Médiane IDF */}
+                    {idfPrix && (
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Médiane IDF</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                          {idfPrix.toLocaleString("fr-FR")} €/m²
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Écart vs IDF */}
+                    {deltaLabel && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          background: isAbove ? "rgba(255,107,107,0.1)" : "rgba(81,207,102,0.1)",
+                          border: `1px solid ${isAbove ? "rgba(255,107,107,0.2)" : "rgba(81,207,102,0.2)"}`,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>vs IDF</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: deltaColor }}>
+                          {deltaLabel}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Transactions */}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Transactions</span>
+                      <span style={{ fontSize: 13, color: "#00d4ff" }}>
+                        {t.count.toLocaleString("fr-FR")}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Prix médian €/m²</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#ffdd00" }}>
-                      {t.prix_m2_median?.toLocaleString("fr-FR") ?? "N/A"} €
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Transactions</span>
-                    <span style={{ fontSize: 13, color: "#00d4ff" }}>
-                      {t.count.toLocaleString("fr-FR")}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

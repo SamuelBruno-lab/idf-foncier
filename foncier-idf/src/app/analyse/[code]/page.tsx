@@ -431,6 +431,30 @@ export default async function AnalysePage({
           ))}
         </div>
 
+        {/* Phrase de contexte marché */}
+        {(() => {
+          if (globalDelta === null) return null;
+          if (globalDelta > 40)
+            return (
+              <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+                  Marché premium — prix médian {globalDelta}% au-dessus de la médiane IDF.
+                </p>
+              </div>
+            );
+          if (globalDelta < -30)
+            return (
+              <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+                  Marché accessible — prix médian {Math.abs(globalDelta)}% sous la médiane IDF.
+                </p>
+              </div>
+            );
+          return null;
+        })()}
+
         {/* Par type de bien — avec comparaison IDF */}
         {mainTypes.length > 0 && (
           <div style={{ marginBottom: 36 }}>

@@ -120,13 +120,13 @@ export default function MethodologiePage() {
             fontSize: 11, color: "#00ff88", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff88", display: "inline-block" }} />
-            Open data · Méthodologie décrite
+            Open data · Méthodologie propriétaire
           </div>
           <h1 style={{ margin: "0 0 16px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>
             Méthodologie &amp; Transparence
           </h1>
           <p style={{ margin: 0, fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 620 }}>
-            Datamerry repose intégralement sur des données publiques et des algorithmes décrits.
+            Datamerry repose intégralement sur des données publiques et des algorithmes documentés.
             Voici comment nous collectons, traitons et restituons l&apos;information foncière.
           </p>
         </div>

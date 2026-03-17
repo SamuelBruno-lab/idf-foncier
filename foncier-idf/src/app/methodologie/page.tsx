@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Méthodologie et Transparence — datamerry · Observatoire foncier IA",
   description:
-    "Sources de données, traitements algorithmiques et engagements de transparence de datamerry. Données DVF, DPE, clustering HDBSCAN, open data.",
+    "Sources de données, traitements algorithmiques et engagements de transparence de datamerry. Données DVF, DPE, analyse de micro-marchés, open data.",
 };
 
 const SECTIONS = [
@@ -37,8 +37,8 @@ const SECTIONS = [
         desc: "Les transactions aberrantes (prix au m² extrêmes, surfaces nulles, doublons) sont filtrées automatiquement. Les adresses sont géocodées et rattachées à leur commune via les codes INSEE.",
       },
       {
-        label: "Clustering HDBSCAN",
-        desc: "L'algorithme HDBSCAN (Hierarchical Density-Based Spatial Clustering) identifie les micro-marchés immobiliers en regroupant les transactions géographiquement proches et homogènes en prix, sans imposer un nombre de clusters a priori.",
+        label: "Identification des micro-marchés",
+        desc: "Un algorithme propriétaire de clustering spatial identifie automatiquement les micro-marchés immobiliers en regroupant les transactions selon leur proximité géographique et leur homogénéité de prix.",
       },
       {
         label: "Statistiques descriptives",
@@ -83,12 +83,12 @@ const SECTIONS = [
     color: "#fbbf24",
     items: [
       {
-        label: "Accès gratuit",
-        desc: "La consultation de la carte et des analyses communales est gratuite et le restera. Datamerry s'inscrit dans une démarche d'ouverture et de démocratisation de l'information foncière.",
+        label: "Cartes existantes gratuites",
+        desc: "La consultation des cartes et analyses communales déjà publiées est gratuite. Pour des analyses sur mesure ou des cartes spécifiques à vos besoins, contactez-nous pour un devis personnalisé.",
       },
       {
-        label: "Reproductibilité",
-        desc: "Les traitements appliqués aux données sont documentés ici. Toute personne disposant des mêmes sources peut vérifier et reproduire les résultats.",
+        label: "Vérifiabilité",
+        desc: "Les sources de données utilisées sont publiques et référencées. Les résultats affichés peuvent être vérifiés par recoupement avec les données DVF officielles.",
       },
       {
         label: "Mise à jour continue",
@@ -120,7 +120,7 @@ export default function MethodologiePage() {
             fontSize: 11, color: "#00ff88", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff88", display: "inline-block" }} />
-            Open data · Open méthode
+            Open data · Méthodologie propriétaire
           </div>
           <h1 style={{ margin: "0 0 16px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>
             Méthodologie &amp; Transparence
@@ -173,10 +173,10 @@ export default function MethodologiePage() {
           textAlign: "center",
         }}>
           <h3 style={{ margin: "0 0 12px", fontSize: 20, fontWeight: 700, color: "#fff" }}>
-            Une question sur nos données ou méthodes ?
+            Besoin d&apos;une analyse sur mesure ?
           </h3>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "rgba(255,255,255,0.45)" }}>
-            Nous sommes transparents sur nos traitements. N&apos;hésitez pas à nous contacter pour toute précision.
+            Vous souhaitez des cartes spécifiques, une analyse de zone personnalisée ou un accompagnement dédié ? Contactez-nous pour un devis.
           </p>
           <a href="mailto:contact@datamerry.com" style={{
             display: "inline-flex", alignItems: "center", gap: 8,
@@ -184,7 +184,7 @@ export default function MethodologiePage() {
             background: "linear-gradient(135deg, #00d4ff, #0099cc)",
             color: "#000", fontSize: 14, fontWeight: 700, textDecoration: "none",
           }}>
-            Contactez-nous →
+            Demander un devis →
           </a>
         </div>
 

@@ -376,7 +376,7 @@ export default async function AnalysePage({
             {stats.nom}
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 6 }}>
-            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF
+            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF open data
           </p>
         </div>
 

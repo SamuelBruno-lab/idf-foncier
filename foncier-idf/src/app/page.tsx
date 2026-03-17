@@ -494,6 +494,26 @@ export default function HomePage() {
                 Méthodologie
               </div>
             </Link>
+            <Link href="/cgu" style={{ textDecoration: "none" }}>
+              <div
+                style={{
+                  padding: "12px 28px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "rgba(255,255,255,0.6)",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontFamily: "Segoe UI, sans-serif",
+                  transition: "transform 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
+              >
+                CGU
+              </div>
+            </Link>
           </div>
 
           {/* Panneau dépliable À propos / Contact */}

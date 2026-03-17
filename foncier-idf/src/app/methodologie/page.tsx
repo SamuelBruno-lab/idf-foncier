@@ -38,7 +38,7 @@ const SECTIONS = [
       },
       {
         label: "Identification des micro-marchés",
-        desc: "Un algorithme propriétaire de clustering spatial identifie automatiquement les micro-marchés immobiliers en regroupant les transactions selon leur proximité géographique et leur homogénéité de prix.",
+        desc: "Notre pipeline d'analyse spatiale repose sur un algorithme de clustering qui détecte les micro-marchés immobiliers à partir des transactions réelles. Contrairement aux approches classiques qui découpent le territoire en quartiers administratifs arbitraires, notre méthode fait émerger les zones de prix directement depuis les données, sans zonage prédéfini.",
       },
       {
         label: "Statistiques descriptives",

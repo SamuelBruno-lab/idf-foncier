@@ -539,24 +539,28 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Signature open data — bas droite */}
+          {/* Signature open data — bas centré */}
           <div
             style={{
               position: "absolute",
               bottom: 14,
-              right: 20,
+              left: 0,
+              right: 0,
               fontSize: 11,
               color: "rgba(255,255,255,0.2)",
               fontFamily: "Segoe UI, sans-serif",
               display: "flex",
               alignItems: "center",
-              gap: 12,
+              justifyContent: "center",
+              gap: 16,
             }}
           >
-            <Link href="/cgu" style={{ color: "rgba(255,255,255,0.25)", textDecoration: "none", fontSize: 11 }}>CGU</Link>
-            <Link href="/methodologie" style={{ color: "rgba(255,255,255,0.25)", textDecoration: "none", fontSize: 11 }}>Méthodologie</Link>
             <span>Built with open data{" "}
             <span style={{ color: "rgba(0,212,255,0.5)", fontWeight: 600 }}>DVF / data.gouv.fr</span></span>
+            <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
+            <Link href="/cgu" style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11 }}>CGU</Link>
+            <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
+            <Link href="/methodologie" style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11 }}>Méthodologie</Link>
           </div>
         </div>
       )}

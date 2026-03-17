@@ -73,8 +73,6 @@ interface CommuneStats {
   dept: string;
   totalCount: number;
   prix_m2_median: number;
-  loyer_median_m2: number | null;
-  rendement_brut: number | null;
   byType: TypeRow[];
   evolution: EvolutionRow[];
   zones: Zone[];
@@ -191,47 +189,22 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const nom = clusters?.[0]?.nom ?? code;
   const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
-  // Loyer et rendement : depuis les clusters pré-calculés
-  const residentialClusters = (clusters ?? []).filter(
-    (c) => c.type_local === "Appartement" || c.type_local === "Maison"
-  );
-  const loyerVals = residentialClusters
-    .map((c) => c.loyer_median_m2)
-    .filter((v): v is number => v != null && v > 0);
-  const rendementVals = residentialClusters
-    .map((c) => c.rendement_brut)
-    .filter((v): v is number => v != null && v > 0);
-
   return {
     code,
     nom,
     dept,
     totalCount,
     prix_m2_median: prixM2Median,
-    loyer_median_m2: loyerVals.length > 0 ? Math.round(median(loyerVals) * 10) / 10 : null,
-    rendement_brut: rendementVals.length > 0 ? Math.round(median(rendementVals) * 10) / 10 : null,
     byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
   };
 }
 
-// Médianes IDF de référence (source OLAP 2024 / DVF 2020-2024)
-const IDF_RENDEMENT_MEDIAN = 4.4;
+// Médiane IDF de référence (source OLAP 2024 / DVF 2020-2024)
 const IDF_PRIX_M2_MEDIAN = 5500;
 
 function getContextPhrase(stats: CommuneStats): string | null {
-  if (stats.rendement_brut != null) {
-    const diff = stats.rendement_brut - IDF_RENDEMENT_MEDIAN;
-    const pct = Math.abs(Math.round((diff / IDF_RENDEMENT_MEDIAN) * 100));
-    if (diff >= 1.5)
-      return `Rendement attractif · ${pct}% au-dessus de la médiane IDF (${IDF_RENDEMENT_MEDIAN}%) — profil investisseur locatif.`;
-    if (diff >= 0)
-      return `Rendement dans la moyenne IDF (${IDF_RENDEMENT_MEDIAN}%) — bon équilibre valorisation / rendement.`;
-    if (diff >= -1.5)
-      return `Marché légèrement sous la médiane IDF en rendement · profil patrimonial et valorisation long terme.`;
-    return `Marché premium à faible rendement locatif · profil résidence principale ou patrimoine.`;
-  }
   if (stats.prix_m2_median > IDF_PRIX_M2_MEDIAN * 1.4)
     return `Marché premium — prix médian ${Math.round(((stats.prix_m2_median - IDF_PRIX_M2_MEDIAN) / IDF_PRIX_M2_MEDIAN) * 100)}% au-dessus de la médiane IDF.`;
   if (stats.prix_m2_median < IDF_PRIX_M2_MEDIAN * 0.7)
@@ -410,38 +383,12 @@ export default async function AnalysePage({
               color: "#a855f7",
               show: true,
             },
-            {
-              label: "Loyer médian",
-              value: stats.loyer_median_m2 != null
-                ? `${stats.loyer_median_m2.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/m²/mois`
-                : "N/A",
-              color: "#88ffcc",
-              show: stats.loyer_median_m2 != null,
-            },
-            {
-              label: "Rendement brut",
-              value: stats.rendement_brut != null
-                ? `${stats.rendement_brut.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
-                : "N/A",
-              color: stats.rendement_brut == null
-                ? "#888"
-                : stats.rendement_brut >= 5
-                ? "#00ff88"
-                : stats.rendement_brut >= 3
-                ? "#ffaa00"
-                : "#ff4444",
-              show: stats.rendement_brut != null,
-            },
           ].filter((c) => c.show).map(({ label, value, color }) => (
             <div
               key={label}
               style={{
-                background: label === "Rendement brut"
-                  ? "rgba(0,255,136,0.04)"
-                  : "rgba(255,255,255,0.04)",
-                border: label === "Rendement brut"
-                  ? "1px solid rgba(0,255,136,0.15)"
-                  : "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 12,
                 padding: "20px 18px",
               }}
@@ -458,21 +405,20 @@ export default async function AnalysePage({
         {(() => {
           const phrase = getContextPhrase(stats);
           if (!phrase) return null;
-          const isGood = stats.rendement_brut != null && stats.rendement_brut >= IDF_RENDEMENT_MEDIAN;
           return (
             <div
               style={{
                 marginBottom: 28,
                 padding: "14px 20px",
                 borderRadius: 10,
-                background: isGood ? "rgba(0,255,136,0.04)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${isGood ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.07)"}`,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
                 display: "flex",
                 gap: 12,
                 alignItems: "flex-start",
               }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{isGood ? "📈" : "📊"}</span>
+              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
               <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
                 {phrase}
               </p>

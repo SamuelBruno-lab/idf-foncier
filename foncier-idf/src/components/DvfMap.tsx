@@ -181,13 +181,6 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
             <div style={{ color: "#aaa", marginTop: 4 }}>
               {(hovered as DvfCluster).prix_median?.toLocaleString("fr-FR")} € médian
             </div>
-            {(hovered as DvfCluster).loyer_median_m2 != null && (
-              <div style={{ marginTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8 }}>
-                <div style={{ color: "#88ffcc" }}>
-                  Loyer médian : {(hovered as DvfCluster).loyer_median_m2?.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/m²/mois
-                </div>
-              </div>
-            )}
           </>
         ) : (
           <>

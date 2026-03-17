@@ -94,7 +94,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
   const [intent, setIntent] = useState<Intent | null>(initialIntent ?? null);
   const [budget, setBudget] = useState("");
   const [timeline, setTimeline] = useState("");
-  const [form, setForm] = useState({ prenom: "", email: "", telephone: "" });
+  const [form, setForm] = useState({ nom: "", prenom: "", societe: "", email: "", telephone: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -104,7 +104,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.email || !form.prenom) return;
+    if (!form.email || !form.prenom || !form.nom) return;
     setStatus("loading");
     try {
       const res = await fetch("/api/leads", {
@@ -112,7 +112,10 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email,
+          nom: `${form.prenom} ${form.nom}`.trim(),
           prenom: form.prenom,
+          nom_famille: form.nom,
+          societe: form.societe,
           telephone: form.telephone,
           consentement: true,
           intent,
@@ -309,21 +312,33 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
                 </div>
               </div>
 
-              {/* Prénom + Email */}
+              {/* Prénom + Nom */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <label>
                   <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Prénom *</span>
                   <input type="text" required value={form.prenom} onChange={set("prenom")} placeholder="Thomas" style={inputStyle} />
                 </label>
                 <label>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Nom *</span>
+                  <input type="text" required value={form.nom} onChange={set("nom")} placeholder="Dupont" style={inputStyle} />
+                </label>
+              </div>
+              {/* Société (optionnel) */}
+              <label style={{ display: "block", marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Société</span>
+                <input type="text" value={form.societe} onChange={set("societe")} placeholder="Agence, promoteur, cabinet..." style={inputStyle} />
+              </label>
+              {/* Email + Téléphone */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <label>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Email *</span>
+                  <input type="email" required value={form.email} onChange={set("email")} placeholder="vous@exemple.fr" style={inputStyle} />
+                </label>
+                <label>
                   <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Téléphone</span>
                   <input type="tel" value={form.telephone} onChange={set("telephone")} placeholder="+33 6 ..." style={inputStyle} />
                 </label>
               </div>
-              <label style={{ display: "block", marginBottom: 18 }}>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5, letterSpacing: 0.5, display: "block" }}>Email *</span>
-                <input type="email" required value={form.email} onChange={set("email")} placeholder="vous@exemple.fr" style={inputStyle} />
-              </label>
 
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 14, lineHeight: 1.5 }}>
                 En soumettant ce formulaire, vous acceptez d&apos;être contacté(e) par un expert du marché de {commune.nom}. Données protégées · Désabonnement à tout moment.

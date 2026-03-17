@@ -36,7 +36,7 @@ from scipy.spatial import ConvexHull
 # ── Config ────────────────────────────────────────────────────────────────────
 
 DATA_DIR = Path("/home/user")
-ENV_FILE = DATA_DIR / "foncier-idf" / ".env.local"
+ENV_FILE = Path("/home/user/idf-foncier/foncier-idf/.env.local")
 
 IDF_DEPTS = ["75", "77", "78", "91", "92", "93", "94", "95"]
 
@@ -59,7 +59,7 @@ PRIX_M2_MIN = 500  # plancher global
 
 # URLs DVF géocodées par année/département (geo-dvf.etalab.gouv.fr)
 DVF_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv/{year}/departements/{dept}.csv.gz"
-DVF_YEARS = [2020, 2021, 2022, 2023, 2024]  # 2025 partiel selon disponibilité
+DVF_YEARS = [2020, 2021, 2022, 2023, 2024, 2025]
 
 
 # ── Utilitaires ───────────────────────────────────────────────────────────────
@@ -126,6 +126,13 @@ def load_csv_dept(dept: str, csv_path: Path) -> pd.DataFrame:
     df["surface_reelle_bati"] = pd.to_numeric(df["surface_reelle_bati"], errors="coerce")
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+
+    # Correction DVF multi-lots : valeur_fonciere est la valeur totale de la mutation,
+    # répétée sur chaque lot. On divise par le nombre de lots par id_mutation.
+    # (cohérent avec 02_import_dvf.py)
+    if "id_mutation" in df.columns:
+        lots_par_mutation = df.groupby("id_mutation")["id_mutation"].transform("count")
+        df["valeur_fonciere"] = (df["valeur_fonciere"] / lots_par_mutation).round()
 
     # Prix au m²
     df["prix_m2"] = np.where(

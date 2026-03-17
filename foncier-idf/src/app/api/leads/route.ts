@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       budget: budget || null,
       timeline: timeline || null,
     },
-    { onConflict: "email", ignoreDuplicates: true }
+    { onConflict: "email", ignoreDuplicates: false }
   );
 
   if (error) {
@@ -63,23 +63,101 @@ export async function POST(req: NextRequest) {
   // Notification email non-bloquante
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const intentLabels: Record<string, string> = {
+      acheteur: "J'achète",
+      vendeur: "Je vends",
+      investisseur: "J'investis",
+      agent: "Je suis agent",
+    };
+    const intentDisplay = intent ? (intentLabels[intent] ?? intent) : "—";
+    const subjectSuffix = intent && commune_nom
+      ? ` · ${intentDisplay} · ${commune_nom}`
+      : "";
+
+    // Notification interne → contact@datamerry.com
     resend.emails.send({
       from: "datamerry <no-reply@datamerry.com>",
       to: "contact@datamerry.com",
-      subject: `[datamerry] Nouveau lead · ${nom || email}`,
+      subject: `[datamerry] Nouveau lead · ${nom || email}${subjectSuffix}`,
       text: [
-        `Nouvelle inscription accès anticipé.`,
+        intent ? `Nouveau lead — ${intentDisplay}` : `Nouvelle inscription accès anticipé.`,
         ``,
         `Prénom   : ${prenom || "—"}`,
         `Nom      : ${nom_famille || "—"}`,
         `Email    : ${email}`,
         `Société  : ${societe || "—"}`,
         `Téléphone: ${telephone || "—"}`,
+        `Intent   : ${intentDisplay}`,
+        `Commune  : ${commune_nom || "—"}${commune_code ? ` (${commune_code})` : ""}`,
+        `Budget   : ${budget || "—"}`,
+        `Horizon  : ${timeline || "—"}`,
         `Source   : ${(body.source ?? "carte_idf")}`,
         ``,
         `→ Supabase leads : https://supabase.com/dashboard/project/zexkxstcwkdsqjgsppvx/editor`,
       ].join("\n"),
     }).catch((err: unknown) => console.error("resend lead notification error:", err));
+
+    // Confirmation email → utilisateur
+    if (intent && commune_nom) {
+      const confirmMessages: Record<string, string[]> = {
+        acheteur: [
+          `Bonjour ${prenom || ""},`,
+          ``,
+          `Votre demande pour ${commune_nom} a bien été prise en compte.`,
+          ``,
+          `Un expert du marché immobilier de ${commune_nom} vous contactera très prochainement pour vous proposer une sélection de biens correspondant à votre recherche.`,
+          ``,
+          `À très vite,`,
+          `L'équipe datamerry`,
+          `https://datamerry.com`,
+        ],
+        vendeur: [
+          `Bonjour ${prenom || ""},`,
+          ``,
+          `Votre demande d'estimation pour ${commune_nom} a bien été enregistrée.`,
+          ``,
+          `Un expert du marché de ${commune_nom} vous contactera prochainement pour vous fournir une estimation gratuite de votre bien.`,
+          ``,
+          `À très vite,`,
+          `L'équipe datamerry`,
+          `https://datamerry.com`,
+        ],
+        investisseur: [
+          `Bonjour ${prenom || ""},`,
+          ``,
+          `Votre demande pour investir à ${commune_nom} a bien été prise en compte.`,
+          ``,
+          `Un expert du marché vous contactera prochainement avec les données de rentabilité et les micro-marchés à fort potentiel.`,
+          ``,
+          `À très vite,`,
+          `L'équipe datamerry`,
+          `https://datamerry.com`,
+        ],
+        agent: [
+          `Bonjour ${prenom || ""},`,
+          ``,
+          `Votre demande d'accès aux données DVF enrichies a bien été enregistrée.`,
+          ``,
+          `Vous recevrez les rapports de marché et leads qualifiés pour votre secteur sous 24h.`,
+          ``,
+          `À très vite,`,
+          `L'équipe datamerry`,
+          `https://datamerry.com`,
+        ],
+      };
+      const confirmSubjects: Record<string, string> = {
+        acheteur: `Votre recherche à ${commune_nom} — datamerry`,
+        vendeur: `Votre estimation à ${commune_nom} — datamerry`,
+        investisseur: `Votre projet d'investissement à ${commune_nom} — datamerry`,
+        agent: `Accès données DVF · ${commune_nom} — datamerry`,
+      };
+      resend.emails.send({
+        from: "datamerry <no-reply@datamerry.com>",
+        to: email,
+        subject: confirmSubjects[intent] ?? `Votre demande pour ${commune_nom} — datamerry`,
+        text: (confirmMessages[intent] ?? confirmMessages.acheteur).join("\n"),
+      }).catch((err: unknown) => console.error("resend lead confirmation error:", err));
+    }
   }
 
   return NextResponse.json({ ok: true });

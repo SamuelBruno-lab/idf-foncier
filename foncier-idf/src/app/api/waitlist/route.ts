@@ -32,10 +32,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 
-  // Confirmation email uniquement pour les inscriptions gratuites (pas les paid_request)
   if (entryType === "notify" && process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const communeLabel = commune_nom ?? commune_code;
+
+    // Notification interne → contact@datamerry.com
+    resend.emails.send({
+      from: "datamerry <no-reply@datamerry.com>",
+      to: "contact@datamerry.com",
+      subject: `[datamerry] Nouvelle inscription waitlist · ${communeLabel}`,
+      text: [
+        `Nouvelle inscription sur la liste d'attente.`,
+        ``,
+        `Email    : ${email}`,
+        `Commune  : ${communeLabel} (${commune_code})`,
+        ``,
+        `→ Supabase waitlist : https://supabase.com/dashboard/project/zexkxstcwkdsqjgsppvx/editor`,
+      ].join("\n"),
+    }).catch((err: unknown) => console.error("resend waitlist owner notification error:", err));
+
+    // Confirmation email → utilisateur
     resend.emails.send({
       from: "datamerry <no-reply@datamerry.com>",
       to: email,

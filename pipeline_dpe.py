@@ -291,8 +291,8 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     Fullscreen(position="topright").add_to(m)
     MiniMap(position="bottomleft", tile_layer="CartoDB dark_matter", zoom_level_offset=-5).add_to(m)
 
-    # ── Polygones micro-zones DPE (zones only, no individual points or heatmap) ──
-    poly_fg = folium.FeatureGroup(name="🗺️ Micro-zones DPE", show=True)
+    # ── Build zone polygon data as JSON for JS-based rendering with filters ──
+    zones_data = []
     for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
         pts = data[data["cluster"] == cid][["latitude", "longitude"]].values
         if len(pts) < 3:
@@ -309,28 +309,46 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
             mc_s = f"{mc:.0f}" if pd.notna(mc) else "—"
             mg = sub["ges_m2"].median()
             mg_s = f"{mg:.1f}" if pd.notna(mg) else "—"
-            src_counts = sub["source_label"].value_counts()
-            src_s = " · ".join(f"{v} {k}" for k, v in src_counts.items())
+            src_sub_counts = sub["source"].value_counts()
+            src_label_counts = sub["source_label"].value_counts()
+            src_s = " · ".join(f"{v} {k}" for k, v in src_label_counts.items())
             popup_html = (
                 f"<div style='font-family:Segoe UI,sans-serif;min-width:230px;color:#222;'>"
                 f"<div style='background:{color};color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;'>"
-                f"Zone {cid} · DPE {dom}</div>"
+                f"Zone {cid} \\u00B7 DPE {dom}</div>"
                 f"<div style='padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;'>"
                 f"<div style='font-size:11px;margin-bottom:6px;'>{dist_html}</div>"
                 f"<div style='font-size:12px;color:#555;'>"
-                f"{len(sub)} diagnostics · {mc_s} kWh/m²/an · {mg_s} kgCO₂/m²/an<br>"
+                f"{len(sub)} diagnostics \\u00B7 {mc_s} kWh/m\\u00B2/an \\u00B7 {mg_s} kgCO\\u2082/m\\u00B2/an<br>"
                 f"<span style='font-size:10px;color:#888;'>{src_s}</span>"
                 f"</div></div></div>"
             )
-            folium.Polygon(
-                locations=hull_pts, color=color,
-                fill=True, fill_color=color, fill_opacity=0.12, weight=2,
-                popup=folium.Popup(popup_html, max_width=280),
-                tooltip=f"<b style='color:{color}'>Zone {cid}</b> · DPE {dom} · {len(sub)}",
-            ).add_to(poly_fg)
+            tooltip_html = f"<b style='color:{color}'>Zone {cid}</b> \\u00B7 DPE {dom} \\u00B7 {len(sub)}"
+            # Per-DPE-letter counts for this zone
+            dpe_breakdown = {}
+            for lb in DPE_LABELS:
+                cnt = int((sub["etiquette_dpe"] == lb).sum())
+                if cnt > 0:
+                    dpe_breakdown[lb] = cnt
+            # Per-source counts for this zone
+            src_breakdown = {}
+            for sk in ["existant", "neuf", "tertiaire"]:
+                cnt = int(src_sub_counts.get(sk, 0))
+                if cnt > 0:
+                    src_breakdown[sk] = cnt
+            zones_data.append({
+                "id": int(cid),
+                "pts": [[round(p[0], 6), round(p[1], 6)] for p in hull_pts],
+                "dom": dom,
+                "color": color,
+                "count": len(sub),
+                "popup": popup_html,
+                "tooltip": tooltip_html,
+                "dpe": dpe_breakdown,
+                "src": src_breakdown,
+            })
         except Exception:
             pass
-    poly_fg.add_to(m)
 
     folium.LayerControl(collapsed=True, position="topright").add_to(m)
 
@@ -442,12 +460,14 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
 </style>"""
 
     dpe_counts_json = json.dumps(dpe_counts, separators=(',', ':'))
+    zones_json = json.dumps(zones_data, separators=(',', ':'), ensure_ascii=False)
 
     custom_js = f"""<script>
 (function() {{
   var DPE_LABELS = ['A','B','C','D','E','F','G'];
   var DPE_COLORS = ['#319834','#33cc31','#cbfc34','#fbfe06','#fbcc05','#f58221','#ef1d29'];
   var DPE_THRESHOLDS = ['\\u226470','71-110','111-180','181-250','251-330','331-420','\\u2265421'];
+  var SRC_KEYS = ['existant','neuf','tertiaire'];
   var SRC_LABELS = ['Existant','Neuf','Tertiaire'];
   var SRC_TOTALS = {json.dumps(src_totals)};
   var DPE_COUNTS = {dpe_counts_json};
@@ -458,10 +478,64 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
 
   var COMMUNES = {communes_json};
   var COM_BB = {bboxes_json};
+  var ZONES = {zones_json};
 
   var map = {map_var};
 
-  // ── Build dashboard HTML (zones only, no individual points) ──
+  // ── State: all DPE letters unchecked by default, all sources active ──
+  var activeLetters = {{}};
+  DPE_LABELS.forEach(function(lb) {{ activeLetters[lb] = false; }});
+  var activeSources = {{existant: true, neuf: true, tertiaire: true}};
+
+  // ── Create Leaflet polygons from zone data ──
+  var zonePolygons = [];
+  ZONES.forEach(function(z) {{
+    var poly = L.polygon(z.pts, {{
+      color: z.color, fillColor: z.color, fillOpacity: 0.12, weight: 2
+    }});
+    poly.bindPopup(z.popup, {{maxWidth: 280}});
+    poly.bindTooltip(z.tooltip);
+    poly._zoneData = z;
+    zonePolygons.push(poly);
+  }});
+
+  // ── Filter logic: show zone if dominant DPE letter is checked AND zone has points from active sources ──
+  function applyFilters() {{
+    var displayed = 0;
+    var visibleZones = 0;
+    zonePolygons.forEach(function(poly) {{
+      var z = poly._zoneData;
+      var letterOk = activeLetters[z.dom];
+      var sourceOk = false;
+      SRC_KEYS.forEach(function(sk) {{
+        if (activeSources[sk] && z.src[sk]) sourceOk = true;
+      }});
+      if (letterOk && sourceOk) {{
+        if (!map.hasLayer(poly)) poly.addTo(map);
+        displayed += z.count;
+        visibleZones++;
+      }} else {{
+        if (map.hasLayer(poly)) map.removeLayer(poly);
+      }}
+    }});
+    // Update counter
+    var counterEl = document.getElementById('dpe-counter');
+    if (counterEl) counterEl.innerHTML = '<span style="font-weight:800;font-size:18px;color:#fff">' + displayed.toLocaleString('fr') + '</span> / ' + TOTAL.toLocaleString('fr');
+    var zonesEl = document.getElementById('dpe-zones-count');
+    if (zonesEl) zonesEl.textContent = visibleZones;
+    // Update passoires %
+    var passoiresCount = 0;
+    zonePolygons.forEach(function(poly) {{
+      var z = poly._zoneData;
+      if (map.hasLayer(poly)) {{
+        passoiresCount += (z.dpe['F'] || 0) + (z.dpe['G'] || 0);
+      }}
+    }});
+    var pctEl = document.getElementById('dpe-pct-fg');
+    if (pctEl) pctEl.textContent = displayed > 0 ? Math.round(passoiresCount / displayed * 100) + '%' : '0%';
+  }}
+
+  // ── Build dashboard HTML ──
   var dash = document.getElementById('dpe-app');
   dash.innerHTML = '<div id="dpe-dash">' +
     '<div class="dpe-hdr">' +
@@ -473,14 +547,20 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
       '<div class="dpe-section">' +
         '<div class="dpe-dist-bar" id="dpe-bar"></div>' +
         '<div class="dpe-kpi-grid">' +
-          '<div class="dpe-kpi"><div class="val">' + TOTAL.toLocaleString('fr') + '</div><div class="lbl">Diagnostics</div></div>' +
-          '<div class="dpe-kpi"><div class="val">' + N_ZONES + '</div><div class="lbl">Micro-zones</div></div>' +
-          '<div class="dpe-kpi"><div class="val" style="color:#ef1d29">' + PCT_FG + '%</div><div class="lbl">Passoires (F+G)</div></div>' +
+          '<div class="dpe-kpi"><div class="val" id="dpe-counter"><span style="font-weight:800;font-size:18px;color:#fff">0</span> / ' + TOTAL.toLocaleString('fr') + '</div><div class="lbl">Affich\\u00E9s</div></div>' +
+          '<div class="dpe-kpi"><div class="val" id="dpe-zones-count">0</div><div class="lbl">Micro-zones</div></div>' +
+          '<div class="dpe-kpi"><div class="val" style="color:#ef1d29" id="dpe-pct-fg">0%</div><div class="lbl">Passoires (F+G)</div></div>' +
           '<div class="dpe-kpi"><div class="val">' + MED_CONSO + '</div><div class="lbl">kWh/m\\u00B2/an m\\u00E9d.</div></div>' +
         '</div>' +
-        '<div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:6px">' +
-          SRC_TOTALS.map(function(n,i) {{ return n > 0 ? n.toLocaleString('fr') + ' ' + SRC_LABELS[i] : ''; }}).filter(Boolean).join(' + ') +
-        '</div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Filtres DPE</div>' +
+        '<div class="dpe-filter-row" id="dpe-filters"></div>' +
+        '<div style="display:flex;gap:4px;margin-top:6px" id="dpe-quick-btns"></div>' +
+      '</div>' +
+      '<div class="dpe-section">' +
+        '<div class="dpe-section-title">Sources</div>' +
+        '<div class="dpe-filter-row" id="dpe-sources"></div>' +
       '</div>' +
       '<div class="dpe-section">' +
         '<div class="dpe-section-title">Chercher une commune</div>' +
@@ -505,6 +585,92 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
     if (b.style.display === 'none') {{ b.style.display = 'block'; this.textContent = '\\u25B2'; }}
     else {{ b.style.display = 'none'; this.textContent = '\\u25BC'; }}
   }};
+
+  // ── Build DPE letter filter checkboxes (all unchecked by default) ──
+  var filtersEl = document.getElementById('dpe-filters');
+  DPE_LABELS.forEach(function(lb, i) {{
+    var label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:3px;cursor:pointer;font-size:12px;font-weight:700;color:' + DPE_COLORS[i] + ';user-select:none;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);transition:all 0.15s;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = false;
+    cb.style.cssText = 'accent-color:' + DPE_COLORS[i] + ';cursor:pointer;';
+    cb.onchange = function() {{
+      activeLetters[lb] = this.checked;
+      label.style.background = this.checked ? DPE_COLORS[i] + '22' : 'rgba(255,255,255,0.04)';
+      label.style.borderColor = this.checked ? DPE_COLORS[i] + '66' : 'rgba(255,255,255,0.1)';
+      applyFilters();
+    }};
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(lb));
+    filtersEl.appendChild(label);
+  }});
+
+  // ── Quick filter buttons: Tout, Aucun, F+G seul ──
+  var quickBtns = document.getElementById('dpe-quick-btns');
+  var btnStyle = 'padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);font-size:11px;font-family:Segoe UI,sans-serif;cursor:pointer;transition:all 0.15s;';
+
+  function updateCheckboxUI() {{
+    var cbs = filtersEl.querySelectorAll('input[type=checkbox]');
+    cbs.forEach(function(cb, i) {{
+      cb.checked = activeLetters[DPE_LABELS[i]];
+      var lbl = cb.parentElement;
+      lbl.style.background = cb.checked ? DPE_COLORS[i] + '22' : 'rgba(255,255,255,0.04)';
+      lbl.style.borderColor = cb.checked ? DPE_COLORS[i] + '66' : 'rgba(255,255,255,0.1)';
+    }});
+  }}
+
+  // Tout
+  var btnAll = document.createElement('button');
+  btnAll.textContent = 'Tout';
+  btnAll.style.cssText = btnStyle;
+  btnAll.onclick = function() {{
+    DPE_LABELS.forEach(function(lb) {{ activeLetters[lb] = true; }});
+    updateCheckboxUI();
+    applyFilters();
+  }};
+  quickBtns.appendChild(btnAll);
+
+  // Aucun
+  var btnNone = document.createElement('button');
+  btnNone.textContent = 'Aucun';
+  btnNone.style.cssText = btnStyle;
+  btnNone.onclick = function() {{
+    DPE_LABELS.forEach(function(lb) {{ activeLetters[lb] = false; }});
+    updateCheckboxUI();
+    applyFilters();
+  }};
+  quickBtns.appendChild(btnNone);
+
+  // F+G seul.
+  var btnFG = document.createElement('button');
+  btnFG.textContent = 'F+G seul.';
+  btnFG.style.cssText = btnStyle;
+  btnFG.onclick = function() {{
+    DPE_LABELS.forEach(function(lb) {{ activeLetters[lb] = (lb === 'F' || lb === 'G'); }});
+    updateCheckboxUI();
+    applyFilters();
+  }};
+  quickBtns.appendChild(btnFG);
+
+  // ── Source toggle buttons ──
+  var srcEl = document.getElementById('dpe-sources');
+  SRC_KEYS.forEach(function(sk, i) {{
+    if (SRC_TOTALS[i] <= 0) return;
+    var btn = document.createElement('button');
+    btn.textContent = SRC_LABELS[i] + ' (' + SRC_TOTALS[i].toLocaleString('fr') + ')';
+    btn.style.cssText = 'padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:#fff;font-size:11px;font-family:Segoe UI,sans-serif;cursor:pointer;transition:all 0.15s;font-weight:600;';
+    btn._active = true;
+    btn.onclick = function() {{
+      btn._active = !btn._active;
+      activeSources[sk] = btn._active;
+      btn.style.background = btn._active ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)';
+      btn.style.borderColor = btn._active ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)';
+      btn.style.color = btn._active ? '#fff' : 'rgba(255,255,255,0.3)';
+      applyFilters();
+    }};
+    srcEl.appendChild(btn);
+  }});
 
   // ── Build distribution bar (pre-computed) ──
   var barEl = document.getElementById('dpe-bar');
@@ -553,6 +719,9 @@ def make_dpe_map(data, cfg, out_path, dvf_zone_stats=None, map_label=None, map_s
       searchRes.appendChild(item);
     }});
   }});
+
+  // ── Initial state: all letters unchecked → no zones displayed ──
+  applyFilters();
 }})();
 </script>"""
 

@@ -95,18 +95,27 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Clusters pré-calculés (stats agrégées)
   const { data: clusters } = await supabase
     .from("dvf_clusters_commune")
     .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,loyer_median_m2,rendement_brut")
     .like("cluster_id", `${code}_%`);
 
-  if (!clusters || clusters.length === 0) return null;
+  // Paris (75xxx) et Boulogne-Billancourt (92012) : trop de volume → 2024-2025
+  // Toutes les autres communes IDF + 60 : historique complet 2020-2025
+  const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
 
+  // Points DVF bruts (source de vérité quand disponibles)
   const { data: points } = await supabase
     .from("dvf_points")
-    .select("annee,prix_m2")
+    .select("annee,prix_m2,type_local,valeur_fonciere")
     .eq("code_commune", code)
-    .limit(5000);
+    .gte("annee", anneeMin)
+    .limit(50000);
+
+  if ((!clusters || clusters.length === 0) && (!points || points.length === 0)) return null;
+
+  const hasPoints = points && points.length > 0;
 
   const { data: zones } = await supabase
     .from("dvf_hdbscan_zones")
@@ -117,26 +126,73 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     .order("type_local")
     .order("cluster_id");
 
-  const byYear: Record<number, { prices: number[]; count: number }> = {};
-  for (const p of points ?? []) {
-    if (!p.annee) continue;
-    if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
-    byYear[p.annee].count++;
-    if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
+  // Si dvf_points a des données, calculer depuis les points (source de vérité)
+  // Sinon, fallback sur dvf_clusters_commune (pré-calculé)
+  let totalCount: number;
+  let prixM2Median: number;
+  let byTypeResult: TypeRow[];
+  let evolution: EvolutionRow[];
+
+  // Types affichés (exclut Dépendance, Autre…)
+  const DISPLAYED_TYPES = new Set(["Appartement", "Maison", "Local industriel. commercial ou assimilé"]);
+
+  if (hasPoints) {
+    const filtered = points.filter((p) => p.type_local != null && DISPLAYED_TYPES.has(p.type_local));
+    const byYear: Record<number, { prices: number[]; count: number }> = {};
+    const byType: Record<string, { prices: number[]; valeurs: number[]; count: number }> = {};
+
+    for (const p of filtered) {
+      if (p.annee) {
+        if (!byYear[p.annee]) byYear[p.annee] = { prices: [], count: 0 };
+        byYear[p.annee].count++;
+        if (p.prix_m2) byYear[p.annee].prices.push(p.prix_m2);
+      }
+      const type = p.type_local!;
+      if (!byType[type]) byType[type] = { prices: [], valeurs: [], count: 0 };
+      byType[type].count++;
+      if (p.prix_m2) byType[type].prices.push(p.prix_m2);
+      if (p.valeur_fonciere) byType[type].valeurs.push(p.valeur_fonciere);
+    }
+
+    evolution = Object.entries(byYear)
+      .map(([annee, { prices, count }]) => ({
+        annee: parseInt(annee),
+        count,
+        prix_m2_median: median(prices),
+      }))
+      .sort((a, b) => a.annee - b.annee);
+
+    totalCount = filtered.length;
+    const allPrixM2 = filtered.map((p) => p.prix_m2).filter((v): v is number => v != null && v > 0);
+    prixM2Median = median(allPrixM2);
+    byTypeResult = Object.entries(byType).map(([type, data]) => ({
+      type,
+      count: data.count,
+      prix_median: data.valeurs.length > 0 ? median(data.valeurs) : null,
+      prix_m2_median: data.prices.length > 0 ? median(data.prices) : null,
+    }));
+  } else {
+    // Fallback : utiliser dvf_clusters_commune — filtré sur les types affichés
+    const filteredClusters = (clusters ?? []).filter(
+      (c) => c.type_local != null && DISPLAYED_TYPES.has(c.type_local)
+    );
+    totalCount = filteredClusters.reduce((s, c) => s + c.count, 0);
+    const allPrixM2 = filteredClusters.map((c) => c.prix_m2_median).filter(Boolean) as number[];
+    prixM2Median = median(allPrixM2);
+    byTypeResult = filteredClusters.map((c) => ({
+      type: c.type_local,
+      count: c.count,
+      prix_median: c.prix_median,
+      prix_m2_median: c.prix_m2_median,
+    }));
+    evolution = [];
   }
 
-  const evolution = Object.entries(byYear)
-    .map(([annee, { prices, count }]) => ({
-      annee: parseInt(annee),
-      count,
-      prix_m2_median: median(prices),
-    }))
-    .sort((a, b) => a.annee - b.annee);
+  const nom = clusters?.[0]?.nom ?? code;
+  const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
-  const allPrixM2 = clusters.map((c) => c.prix_m2_median).filter(Boolean) as number[];
-
-  // Loyer et rendement : uniquement sur les biens résidentiels
-  const residentialClusters = clusters.filter(
+  // Loyer et rendement : depuis les clusters pré-calculés
+  const residentialClusters = (clusters ?? []).filter(
     (c) => c.type_local === "Appartement" || c.type_local === "Maison"
   );
   const loyerVals = residentialClusters
@@ -148,18 +204,13 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
 
   return {
     code,
-    nom: clusters[0].nom,
-    dept: clusters[0].dept,
-    totalCount: clusters.reduce((s, c) => s + c.count, 0),
-    prix_m2_median: median(allPrixM2),
+    nom,
+    dept,
+    totalCount,
+    prix_m2_median: prixM2Median,
     loyer_median_m2: loyerVals.length > 0 ? Math.round(median(loyerVals) * 10) / 10 : null,
     rendement_brut: rendementVals.length > 0 ? Math.round(median(rendementVals) * 10) / 10 : null,
-    byType: clusters.map((c) => ({
-      type: c.type_local,
-      count: c.count,
-      prix_median: c.prix_median,
-      prix_m2_median: c.prix_m2_median,
-    })),
+    byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
   };
@@ -249,7 +300,7 @@ export default async function AnalysePage({
   const yearMax = stats.evolution.length > 0 ? stats.evolution[stats.evolution.length - 1].annee : 2025;
 
   const mainTypes = stats.byType
-    .filter((t) => t.type === "Appartement" || t.type === "Maison")
+    .filter((t) => t.type === "Appartement" || t.type === "Maison" || t.type === "Local industriel. commercial ou assimilé")
     .sort((a, b) => b.count - a.count);
 
   return (
@@ -325,7 +376,7 @@ export default async function AnalysePage({
             {stats.nom}
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 6 }}>
-            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF
+            {stats.totalCount.toLocaleString("fr-FR")} transactions immobilières · {yearMin}–{yearMax} · Source DVF open data
           </p>
         </div>
 

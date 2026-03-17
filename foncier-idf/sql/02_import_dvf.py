@@ -209,7 +209,7 @@ def upsert_batch(table: str, records: list, on_conflict: str, batch_size=500):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dept", nargs="+", default=["75", "93", "95"], help="Départements à importer")
+    parser.add_argument("--dept", nargs="+", default=["60", "75", "77", "78", "91", "92", "93", "94", "95"], help="Départements à importer")
     parser.add_argument("--csv-dir", default="/home/user", help="Dossier des CSV DVF")
     args = parser.parse_args()
 

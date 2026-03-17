@@ -107,11 +107,14 @@ export async function GET(
       prix_m2_median: data.prices.length > 0 ? median(data.prices) : null,
     }));
   } else {
-    // Fallback : dvf_clusters_commune
-    totalCount = (clusters ?? []).reduce((s, c) => s + c.count, 0);
-    const allPrixM2 = (clusters ?? []).map((c) => c.prix_m2_median).filter(Boolean) as number[];
+    // Fallback : dvf_clusters_commune — filtré sur les types affichés
+    const filteredClusters = (clusters ?? []).filter(
+      (c: { type_local: string | null }) => c.type_local != null && DISPLAYED_TYPES.has(c.type_local)
+    );
+    totalCount = filteredClusters.reduce((s: number, c: { count: number }) => s + c.count, 0);
+    const allPrixM2 = filteredClusters.map((c: { prix_m2_median: number | null }) => c.prix_m2_median).filter(Boolean) as number[];
     prixM2Median = median(allPrixM2);
-    byTypeResult = (clusters ?? []).map((c) => ({
+    byTypeResult = filteredClusters.map((c: { type_local: string | null; count: number; prix_median: number | null; prix_m2_median: number | null }) => ({
       type: c.type_local,
       count: c.count,
       prix_median: c.prix_median,

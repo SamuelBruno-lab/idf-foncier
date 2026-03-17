@@ -69,13 +69,6 @@ interface Zone {
   annee_max: number | null;
 }
 
-interface CommuneRank {
-  code: string;
-  nom: string;
-  prix_m2_median: number;
-  count: number;
-}
-
 interface CommuneStats {
   code: string;
   nom: string;
@@ -85,8 +78,8 @@ interface CommuneStats {
   byType: TypeRow[];
   evolution: EvolutionRow[];
   zones: Zone[];
-  /** All communes in the same department with Appartement prices, sorted by prix_m2_median desc */
-  deptRanking: CommuneRank[];
+  /** IDF median prix_m2 by type_local (from dvf_clusters_region) */
+  idfMedians: Record<string, number>;
 }
 
 function median(arr: number[]): number {
@@ -200,22 +193,18 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const nom = clusters?.[0]?.nom ?? code;
   const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
-  // Classement départemental : toutes les communes du département (type Appartement)
-  const { data: deptClusters } = await supabase
-    .from("dvf_clusters_commune")
-    .select("cluster_id,nom,prix_m2_median,count")
-    .eq("type_local", "Appartement")
-    .like("cluster_id", `${dept}%`)
-    .order("prix_m2_median", { ascending: false });
+  // Médianes IDF par type (depuis dvf_clusters_region)
+  const { data: regionClusters } = await supabase
+    .from("dvf_clusters_region")
+    .select("type_local,prix_m2_median")
+    .not("type_local", "is", null);
 
-  const deptRanking: CommuneRank[] = (deptClusters ?? [])
-    .filter((c) => c.prix_m2_median != null && c.prix_m2_median > 0)
-    .map((c) => ({
-      code: c.cluster_id.split("_")[0],
-      nom: c.nom ?? c.cluster_id.split("_")[0],
-      prix_m2_median: c.prix_m2_median,
-      count: c.count,
-    }));
+  const idfMedians: Record<string, number> = {};
+  for (const rc of regionClusters ?? []) {
+    if (rc.type_local && rc.prix_m2_median) {
+      idfMedians[rc.type_local] = rc.prix_m2_median;
+    }
+  }
 
   return {
     code,
@@ -226,19 +215,14 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
-    deptRanking,
+    idfMedians,
   };
 }
 
-// Médiane IDF de référence (source OLAP 2024 / DVF 2020-2024)
-const IDF_PRIX_M2_MEDIAN = 5500;
-
-function getContextPhrase(stats: CommuneStats): string | null {
-  if (stats.prix_m2_median > IDF_PRIX_M2_MEDIAN * 1.4)
-    return `Marché premium — prix médian ${Math.round(((stats.prix_m2_median - IDF_PRIX_M2_MEDIAN) / IDF_PRIX_M2_MEDIAN) * 100)}% au-dessus de la médiane IDF.`;
-  if (stats.prix_m2_median < IDF_PRIX_M2_MEDIAN * 0.7)
-    return `Marché accessible — prix médian ${Math.round(((IDF_PRIX_M2_MEDIAN - stats.prix_m2_median) / IDF_PRIX_M2_MEDIAN) * 100)}% sous la médiane IDF.`;
-  return null;
+/** Compute % difference vs IDF median. Positive = more expensive, negative = cheaper. */
+function pctVsIdf(communePrix: number | null, idfPrix: number | undefined): number | null {
+  if (!communePrix || !idfPrix || idfPrix === 0) return null;
+  return Math.round(((communePrix - idfPrix) / idfPrix) * 100);
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -304,6 +288,13 @@ export default async function AnalysePage({
   const mainTypes = stats.byType
     .filter((t) => t.type === "Appartement" || t.type === "Maison" || t.type === "Local industriel. commercial ou assimilé")
     .sort((a, b) => b.count - a.count);
+
+  // Global % vs IDF (weighted across types)
+  const allIdfPrices = Object.values(stats.idfMedians);
+  const idfGlobalMedian = allIdfPrices.length > 0
+    ? Math.round(allIdfPrices.reduce((s, v) => s + v, 0) / allIdfPrices.length)
+    : null;
+  const globalDelta = pctVsIdf(stats.prix_m2_median, idfGlobalMedian ?? undefined);
 
   return (
     <div
@@ -401,6 +392,16 @@ export default async function AnalysePage({
               show: true,
             },
             {
+              label: "vs médiane IDF",
+              value: globalDelta !== null
+                ? `${globalDelta > 0 ? "+" : ""}${globalDelta}%`
+                : "N/A",
+              color: globalDelta !== null
+                ? (globalDelta > 0 ? "#ff6b6b" : globalDelta < 0 ? "#51cf66" : "rgba(255,255,255,0.5)")
+                : "rgba(255,255,255,0.5)",
+              show: true,
+            },
+            {
               label: "Transactions totales",
               value: stats.totalCount.toLocaleString("fr-FR"),
               color: "#00d4ff",
@@ -430,32 +431,7 @@ export default async function AnalysePage({
           ))}
         </div>
 
-        {/* Phrase de contexte marché */}
-        {(() => {
-          const phrase = getContextPhrase(stats);
-          if (!phrase) return null;
-          return (
-            <div
-              style={{
-                marginBottom: 28,
-                padding: "14px 20px",
-                borderRadius: 10,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                display: "flex",
-                gap: 12,
-                alignItems: "flex-start",
-              }}
-            >
-              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
-              <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
-                {phrase}
-              </p>
-            </div>
-          );
-        })()}
-
-        {/* Par type de bien */}
+        {/* Par type de bien — avec comparaison IDF */}
         {mainTypes.length > 0 && (
           <div style={{ marginBottom: 36 }}>
             <h2
@@ -468,36 +444,82 @@ export default async function AnalysePage({
                 marginBottom: 14,
               }}
             >
-              Par type de bien
+              Par type de bien — vs médiane Île-de-France
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              {mainTypes.map((t) => (
-                <div
-                  key={t.type}
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 12,
-                    padding: "18px 20px",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
-                    {TYPE_LABEL[t.type ?? ""] ?? t.type}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
+              {mainTypes.map((t) => {
+                const idfPrix = stats.idfMedians[t.type ?? ""];
+                const delta = pctVsIdf(t.prix_m2_median, idfPrix);
+                const isAbove = delta !== null && delta > 0;
+                const isBelow = delta !== null && delta < 0;
+                const deltaColor = isAbove ? "#ff6b6b" : isBelow ? "#51cf66" : "rgba(255,255,255,0.4)";
+                const deltaLabel = delta !== null
+                  ? (isAbove ? `+${delta}%` : `${delta}%`)
+                  : null;
+
+                return (
+                  <div
+                    key={t.type}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 12,
+                      padding: "18px 20px",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
+                      {TYPE_LABEL[t.type ?? ""] ?? t.type}
+                    </div>
+
+                    {/* Prix commune */}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Prix médian €/m²</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#ffdd00" }}>
+                        {t.prix_m2_median?.toLocaleString("fr-FR") ?? "N/A"} €
+                      </span>
+                    </div>
+
+                    {/* Médiane IDF */}
+                    {idfPrix && (
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Médiane IDF</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                          {idfPrix.toLocaleString("fr-FR")} €/m²
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Écart vs IDF */}
+                    {deltaLabel && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          background: isAbove ? "rgba(255,107,107,0.1)" : "rgba(81,207,102,0.1)",
+                          border: `1px solid ${isAbove ? "rgba(255,107,107,0.2)" : "rgba(81,207,102,0.2)"}`,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>vs IDF</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: deltaColor }}>
+                          {deltaLabel}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Transactions */}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Transactions</span>
+                      <span style={{ fontSize: 13, color: "#00d4ff" }}>
+                        {t.count.toLocaleString("fr-FR")}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Prix médian €/m²</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#ffdd00" }}>
-                      {t.prix_m2_median?.toLocaleString("fr-FR") ?? "N/A"} €
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Transactions</span>
-                    <span style={{ fontSize: 13, color: "#00d4ff" }}>
-                      {t.count.toLocaleString("fr-FR")}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -597,174 +619,6 @@ export default async function AnalysePage({
             </div>{/* /overflowX wrapper */}
           </div>
         )}
-
-        {/* Comparaison départementale */}
-        {stats.deptRanking.length > 1 && (() => {
-          const ranking = stats.deptRanking;
-          const currentIdx = ranking.findIndex((c) => c.code === stats.code);
-          const currentRank = currentIdx >= 0 ? currentIdx + 1 : null;
-          const maxPrixDept = ranking[0]?.prix_m2_median ?? 1;
-
-          // Show: top 3, bottom 3, and ±2 around current commune (deduplicated, ordered)
-          const indices = new Set<number>();
-          // Top 3
-          for (let i = 0; i < Math.min(3, ranking.length); i++) indices.add(i);
-          // Bottom 3
-          for (let i = Math.max(0, ranking.length - 3); i < ranking.length; i++) indices.add(i);
-          // Around current
-          if (currentIdx >= 0) {
-            for (let i = Math.max(0, currentIdx - 2); i <= Math.min(ranking.length - 1, currentIdx + 2); i++) indices.add(i);
-          }
-          const shown = [...indices].sort((a, b) => a - b);
-
-          return (
-            <div style={{ marginBottom: 36 }}>
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.5)",
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  marginBottom: 6,
-                }}
-              >
-                Comparaison départementale ({stats.dept})
-              </h2>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
-                {currentRank
-                  ? `${stats.nom} est classée ${currentRank}${currentRank === 1 ? "ère" : "ème"} sur ${ranking.length} communes · Prix médian appartements €/m²`
-                  : `${ranking.length} communes · Prix médian appartements €/m²`}
-              </p>
-
-              <div style={{ overflowX: "auto" }}>
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  minWidth: 480,
-                }}
-              >
-                {/* En-tête */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "40px 1fr 110px 80px",
-                    padding: "10px 16px",
-                    borderBottom: "1px solid rgba(255,255,255,0.07)",
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.3)",
-                    letterSpacing: 0.5,
-                    textTransform: "uppercase",
-                    gap: 8,
-                  }}
-                >
-                  <span>#</span>
-                  <span>Commune</span>
-                  <span>Prix médian €/m²</span>
-                  <span style={{ textAlign: "right" }}>Tx</span>
-                </div>
-
-                {shown.map((idx, i) => {
-                  const commune = ranking[idx];
-                  const isCurrent = commune.code === stats.code;
-                  const pct = Math.round((commune.prix_m2_median / maxPrixDept) * 100);
-                  // Show separator if gap between indices
-                  const showGap = i > 0 && shown[i - 1] < idx - 1;
-
-                  return (
-                    <div key={commune.code}>
-                      {showGap && (
-                        <div
-                          style={{
-                            padding: "4px 16px",
-                            textAlign: "center",
-                            fontSize: 10,
-                            color: "rgba(255,255,255,0.15)",
-                            borderBottom: "1px solid rgba(255,255,255,0.04)",
-                          }}
-                        >
-                          ···
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "40px 1fr 110px 80px",
-                          padding: "10px 16px",
-                          borderBottom: "1px solid rgba(255,255,255,0.04)",
-                          alignItems: "center",
-                          gap: 8,
-                          background: isCurrent ? "rgba(0,212,255,0.08)" : "transparent",
-                          borderLeft: isCurrent ? "3px solid #00d4ff" : "3px solid transparent",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 12,
-                            color: isCurrent ? "#00d4ff" : "rgba(255,255,255,0.4)",
-                          }}
-                        >
-                          {idx + 1}
-                        </span>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <Link
-                            href={`/analyse/${commune.code}`}
-                            style={{
-                              fontSize: 13,
-                              fontWeight: isCurrent ? 800 : 500,
-                              color: isCurrent ? "#fff" : "rgba(255,255,255,0.7)",
-                              textDecoration: "none",
-                            }}
-                          >
-                            {commune.nom}{isCurrent ? " ←" : ""}
-                          </Link>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div
-                              style={{
-                                height: 4,
-                                borderRadius: 2,
-                                width: `${pct}%`,
-                                minWidth: 4,
-                                maxWidth: 140,
-                                background: isCurrent
-                                  ? "linear-gradient(90deg, #00d4ff, #a855f7)"
-                                  : "rgba(255,255,255,0.12)",
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: isCurrent ? "#ffdd00" : "rgba(255,255,255,0.5)",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {commune.prix_m2_median.toLocaleString("fr-FR")} €
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "rgba(255,255,255,0.35)",
-                            textAlign: "right",
-                          }}
-                        >
-                          {commune.count.toLocaleString("fr-FR")}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              </div>{/* /overflowX */}
-            </div>
-          );
-        })()}
 
         {/* Micro-marchés */}
         {stats.zones.length > 0 && (() => {

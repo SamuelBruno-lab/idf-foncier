@@ -69,6 +69,13 @@ interface Zone {
   annee_max: number | null;
 }
 
+interface CommuneRank {
+  code: string;
+  nom: string;
+  prix_m2_median: number;
+  count: number;
+}
+
 interface CommuneStats {
   code: string;
   nom: string;
@@ -78,6 +85,8 @@ interface CommuneStats {
   byType: TypeRow[];
   evolution: EvolutionRow[];
   zones: Zone[];
+  /** All communes in the same department with Appartement prices, sorted by prix_m2_median desc */
+  deptRanking: CommuneRank[];
 }
 
 function median(arr: number[]): number {
@@ -191,6 +200,23 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const nom = clusters?.[0]?.nom ?? code;
   const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
+  // Classement départemental : toutes les communes du département (type Appartement)
+  const { data: deptClusters } = await supabase
+    .from("dvf_clusters_commune")
+    .select("cluster_id,nom,prix_m2_median,count")
+    .eq("type_local", "Appartement")
+    .like("cluster_id", `${dept}%`)
+    .order("prix_m2_median", { ascending: false });
+
+  const deptRanking: CommuneRank[] = (deptClusters ?? [])
+    .filter((c) => c.prix_m2_median != null && c.prix_m2_median > 0)
+    .map((c) => ({
+      code: c.cluster_id.split("_")[0],
+      nom: c.nom ?? c.cluster_id.split("_")[0],
+      prix_m2_median: c.prix_m2_median,
+      count: c.count,
+    }));
+
   return {
     code,
     nom,
@@ -200,6 +226,7 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
+    deptRanking,
   };
 }
 
@@ -570,6 +597,174 @@ export default async function AnalysePage({
             </div>{/* /overflowX wrapper */}
           </div>
         )}
+
+        {/* Comparaison départementale */}
+        {stats.deptRanking.length > 1 && (() => {
+          const ranking = stats.deptRanking;
+          const currentIdx = ranking.findIndex((c) => c.code === stats.code);
+          const currentRank = currentIdx >= 0 ? currentIdx + 1 : null;
+          const maxPrixDept = ranking[0]?.prix_m2_median ?? 1;
+
+          // Show: top 3, bottom 3, and ±2 around current commune (deduplicated, ordered)
+          const indices = new Set<number>();
+          // Top 3
+          for (let i = 0; i < Math.min(3, ranking.length); i++) indices.add(i);
+          // Bottom 3
+          for (let i = Math.max(0, ranking.length - 3); i < ranking.length; i++) indices.add(i);
+          // Around current
+          if (currentIdx >= 0) {
+            for (let i = Math.max(0, currentIdx - 2); i <= Math.min(ranking.length - 1, currentIdx + 2); i++) indices.add(i);
+          }
+          const shown = [...indices].sort((a, b) => a - b);
+
+          return (
+            <div style={{ marginBottom: 36 }}>
+              <h2
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.5)",
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  marginBottom: 6,
+                }}
+              >
+                Comparaison départementale ({stats.dept})
+              </h2>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
+                {currentRank
+                  ? `${stats.nom} est classée ${currentRank}${currentRank === 1 ? "ère" : "ème"} sur ${ranking.length} communes · Prix médian appartements €/m²`
+                  : `${ranking.length} communes · Prix médian appartements €/m²`}
+              </p>
+
+              <div style={{ overflowX: "auto" }}>
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  minWidth: 480,
+                }}
+              >
+                {/* En-tête */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px 1fr 110px 80px",
+                    padding: "10px 16px",
+                    borderBottom: "1px solid rgba(255,255,255,0.07)",
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.3)",
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    gap: 8,
+                  }}
+                >
+                  <span>#</span>
+                  <span>Commune</span>
+                  <span>Prix médian €/m²</span>
+                  <span style={{ textAlign: "right" }}>Tx</span>
+                </div>
+
+                {shown.map((idx, i) => {
+                  const commune = ranking[idx];
+                  const isCurrent = commune.code === stats.code;
+                  const pct = Math.round((commune.prix_m2_median / maxPrixDept) * 100);
+                  // Show separator if gap between indices
+                  const showGap = i > 0 && shown[i - 1] < idx - 1;
+
+                  return (
+                    <div key={commune.code}>
+                      {showGap && (
+                        <div
+                          style={{
+                            padding: "4px 16px",
+                            textAlign: "center",
+                            fontSize: 10,
+                            color: "rgba(255,255,255,0.15)",
+                            borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          ···
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "40px 1fr 110px 80px",
+                          padding: "10px 16px",
+                          borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          alignItems: "center",
+                          gap: 8,
+                          background: isCurrent ? "rgba(0,212,255,0.08)" : "transparent",
+                          borderLeft: isCurrent ? "3px solid #00d4ff" : "3px solid transparent",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: isCurrent ? "#00d4ff" : "rgba(255,255,255,0.4)",
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <Link
+                            href={`/analyse/${commune.code}`}
+                            style={{
+                              fontSize: 13,
+                              fontWeight: isCurrent ? 800 : 500,
+                              color: isCurrent ? "#fff" : "rgba(255,255,255,0.7)",
+                              textDecoration: "none",
+                            }}
+                          >
+                            {commune.nom}{isCurrent ? " ←" : ""}
+                          </Link>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div
+                              style={{
+                                height: 4,
+                                borderRadius: 2,
+                                width: `${pct}%`,
+                                minWidth: 4,
+                                maxWidth: 140,
+                                background: isCurrent
+                                  ? "linear-gradient(90deg, #00d4ff, #a855f7)"
+                                  : "rgba(255,255,255,0.12)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: isCurrent ? "#ffdd00" : "rgba(255,255,255,0.5)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {commune.prix_m2_median.toLocaleString("fr-FR")} €
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(255,255,255,0.35)",
+                            textAlign: "right",
+                          }}
+                        >
+                          {commune.count.toLocaleString("fr-FR")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              </div>{/* /overflowX */}
+            </div>
+          );
+        })()}
 
         {/* Micro-marchés */}
         {stats.zones.length > 0 && (() => {

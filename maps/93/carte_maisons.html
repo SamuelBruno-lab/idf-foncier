@@ -120,6 +120,34 @@
             <div class="folium-map" id="map_e055b022a1b2ec097b7cac61892363c0" ></div>
         
 <div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>
+<script>
+/* Inject Street View + Google Maps links into DVF popups */
+(function(){
+  function addLinks(){
+    var maps=[];
+    for(var k in window){try{if(k.indexOf("map_")===0&&window[k]&&typeof window[k].on==="function"&&window[k]._container)maps.push(window[k]);}catch(e){}}
+    maps.forEach(function(map){
+      map.on("popupopen",function(e){
+        var popup=e.popup;
+        var ll=popup.getLatLng();
+        if(!ll)return;
+        var el=popup.getElement();
+        if(!el)return;
+        var c=el.querySelector(".leaflet-popup-content");
+        if(!c||c.querySelector(".sv-links"))return;
+        var d=document.createElement("div");
+        d.className="sv-links";
+        d.style.cssText="margin-top:8px;padding:0 14px 10px;display:flex;gap:6px;flex-wrap:wrap;";
+        d.innerHTML='<a href="https://www.google.com/maps?q=&layer=c&cbll='+ll.lat+','+ll.lng+'" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid rgba(0,212,255,0.4);">Street View</a>'
+          +'<a href="https://www.google.com/maps/search/?api=1&query='+ll.lat+','+ll.lng+'" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>';
+        c.appendChild(d);
+      });
+    });
+  }
+  if(document.readyState==="complete")setTimeout(addLinks,500);
+  else window.addEventListener("load",function(){setTimeout(addLinks,500);});
+})();
+</script>
 </body>
 <script>
     

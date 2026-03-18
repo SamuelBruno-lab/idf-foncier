@@ -11,10 +11,13 @@ import {
   getBadgeColor,
   PRIX_NEUF_DEFAUT,
 } from "@/lib/foncier-helpers";
+import LocationActionButtons from "@/components/LocationActionButtons";
 
 type Props = {
   item: ParcelDetail | null;
   loading?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -34,7 +37,7 @@ const VOCATION_LABELS: Record<string, string> = {
   naturel: "Naturel",
 };
 
-export default function ParcelDetailsPanel({ item, loading = false }: Props) {
+export default function ParcelDetailsPanel({ item, loading = false, latitude, longitude }: Props) {
   if (loading) {
     return <div className="p-4 text-sm text-neutral-500">Chargement...</div>;
   }
@@ -211,6 +214,21 @@ export default function ParcelDetailsPanel({ item, loading = false }: Props) {
               value={`+${deltaNeuf} %`}
             />
           )}
+        </div>
+      </div>
+
+      {/* Bloc 5 — Actions terrain */}
+      <div className="rounded-xl border border-neutral-200 p-3">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          Explorer le terrain
+        </h3>
+        <LocationActionButtons
+          lat={latitude}
+          lng={longitude}
+          city={item.city_name}
+        />
+        <div className="mt-2 text-[10px] text-neutral-400">
+          Vues cartographiques fournies par Google Maps et le Geoportail.
         </div>
       </div>
     </div>

@@ -33,6 +33,18 @@ const TIMELINES = [
   "Plus de 12 mois",
 ];
 
+const SECTEURS_92 = [
+  "Boulogne / Issy / Vanves",
+  "Neuilly / Levallois / Courbevoie",
+  "La Défense / Puteaux / Nanterre",
+  "Rueil / Suresnes / Saint-Cloud",
+  "Meudon / Clamart / Châtillon",
+  "Colombes / Asnières / Gennevilliers",
+  "Antony / Sceaux / Bourg-la-Reine",
+  "Montrouge / Malakoff / Bagneux",
+  "Autre / Pas encore décidé",
+];
+
 const SECTEURS_94 = [
   "Vincennes / Saint-Mandé",
   "Nogent / Le Perreux / Bry",
@@ -45,6 +57,11 @@ const SECTEURS_94 = [
   "L'Haÿ / Cachan / Arcueil",
   "Autre / Pas encore décidé",
 ];
+
+const SECTEURS_BY_DEPT: Record<string, { label: string; options: string[] }> = {
+  "92": { label: "Dans quel coin des Hauts-de-Seine ?", options: SECTEURS_92 },
+  "94": { label: "Dans quel coin du Val-de-Marne ?", options: SECTEURS_94 },
+};
 
 const INTENT_CONFIG = {
   acheteur: {
@@ -304,30 +321,35 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
                 </div>
               )}
 
-              {/* Secteur Val-de-Marne (acheteur / investisseur) */}
-              {commune.code.startsWith("94") && (intent === "acheteur" || intent === "investisseur") && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
-                    Dans quel coin du Val-de-Marne ?
+              {/* Secteur par département (acheteur / investisseur) */}
+              {(() => {
+                const deptCode = commune.code.slice(0, 2);
+                const secteurConfig = SECTEURS_BY_DEPT[deptCode];
+                if (!secteurConfig || (intent !== "acheteur" && intent !== "investisseur")) return null;
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
+                      {secteurConfig.label}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {secteurConfig.options.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setSecteur(s)}
+                          style={{
+                            padding: "6px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer",
+                            border: `1px solid ${secteur === s ? config.color : "rgba(255,255,255,0.15)"}`,
+                            background: secteur === s ? `${config.color}22` : "rgba(255,255,255,0.04)",
+                            color: secteur === s ? config.color : "rgba(255,255,255,0.6)",
+                            fontWeight: secteur === s ? 700 : 400,
+                          }}
+                        >{s}</button>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {SECTEURS_94.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setSecteur(s)}
-                        style={{
-                          padding: "6px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer",
-                          border: `1px solid ${secteur === s ? config.color : "rgba(255,255,255,0.15)"}`,
-                          background: secteur === s ? `${config.color}22` : "rgba(255,255,255,0.04)",
-                          color: secteur === s ? config.color : "rgba(255,255,255,0.6)",
-                          fontWeight: secteur === s ? 700 : 400,
-                        }}
-                      >{s}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Timeline */}
               <div style={{ marginBottom: 16 }}>

@@ -323,7 +323,7 @@ export default function DeptPage() {
 
       {/* === ONGLETS PROFIL : J'achète, Je vends, J'investis, Agent === */}
       <div style={{
-        position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+        position: "absolute", bottom: 48, left: "50%", transform: "translateX(-50%)",
         zIndex: 1000, display: "flex", gap: 6,
         background: "rgba(5,5,20,0.9)", borderRadius: 14,
         padding: 6, backdropFilter: "blur(12px)",

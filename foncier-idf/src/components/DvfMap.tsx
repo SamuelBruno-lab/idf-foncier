@@ -7,6 +7,12 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import type { PickingInfo } from "@deck.gl/core";
 import type { DvfPoint, DvfCluster, DvfFilters } from "@/types/dvf";
+import {
+  buildGoogleStreetViewUrl,
+  buildGoogleMapsUrl,
+  buildCadastreUrl,
+  openExternalUrl,
+} from "@/lib/location-links";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const INITIAL_VIEW = {
@@ -51,6 +57,7 @@ interface Props {
 
 export default function DvfMap({ points, clusters, mode, filters, isLoading, onCommuneClick }: Props) {
   const [hovered, setHovered] = useState<DvfPoint | DvfCluster | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<DvfPoint | null>(null);
   const [cursor, setCursor] = useState("grab");
   const [viewState, setViewState] = useState(INITIAL_VIEW);
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +118,25 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
             [255, 60, 0, 240],
             [200, 0, 50, 255],
           ],
+        }),
+        // Couche de points cliquables par-dessus la heatmap
+        new ScatterplotLayer<DvfPoint>({
+          id: "points-pickable",
+          data: points,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: 6,
+          radiusUnits: "pixels",
+          getFillColor: [255, 255, 255, 0],
+          pickable: true,
+          onHover: (info: PickingInfo) => {
+            setHovered(info.object ?? null);
+            setCursor(info.object ? "pointer" : "grab");
+          },
+          onClick: (info: PickingInfo) => {
+            if (info.object) {
+              setSelectedPoint(info.object as DvfPoint);
+            }
+          },
         }),
       ];
     }
@@ -310,6 +336,109 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
       </DeckGL>
 
       {renderTooltip()}
+
+      {/* Panneau détail transaction sélectionnée */}
+      {selectedPoint && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            left: 16,
+            zIndex: 1001,
+            background: "rgba(10,10,30,0.96)",
+            color: "#e8e8f0",
+            borderRadius: 14,
+            padding: "18px 22px",
+            minWidth: 280,
+            maxWidth: 340,
+            border: "1px solid rgba(0,212,255,0.25)",
+            fontFamily: "Segoe UI, Arial, sans-serif",
+            fontSize: 13,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+          }}
+        >
+          {/* Bouton fermer */}
+          <button
+            onClick={() => setSelectedPoint(null)}
+            style={{
+              position: "absolute", top: 10, right: 12,
+              background: "none", border: "none", color: "rgba(255,255,255,0.4)",
+              fontSize: 16, cursor: "pointer", lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: "#00d4ff", paddingRight: 20 }}>
+            {selectedPoint.adresse ?? "Adresse inconnue"}
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 12 }}>
+            {selectedPoint.commune} ({selectedPoint.dept}) · {selectedPoint.date_mutation?.slice(0, 10)}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>
+                {selectedPoint.valeur_fonciere.toLocaleString("fr-FR")} €
+              </div>
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix/m²</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#ffdd00", marginTop: 2 }}>
+                {selectedPoint.prix_m2?.toLocaleString("fr-FR") ?? "—"} €
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 14 }}>
+            {selectedPoint.type_local ?? "—"} · {selectedPoint.surface ?? "—"} m²
+          </div>
+
+          {/* Boutons d'action */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button
+              onClick={() => openExternalUrl(buildGoogleStreetViewUrl(selectedPoint.lat, selectedPoint.lon))}
+              style={{
+                padding: "7px 14px", borderRadius: 8,
+                border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)",
+                color: "#00d4ff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif", transition: "background 0.15s",
+              }}
+            >
+              Voir l&apos;environnement
+            </button>
+            <button
+              onClick={() => {
+                try { openExternalUrl(buildGoogleMapsUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.adresse)); } catch { /* noop */ }
+              }}
+              style={{
+                padding: "7px 14px", borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif",
+              }}
+            >
+              Google Maps
+            </button>
+            <button
+              onClick={() => openExternalUrl(buildCadastreUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.commune))}
+              style={{
+                padding: "7px 14px", borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif",
+              }}
+            >
+              Cadastre
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+            Vues fournies par Google Maps et le Geoportail
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -148,11 +148,18 @@ export default function CguPage() {
           </Section>
 
           {/* Article 9 */}
-          <Section num={9} title="Liens hypertextes">
+          <Section num={9} title="Liens hypertextes et services tiers">
             <P>
               Le Site peut contenir des liens vers des sites tiers (data.gouv.fr, GitHub, etc.).
               datamerry n&apos;exerce aucun contrôle sur ces sites et décline toute responsabilité
               quant à leur contenu ou leur politique de confidentialité.
+            </P>
+            <P>
+              Certaines vues cartographiques et visuelles accessibles depuis la plateforme renvoient
+              vers des services fournis par Google Maps / Google Street View et le Géoportail (IGN),
+              soumis à leurs propres conditions d&apos;utilisation. Les images et données de rue
+              affichées via ces services restent la propriété de leurs éditeurs respectifs.
+              datamerry ne stocke, ne modifie et ne redistribue aucune image issue de ces services.
             </P>
           </Section>
 

@@ -33,6 +33,19 @@ const TIMELINES = [
   "Plus de 12 mois",
 ];
 
+const SECTEURS_94 = [
+  "Vincennes / Saint-Mandé",
+  "Nogent / Le Perreux / Bry",
+  "Créteil / Maisons-Alfort",
+  "Saint-Maur / Joinville",
+  "Charenton / Alfortville",
+  "Vitry / Ivry / Villejuif",
+  "Champigny / Chennevières",
+  "Orly / Choisy / Thiais",
+  "L'Haÿ / Cachan / Arcueil",
+  "Autre / Pas encore décidé",
+];
+
 const INTENT_CONFIG = {
   acheteur: {
     label: "J'achète",
@@ -94,6 +107,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
   const [intent, setIntent] = useState<Intent | null>(initialIntent ?? null);
   const [budget, setBudget] = useState("");
   const [timeline, setTimeline] = useState("");
+  const [secteur, setSecteur] = useState("");
   const [form, setForm] = useState({ nom: "", prenom: "", societe: "", email: "", telephone: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -123,6 +137,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
           commune_nom: commune.nom,
           budget,
           timeline,
+          secteur: secteur || undefined,
           source: `analyse_${commune.code}_${intent}`,
         }),
       });
@@ -284,6 +299,31 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
                           fontWeight: budget === b ? 700 : 400,
                         }}
                       >{b}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Secteur Val-de-Marne (acheteur / investisseur) */}
+              {commune.code.startsWith("94") && (intent === "acheteur" || intent === "investisseur") && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
+                    Dans quel coin du Val-de-Marne ?
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {SECTEURS_94.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSecteur(s)}
+                        style={{
+                          padding: "6px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer",
+                          border: `1px solid ${secteur === s ? config.color : "rgba(255,255,255,0.15)"}`,
+                          background: secteur === s ? `${config.color}22` : "rgba(255,255,255,0.04)",
+                          color: secteur === s ? config.color : "rgba(255,255,255,0.6)",
+                          fontWeight: secteur === s ? 700 : 400,
+                        }}
+                      >{s}</button>
                     ))}
                   </div>
                 </div>

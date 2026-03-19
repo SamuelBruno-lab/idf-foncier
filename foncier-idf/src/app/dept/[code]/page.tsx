@@ -6,6 +6,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import FilterPanel from "@/components/FilterPanel";
 import LeadModal from "@/components/LeadModal";
+import AnalyseLeadModal from "@/components/AnalyseLeadModal";
+import type { Intent } from "@/components/AnalyseLeadModal";
 import type { DvfFilters, DvfPoint, DvfCluster } from "@/types/dvf";
 
 const DvfMap = dynamic(() => import("@/components/DvfMap"), {
@@ -77,6 +79,8 @@ export default function DeptPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [zoom] = useState(11);
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [showIntentModal, setShowIntentModal] = useState(false);
+  const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CommuneSuggestion[]>([]);
@@ -316,6 +320,60 @@ export default function DeptPage() {
       </div>
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
+
+      {/* === ONGLETS PROFIL : J'achète, Je vends, J'investis, Agent === */}
+      <div style={{
+        position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)",
+        zIndex: 1000, display: "flex", gap: 6,
+        background: "rgba(5,5,20,0.9)", borderRadius: 14,
+        padding: 6, backdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      }}>
+        {([
+          { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
+          { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
+          { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
+          { key: "agent" as Intent, label: "Agent / Promoteur", icon: "💼", color: "#00ff88" },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setSelectedIntent(tab.key); setShowIntentModal(true); }}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${tab.color}33`,
+              borderRadius: 10, padding: "9px 16px",
+              color: "rgba(255,255,255,0.7)",
+              fontSize: 12, fontWeight: 600,
+              fontFamily: "Segoe UI, sans-serif",
+              cursor: "pointer", transition: "all 0.15s",
+              display: "flex", alignItems: "center", gap: 6,
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = `${tab.color}20`;
+              (e.currentTarget as HTMLButtonElement).style.borderColor = `${tab.color}88`;
+              (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = `${tab.color}33`;
+              (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)";
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {showIntentModal && (
+        <AnalyseLeadModal
+          commune={{ code, nom: dept.nomFull }}
+          initialIntent={selectedIntent}
+          onClose={() => { setShowIntentModal(false); setSelectedIntent(undefined); }}
+        />
+      )}
 
       <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
     </div>

@@ -205,7 +205,7 @@ export default function HomePage() {
             style={{
               margin: 0,
               fontFamily: "Segoe UI, Arial, sans-serif",
-              fontSize: "clamp(32px, 5vw, 64px)",
+              fontSize: "clamp(28px, 4.5vw, 56px)",
               fontWeight: 800,
               color: "#fff",
               textAlign: "center",
@@ -213,8 +213,7 @@ export default function HomePage() {
               maxWidth: 800,
             }}
           >
-            Explorez les prix de
-            <br />
+            Détectez les{" "}
             <span
               style={{
                 background: "linear-gradient(90deg, #00ff88, #00d4ff)",
@@ -223,26 +222,59 @@ export default function HomePage() {
                 backgroundClip: "text",
               }}
             >
-              l&apos;immobilier
-            </span>{" "}
-            en IDF
+              opportunités foncières
+            </span>
+            <br />
+            invisibles en Île-de-France
           </h1>
 
           {/* Sous-titre */}
           <p
             style={{
-              margin: "20px 0 36px",
+              margin: "20px 0 12px",
               fontFamily: "Segoe UI, Arial, sans-serif",
               fontSize: "clamp(15px, 2vw, 20px)",
               color: "rgba(255,255,255,0.65)",
               textAlign: "center",
-              maxWidth: 560,
+              maxWidth: 600,
               lineHeight: 1.6,
             }}
           >
-            1,2 million de ventes DVF · Prix au m² par commune,
-            cartographié et analysé commune par commune
+            Analyse automatique de 1,2M transactions DVF + DPE
+            pour identifier les micro-zones à potentiel
           </p>
+
+          {/* Bullets hook */}
+          <div
+            style={{
+              display: "flex",
+              gap: "clamp(16px, 3vw, 32px)",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginBottom: 32,
+            }}
+          >
+            {[
+              { icon: "📍", text: "Zones sous-évaluées détectées" },
+              { icon: "🏗️", text: "Opportunités promoteurs & marchands" },
+              { icon: "📊", text: "Données DVF + DPE enrichies" },
+            ].map(({ icon, text }) => (
+              <div
+                key={text}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 14,
+                  color: "rgba(255,255,255,0.75)",
+                  fontFamily: "Segoe UI, sans-serif",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{icon}</span>
+                {text}
+              </div>
+            ))}
+          </div>
 
           {/* Stats */}
           <div
@@ -372,49 +404,28 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* CTAs — 5 boutons centrés */}
+          {/* CTAs */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            {/* Radar foncier — masqué temporairement, en cours de développement
-            <Link href="/foncier" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "14px 32px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: "linear-gradient(135deg, #00ff88, #00d4ff)",
-                  color: "#0a0a1e",
-                  fontWeight: 700,
-                  fontSize: 15,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                  boxShadow: "0 4px 24px rgba(0,212,255,0.3)",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-              >
-                Trouver 50 terrains mutables en IDF
-              </div>
-            </Link>
-            */}
+            {/* CTA principal — Explorer la carte */}
             <button
               onClick={() => setShowHero(false)}
               style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: "1px solid rgba(0,212,255,0.4)",
-                background: "rgba(0,212,255,0.1)",
-                color: "#00d4ff",
-                fontWeight: 600,
-                fontSize: 14,
+                padding: "14px 36px",
+                borderRadius: 12,
+                border: "none",
+                background: "linear-gradient(135deg, #00ff88, #00d4ff)",
+                color: "#0a0a1e",
+                fontWeight: 700,
+                fontSize: 16,
                 cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
                 transition: "transform 0.15s",
+                boxShadow: "0 4px 24px rgba(0,212,255,0.3)",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              Carte DVF IDF →
+              Explorer la carte →
             </button>
             <Link href="/actualites" style={{ textDecoration: "none" }}>
               <div
@@ -558,6 +569,20 @@ export default function HomePage() {
               )}
             </div>
           )}
+
+          {/* Preuve sociale */}
+          <div
+            style={{
+              marginTop: 32,
+              fontSize: 13,
+              color: "rgba(255,255,255,0.45)",
+              fontFamily: "Segoe UI, sans-serif",
+              textAlign: "center",
+              fontStyle: "italic",
+            }}
+          >
+            Déjà utilisé par des professionnels du foncier en Île-de-France
+          </div>
 
           {/* Signature open data — bas droite */}
           <div

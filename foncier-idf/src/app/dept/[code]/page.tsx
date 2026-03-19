@@ -58,7 +58,7 @@ function getStaticMapUrl(code: string, mapKey: string): string | undefined {
   if (!tab) return undefined;
   // Paris n'a pas de maisons
   if (code === "75" && mapKey === "maisons") return undefined;
-  return `https://samuelbruno-lab.github.io/${repo}/${tab.file}`;
+  return `/api/map-proxy?dept=${code}&file=${tab.file}`;
 }
 
 type CommuneSuggestion = { code: string; nom: string };

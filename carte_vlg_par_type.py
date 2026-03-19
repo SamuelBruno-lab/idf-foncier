@@ -646,10 +646,14 @@ def build_map(data, title, subtitle, min_cluster_size, out_path,
                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">
                 <table style="width:100%;font-size:12px;color:#555;">
                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">{date_s}</td></tr>
-                  <tr><td>Cluster</td><td style="text-align:right;font-weight:600;color:{color};">{zone_label}</td></tr>
+                  <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:{color};">{zone_label}</td></tr>
                 </table>
                 {ventile_note}
                 {jitter_note}
+                <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                  <a href="https://www.google.com/maps?q=&layer=c&cbll={row['latitude']},{row['longitude']}" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>
+                  <a href="https://www.google.com/maps/search/?api=1&query={row['latitude']},{row['longitude']}" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>
+                </div>
               </div>
             </div>"""
 

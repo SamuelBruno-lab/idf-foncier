@@ -71,6 +71,14 @@ export default function DeptPage() {
   const dept = DEPT_INFO[code] ?? { nom: code, nomFull: `Département ${code}`, color: "#00d4ff", description: "", emoji: "📍" };
   const [activeTab, setActiveTab] = useState(code === "75" ? "appartements" : "maisons");
   const staticMapUrl = getStaticMapUrl(code, activeTab);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"], dept: [code] });
   const [mode, setMode] = useState<"clusters" | "heatmap">("clusters");
@@ -157,11 +165,18 @@ export default function DeptPage() {
       {/* === ONGLETS TYPE DE CARTE === */}
       {DEPT_REPOS[code] && (
         <div style={{
-          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+          position: "absolute", top: 12,
+          left: isMobile ? 8 : "50%",
+          right: isMobile ? 8 : "auto",
+          transform: isMobile ? "none" : "translateX(-50%)",
           zIndex: 1000, display: "flex", gap: 4,
           background: "rgba(5,5,20,0.85)", borderRadius: 12,
           padding: 4, backdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.1)",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          msOverflowStyle: "none" as React.CSSProperties["msOverflowStyle"],
+          scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
         }}>
           {MAP_TABS.map((tab) => {
             if (code === "75" && tab.key === "maisons") return null;
@@ -173,12 +188,13 @@ export default function DeptPage() {
                 style={{
                   background: isActive ? `${dept.color}30` : "transparent",
                   border: `1px solid ${isActive ? dept.color : "transparent"}`,
-                  borderRadius: 8, padding: "7px 14px",
+                  borderRadius: 8, padding: isMobile ? "7px 10px" : "7px 14px",
                   color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
-                  fontSize: 12, fontWeight: isActive ? 700 : 500,
+                  fontSize: isMobile ? 11 : 12, fontWeight: isActive ? 700 : 500,
                   fontFamily: "Segoe UI, sans-serif",
                   cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 5,
+                  display: "flex", alignItems: "center", gap: 4,
+                  whiteSpace: "nowrap", flexShrink: 0,
                 }}
               >
                 <span style={{ fontSize: 13 }}>{tab.emoji}</span>
@@ -193,39 +209,38 @@ export default function DeptPage() {
       {!staticMapUrl && <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 900,
         background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
-        padding: "14px 20px 60px",
-        display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+        padding: isMobile ? "10px 12px 40px" : "14px 20px 60px",
+        display: "flex", alignItems: isMobile ? "flex-start" : "flex-start",
+        justifyContent: "space-between", gap: isMobile ? 8 : 12,
         flexWrap: "wrap",
         pointerEvents: "none",
       }}>
         {/* Gauche : nav + titre */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, pointerEvents: "all" }}>
-          <Link href="/" style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, textDecoration: "none", fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 12, pointerEvents: "all", flexWrap: "wrap" }}>
+          <Link href="/" style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, textDecoration: "none", fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
             ← datamerry
           </Link>
           <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
           {/* Badge département */}
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            padding: "6px 14px", borderRadius: 99,
+            display: "inline-flex", alignItems: "center", gap: isMobile ? 4 : 8,
+            padding: isMobile ? "4px 10px" : "6px 14px", borderRadius: 99,
             border: `1px solid ${dept.color}66`, background: `${dept.color}18`,
           }}>
-            <span style={{ fontSize: 15 }}>{dept.emoji}</span>
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: 15, fontFamily: "Segoe UI, sans-serif" }}>
-              {dept.nomFull}
+            <span style={{ fontSize: isMobile ? 13 : 15 }}>{dept.emoji}</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: isMobile ? 12 : 15, fontFamily: "Segoe UI, sans-serif" }}>
+              {isMobile ? dept.nom : dept.nomFull}
             </span>
             <span style={{
-              padding: "1px 8px", borderRadius: 99,
+              padding: "1px 6px", borderRadius: 99,
               background: `${dept.color}33`, color: dept.color,
-              fontSize: 11, fontWeight: 700, fontFamily: "Segoe UI, sans-serif",
+              fontSize: 10, fontWeight: 700, fontFamily: "Segoe UI, sans-serif",
             }}>{code}</span>
           </div>
-          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "Segoe UI, sans-serif", maxWidth: 220, display: "none" }}>
-            {dept.description}
-          </span>
         </div>
 
-        {/* Droite : search + actions */}
+        {/* Droite : search (hidden on mobile, search is in FilterPanel) */}
+        {!isMobile && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "all", flexWrap: "wrap" }}>
           <div ref={searchRef} style={{ position: "relative", width: 240 }}>
               <input
@@ -262,6 +277,7 @@ export default function DeptPage() {
             </div>
 
         </div>
+        )}
       </div>}
 
       {!staticMapUrl && (
@@ -278,7 +294,8 @@ export default function DeptPage() {
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
       <div style={{
         position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
-        zIndex: 800, display: "flex", flexDirection: "column", gap: 4, padding: "8px 6px",
+        zIndex: 800, display: "flex", flexDirection: "column",
+        gap: isMobile ? 2 : 4, padding: isMobile ? "4px 3px" : "8px 6px",
         background: "rgba(5,5,20,0.75)", borderRadius: "10px 0 0 10px",
         backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
         borderRight: "none",
@@ -289,12 +306,12 @@ export default function DeptPage() {
           return (
             <Link key={d} href={`/dept/${d}`} title={di.nomFull} style={{ textDecoration: "none" }}>
               <div style={{
-                width: 36, height: 36, borderRadius: 8,
+                width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius: isMobile ? 6 : 8,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: isActive ? `${di.color}30` : "transparent",
                 border: `1px solid ${isActive ? di.color : "rgba(255,255,255,0.08)"}`,
                 color: isActive ? di.color : "rgba(255,255,255,0.4)",
-                fontSize: 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
+                fontSize: isMobile ? 9 : 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
                 cursor: "pointer", transition: "all 0.15s",
               }}
                 onMouseEnter={(e) => {
@@ -323,18 +340,24 @@ export default function DeptPage() {
 
       {/* === ONGLETS PROFIL : J'achète, Je vends, J'investis, Agent === */}
       <div style={{
-        position: "absolute", bottom: 48, left: "50%", transform: "translateX(-50%)",
-        zIndex: 1000, display: "flex", gap: 6,
-        background: "rgba(5,5,20,0.9)", borderRadius: 14,
-        padding: 6, backdropFilter: "blur(12px)",
+        position: "absolute", bottom: isMobile ? 16 : 48,
+        left: isMobile ? 8 : "50%",
+        right: isMobile ? 8 : "auto",
+        transform: isMobile ? "none" : "translateX(-50%)",
+        zIndex: 1000, display: "flex", gap: isMobile ? 4 : 6,
+        background: "rgba(5,5,20,0.9)", borderRadius: isMobile ? 10 : 14,
+        padding: isMobile ? 4 : 6, backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.12)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        overflowX: isMobile ? "auto" : "visible",
+        WebkitOverflowScrolling: "touch",
+        scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
       }}>
         {([
           { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
           { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
           { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
-          { key: "agent" as Intent, label: "Agent / Promoteur", icon: "💼", color: "#00ff88" },
+          { key: "agent" as Intent, label: isMobile ? "Agent" : "Agent / Promoteur", icon: "💼", color: "#00ff88" },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -342,13 +365,13 @@ export default function DeptPage() {
             style={{
               background: "rgba(255,255,255,0.04)",
               border: `1px solid ${tab.color}33`,
-              borderRadius: 10, padding: "9px 16px",
+              borderRadius: isMobile ? 8 : 10, padding: isMobile ? "7px 10px" : "9px 16px",
               color: "rgba(255,255,255,0.7)",
-              fontSize: 12, fontWeight: 600,
+              fontSize: isMobile ? 10 : 12, fontWeight: 600,
               fontFamily: "Segoe UI, sans-serif",
               cursor: "pointer", transition: "all 0.15s",
-              display: "flex", alignItems: "center", gap: 6,
-              whiteSpace: "nowrap",
+              display: "flex", alignItems: "center", gap: isMobile ? 4 : 6,
+              whiteSpace: "nowrap", flexShrink: 0,
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = `${tab.color}20`;
@@ -361,7 +384,7 @@ export default function DeptPage() {
               (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)";
             }}
           >
-            <span style={{ fontSize: 14 }}>{tab.icon}</span>
+            <span style={{ fontSize: isMobile ? 12 : 14 }}>{tab.icon}</span>
             {tab.label}
           </button>
         ))}

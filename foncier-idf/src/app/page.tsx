@@ -172,10 +172,13 @@ export default function HomePage() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             background: "linear-gradient(180deg, rgba(5,5,20,0.92) 0%, rgba(5,5,20,0.75) 60%, rgba(5,5,20,0.55) 100%)",
             backdropFilter: "blur(1px)",
             padding: "24px",
+            paddingTop: "max(24px, env(safe-area-inset-top, 24px))",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
           }}
         >
           {/* Badge */}
@@ -188,7 +191,8 @@ export default function HomePage() {
               border: "1px solid rgba(0,212,255,0.35)",
               borderRadius: 99,
               padding: "6px 16px",
-              marginBottom: 28,
+              marginTop: 20,
+              marginBottom: 20,
               fontSize: 12,
               color: "#00d4ff",
               letterSpacing: 1.5,
@@ -248,10 +252,10 @@ export default function HomePage() {
           <div
             style={{
               display: "flex",
-              gap: "clamp(16px, 3vw, 32px)",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              marginBottom: 32,
+              flexDirection: "column",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 24,
             }}
           >
             {[
@@ -265,7 +269,7 @@ export default function HomePage() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  fontSize: 14,
+                  fontSize: "clamp(12px, 2vw, 14px)",
                   color: "rgba(255,255,255,0.75)",
                   fontFamily: "Segoe UI, sans-serif",
                 }}
@@ -584,12 +588,11 @@ export default function HomePage() {
             Déjà utilisé par des professionnels du foncier en Île-de-France
           </div>
 
-          {/* Signature open data — bas droite */}
+          {/* Signature open data */}
           <div
             style={{
-              position: "absolute",
-              bottom: 14,
-              right: 20,
+              marginTop: 16,
+              marginBottom: 20,
               fontSize: 11,
               color: "rgba(255,255,255,0.2)",
               fontFamily: "Segoe UI, sans-serif",

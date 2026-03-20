@@ -78,8 +78,8 @@ interface CommuneStats {
   byType: TypeRow[];
   evolution: EvolutionRow[];
   zones: Zone[];
-  /** IDF median prix_m2 by type_local (from dvf_clusters_region) */
-  idfMedians: Record<string, number>;
+  /** Dept median prix_m2 by type_local (from dvf_clusters_dept) */
+  deptMedians: Record<string, number>;
 }
 
 function median(arr: number[]): number {
@@ -193,16 +193,17 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const nom = clusters?.[0]?.nom ?? code;
   const dept = clusters?.[0]?.dept ?? code.slice(0, 2);
 
-  // Médianes IDF par type (depuis dvf_clusters_region)
-  const { data: regionClusters } = await supabase
-    .from("dvf_clusters_region")
+  // Médianes départementales par type (depuis dvf_clusters_dept)
+  const { data: deptClusters } = await supabase
+    .from("dvf_clusters_dept")
     .select("type_local,prix_m2_median")
+    .like("cluster_id", `${dept}_%`)
     .not("type_local", "is", null);
 
-  const idfMedians: Record<string, number> = {};
-  for (const rc of regionClusters ?? []) {
-    if (rc.type_local && rc.prix_m2_median) {
-      idfMedians[rc.type_local] = rc.prix_m2_median;
+  const deptMedians: Record<string, number> = {};
+  for (const dc of deptClusters ?? []) {
+    if (dc.type_local && dc.prix_m2_median) {
+      deptMedians[dc.type_local] = dc.prix_m2_median;
     }
   }
 
@@ -215,14 +216,14 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     byType: byTypeResult,
     evolution,
     zones: (zones ?? []) as Zone[],
-    idfMedians,
+    deptMedians,
   };
 }
 
-/** Compute % difference vs IDF median. Positive = more expensive, negative = cheaper. */
-function pctVsIdf(communePrix: number | null, idfPrix: number | undefined): number | null {
-  if (!communePrix || !idfPrix || idfPrix === 0) return null;
-  return Math.round(((communePrix - idfPrix) / idfPrix) * 100);
+/** Compute % difference vs dept median. Positive = more expensive, negative = cheaper. */
+function pctVsDept(communePrix: number | null, deptPrix: number | undefined): number | null {
+  if (!communePrix || !deptPrix || deptPrix === 0) return null;
+  return Math.round(((communePrix - deptPrix) / deptPrix) * 100);
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -289,12 +290,12 @@ export default async function AnalysePage({
     .filter((t) => t.type === "Appartement" || t.type === "Maison" || t.type === "Local industriel. commercial ou assimilé")
     .sort((a, b) => b.count - a.count);
 
-  // Global % vs IDF (weighted across types)
-  const allIdfPrices = Object.values(stats.idfMedians);
-  const idfGlobalMedian = allIdfPrices.length > 0
-    ? Math.round(allIdfPrices.reduce((s, v) => s + v, 0) / allIdfPrices.length)
+  // Global % vs département (weighted across types)
+  const allDeptPrices = Object.values(stats.deptMedians);
+  const deptGlobalMedian = allDeptPrices.length > 0
+    ? Math.round(allDeptPrices.reduce((s, v) => s + v, 0) / allDeptPrices.length)
     : null;
-  const globalDelta = pctVsIdf(stats.prix_m2_median, idfGlobalMedian ?? undefined);
+  const globalDelta = pctVsDept(stats.prix_m2_median, deptGlobalMedian ?? undefined);
 
   return (
     <div
@@ -392,7 +393,7 @@ export default async function AnalysePage({
               show: true,
             },
             {
-              label: "vs médiane IDF",
+              label: `vs médiane dept ${stats.dept}`,
               value: globalDelta !== null
                 ? `${globalDelta > 0 ? "+" : ""}${globalDelta}%`
                 : "N/A",
@@ -439,7 +440,7 @@ export default async function AnalysePage({
               <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
                 <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
-                  Marché premium — prix médian {globalDelta}% au-dessus de la médiane IDF.
+                  Marché premium — prix médian {globalDelta}% au-dessus de la médiane du département {stats.dept}.
                 </p>
               </div>
             );
@@ -448,14 +449,14 @@ export default async function AnalysePage({
               <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>📊</span>
                 <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
-                  Marché accessible — prix médian {Math.abs(globalDelta)}% sous la médiane IDF.
+                  Marché accessible — prix médian {Math.abs(globalDelta)}% sous la médiane du département {stats.dept}.
                 </p>
               </div>
             );
           return null;
         })()}
 
-        {/* Par type de bien — avec comparaison IDF */}
+        {/* Par type de bien — avec comparaison département */}
         {mainTypes.length > 0 && (
           <div style={{ marginBottom: 36 }}>
             <h2
@@ -468,12 +469,12 @@ export default async function AnalysePage({
                 marginBottom: 14,
               }}
             >
-              Par type de bien — vs médiane Île-de-France
+              Par type de bien — vs médiane département {stats.dept}
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
               {mainTypes.map((t) => {
-                const idfPrix = stats.idfMedians[t.type ?? ""];
-                const delta = pctVsIdf(t.prix_m2_median, idfPrix);
+                const deptPrix = stats.deptMedians[t.type ?? ""];
+                const delta = pctVsDept(t.prix_m2_median, deptPrix);
                 const isAbove = delta !== null && delta > 0;
                 const isBelow = delta !== null && delta < 0;
                 const deltaColor = isAbove ? "#ff6b6b" : isBelow ? "#51cf66" : "rgba(255,255,255,0.4)";
@@ -503,17 +504,17 @@ export default async function AnalysePage({
                       </span>
                     </div>
 
-                    {/* Médiane IDF */}
-                    {idfPrix && (
+                    {/* Médiane département */}
+                    {deptPrix && (
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Médiane IDF</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Médiane dept {stats.dept}</span>
                         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
-                          {idfPrix.toLocaleString("fr-FR")} €/m²
+                          {deptPrix.toLocaleString("fr-FR")} €/m²
                         </span>
                       </div>
                     )}
 
-                    {/* Écart vs IDF */}
+                    {/* Écart vs département */}
                     {deltaLabel && (
                       <div
                         style={{
@@ -527,7 +528,7 @@ export default async function AnalysePage({
                           alignItems: "center",
                         }}
                       >
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>vs IDF</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>vs dept {stats.dept}</span>
                         <span style={{ fontSize: 15, fontWeight: 800, color: deltaColor }}>
                           {deltaLabel}
                         </span>

@@ -170,6 +170,162 @@ export default function MethodologiePage() {
           ))}
         </div>
 
+        {/* Micro-zones de prix — section dédiée */}
+        <div style={{ marginTop: 56 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <span style={{ fontSize: 24 }}>🗺️</span>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#ff6b6b" }}>
+              Les micro-zones de prix datamerry
+            </h2>
+          </div>
+
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", lineHeight: 1.8, marginBottom: 32 }}>
+            Un prix médian communal (&quot;4 500 €/m² à Drancy&quot;) ne veut pas dire grand-chose.
+            Dans la même commune, vous pouvez avoir un quartier à 3 000 €/m² et un autre à 6 000 €/m².
+            Que vous gériez un portefeuille ou que vous estimiez un bien, vous avez besoin d&apos;un prix
+            de quartier, pas d&apos;une moyenne de ville.
+          </p>
+
+          {/* Sous-section : Comment on construit ces zones */}
+          <div style={{
+            background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 12, padding: "24px 28px", marginBottom: 24,
+          }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 700, color: "#fff" }}>
+              Comment on construit ces zones
+            </h3>
+
+            <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#00d4ff" }}>
+              1. On part des ventes réelles
+            </h4>
+            <ul style={{ margin: "0 0 20px", paddingLeft: 20, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              <li>Base DVF (Demandes de Valeurs Foncières), 2020–2025 — les actes notariés publiés par l&apos;État</li>
+              <li>Filtrage : prix/m² entre 500 € et 20 000 € (appartements), exclusion des VEFA pour les maisons</li>
+              <li>Minimum 5 ventes par commune et type de bien pour qu&apos;une analyse soit pertinente</li>
+            </ul>
+
+            <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#00d4ff" }}>
+              2. On laisse les transactions dessiner elles-mêmes les zones
+            </h4>
+            <p style={{ margin: "0 0 12px", fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              Pour chaque commune et chaque type de bien (appartement, maison, local commercial),
+              on analyse où les ventes se concentrent géographiquement. Là où il y a un noyau dense
+              de transactions proches les unes des autres, une micro-zone se forme naturellement.
+            </p>
+
+            {/* Tableau paramètres */}
+            <div style={{ overflowX: "auto", marginBottom: 16 }}>
+              <table style={{
+                width: "100%", borderCollapse: "collapse", fontSize: 13,
+                color: "rgba(255,255,255,0.6)",
+              }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "rgba(255,255,255,0.3)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>&nbsp;</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "#00d4ff", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Appartements / Commerces</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "#00ff88", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Maisons</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>Approche</td>
+                    <td style={{ padding: "8px 12px" }}>Zones statistiquement stables</td>
+                    <td style={{ padding: "8px 12px" }}>Zones plus fines (granularité maximale)</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>Taille min. de zone</td>
+                    <td style={{ padding: "8px 12px" }}>~8 % du volume de transactions</td>
+                    <td style={{ padding: "8px 12px" }}>4 à 8 transactions</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{
+              background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.15)",
+              borderRadius: 8, padding: "12px 16px", marginBottom: 16,
+              fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.7,
+            }}>
+              <strong style={{ color: "#00d4ff" }}>Exemple :</strong> 386 ventes d&apos;appartements dans
+              une commune → environ 6 micro-zones distinctes, chacune avec son propre prix de référence.
+            </div>
+
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              Les ventes isolées — un pavillon vendu au milieu de nulle part, une transaction atypique —
+              sont automatiquement écartées pour ne pas fausser les références.
+            </p>
+
+            <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#00d4ff" }}>
+              3. Pour chaque zone, on calcule les indicateurs clés
+            </h4>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              <li>Le périmètre géographique de la zone (affichable sur carte)</li>
+              <li>Le prix/m² médian et la fourchette P25–P75</li>
+              <li>Le nombre de transactions sous-jacentes</li>
+            </ul>
+          </div>
+
+          {/* Sous-section : Ce que ça change — Asset management */}
+          <div style={{
+            background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 12, padding: "24px 28px", marginBottom: 24,
+          }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 700, color: "#fff" }}>
+              Ce que ça change pour vous
+            </h3>
+
+            <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#fbbf24" }}>
+              Si vous gérez un portefeuille (asset management)
+            </h4>
+            <ul style={{ margin: "0 0 20px", paddingLeft: 20, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Valorisation actif par actif :</strong> chaque bien est rattaché à sa micro-zone avec un prix/m² réel, au lieu d&apos;un prix communal appliqué à l&apos;aveugle</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Repérage d&apos;opportunités :</strong> une zone à 3 200 €/m² juste à côté d&apos;une zone à 5 500 €/m², c&apos;est un signal — potentiel de rattrapage ou décalage à arbitrer</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Scoring automatique :</strong> chaque parcelle reçoit une note de marché de 0 à 10 selon le prix de sa micro-zone, intégrée dans un score global (mutabilité, sous-exploitation, PLU, surface)</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Chiffrage de faisabilité :</strong> surface de plancher × 0.75 × prix/m² de la zone − coûts de construction → estimation rapide de la valeur d&apos;un programme</li>
+            </ul>
+
+            <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#fbbf24" }}>
+              Si vous faites de l&apos;estimation ou de la transaction
+            </h4>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Des comparables objectifs :</strong> fini le &quot;secteur&quot; dessiné à la main — la zone est délimitée par la réalité des ventes, pas par votre intuition ni par un découpage administratif</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Une fourchette, pas juste un chiffre :</strong> le P25–P75 vous donne directement la marge de négociation réaliste</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>La profondeur du marché en un coup d&apos;œil :</strong> 8 ventes dans la zone ou 80 ? Vous savez tout de suite à quel point votre référence est solide</li>
+              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Deux biens dans la même commune ≠ même prix :</strong> s&apos;ils sont dans deux micro-zones différentes, ils auront des références distinctes — ce que vos clients et vos mandants attendent</li>
+            </ul>
+          </div>
+
+          {/* Sous-section : Pourquoi pas les IRIS */}
+          <div style={{
+            background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 12, padding: "24px 28px", marginBottom: 24,
+          }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 17, fontWeight: 700, color: "#fff" }}>
+              Pourquoi pas simplement les IRIS ou les quartiers ?
+            </h3>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
+              <li>Les IRIS sont des découpages de l&apos;INSEE pensés pour le recensement, pas pour le marché immobilier</li>
+              <li>Les quartiers dépendent de qui les définit — chaque professionnel a les siens</li>
+              <li>Nos micro-zones s&apos;adaptent au terrain : zones serrées en centre-ville dense, zones plus larges en périphérie pavillonnaire</li>
+              <li>C&apos;est reproductible : mêmes ventes → mêmes zones → mêmes prix. Pas de subjectivité</li>
+            </ul>
+          </div>
+
+          {/* Résumé */}
+          <div style={{
+            background: "rgba(255,107,107,0.06)", border: "1px solid rgba(255,107,107,0.2)",
+            borderRadius: 12, padding: "20px 24px",
+          }}>
+            <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "#ff6b6b" }}>
+              En une phrase
+            </h4>
+            <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
+              On transforme les ventes DVF d&apos;une commune en carte de micro-zones de prix, pour que
+              chaque bien soit comparé à son vrai marché de proximité — pas à une moyenne de ville.
+            </p>
+          </div>
+        </div>
+
         {/* CTA bottom */}
         <div style={{
           marginTop: 56, padding: "32px", borderRadius: 16,

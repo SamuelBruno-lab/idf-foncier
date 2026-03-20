@@ -91,6 +91,31 @@ function median(arr: number[]): number {
     : sorted[mid];
 }
 
+/** Paginate through all Supabase rows (default max-rows = 1000) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllPoints(
+  supabase: any,
+  code: string,
+  anneeMin: number
+) {
+  const PAGE_SIZE = 1000;
+  const allRows: { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null }[] = [];
+  let offset = 0;
+  while (true) {
+    const { data } = await supabase
+      .from("dvf_points")
+      .select("annee,prix_m2,type_local,valeur_fonciere")
+      .eq("code_commune", code)
+      .gte("annee", anneeMin)
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (!data || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return allRows;
+}
+
 async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -107,15 +132,10 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
   // Toutes les autres communes IDF + 60 : historique complet 2020-2025
   const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
 
-  // Points DVF bruts (source de vérité quand disponibles)
-  const { data: points } = await supabase
-    .from("dvf_points")
-    .select("annee,prix_m2,type_local,valeur_fonciere")
-    .eq("code_commune", code)
-    .gte("annee", anneeMin)
-    .limit(50000);
+  // Points DVF bruts (source de vérité quand disponibles) — paginé
+  const points = await fetchAllPoints(supabase, code, anneeMin);
 
-  if ((!clusters || clusters.length === 0) && (!points || points.length === 0)) return null;
+  if ((!clusters || clusters.length === 0) && points.length === 0) return null;
 
   const hasPoints = points && points.length > 0;
 

@@ -201,7 +201,7 @@ export default function ParcelDetailsPanel({ item, loading = false, latitude, lo
         </h3>
         <div className="divide-y divide-neutral-100">
           <Row
-            label="Ancien median (DVF HDBSCAN)"
+            label="Prix médian ancien (zone locale)"
             value={medianPrice != null ? `${formatNumber(medianPrice)} €/m²` : "—"}
           />
           <Row

@@ -301,7 +301,7 @@ export default function FoncierMap({
               : "border border-neutral-200 bg-white/95 text-neutral-700 hover:bg-neutral-50"
           }`}
         >
-          {loadingZones ? "Chargement…" : showMicroZones ? "Micro-marchés HDBSCAN" : "Micro-marchés HDBSCAN"}
+          {loadingZones ? "Chargement…" : "Zones de prix locales"}
         </button>
         <button
           type="button"
@@ -341,7 +341,7 @@ export default function FoncierMap({
         {showMicroZones && (
           <>
             <div className="mb-1 mt-3 border-t border-neutral-200 pt-2 font-medium text-neutral-700">
-              Micro-marchés HDBSCAN
+              Zones de prix locales
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">

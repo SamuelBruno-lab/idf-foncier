@@ -90,14 +90,17 @@
   #dash92-toggle:hover { color: #fff; }
   .back-link { display:block; margin-top: 10px; padding: 7px 10px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 11px; text-decoration: none; text-align: center; transition: all 0.2s; }
   .back-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .collapse-btn { display:block; margin-top: 10px; padding: 9px 10px; border-radius: 7px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); font-size: 12px; text-align: center; cursor: pointer; transition: all 0.2s; font-family: inherit; width: 100%; }
+  .collapse-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
 </style>
 <div id="dash92">
   <div id="dash92-header">
     <span id="dash92-toggle" onclick="
       var b=document.getElementById('dash92-body');
       var t=document.getElementById('dash92-toggle');
-      if(b.style.display==='none'){b.style.display='block';t.textContent='▲'}
-      else{b.style.display='none';t.textContent='▼'}
+      var c=document.getElementById('dash92-collapse');
+      if(b.style.display==='none'){b.style.display='block';t.textContent='▲';c.style.display='block';}
+      else{b.style.display='none';t.textContent='▼';c.style.display='none';}
     ">▲</span>
     <h2>🏭 Commerces & Locaux · Hauts-de-Seine (92)</h2>
     <p>2025 · Source DVF data.gouv.fr</p>
@@ -111,6 +114,13 @@
     </div>
     <a href="index.html" class="back-link">← Vue d'ensemble Hauts-de-Seine</a>
     <a href="https://www.datamerry.com" target="_top" class="back-link">← Retour à datamerry.com</a>
+    <button class="collapse-btn" id="dash92-collapse" onclick="
+      var b=document.getElementById('dash92-body');
+      var c=document.getElementById('dash92-collapse');
+      var t=document.getElementById('dash92-toggle');
+      b.style.display='none';t.textContent='▼';
+      c.style.display='none';
+    ">▲ Replier</button>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
       © 2026 Samuel Bruno · datamerry.com
     </div>

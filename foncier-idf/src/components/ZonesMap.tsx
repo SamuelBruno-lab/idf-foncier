@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Map from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
-import { GeoJsonLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { PickingInfo } from "@deck.gl/core";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -101,6 +101,12 @@ export default function ZonesMap({ zones }: Props) {
       })),
   }), [visibleZones]);
 
+  // Zones sans hull_coords valide → affichées comme cercles au centroïde
+  const pointZones = useMemo(
+    () => visibleZones.filter((z) => (!z.hull_coords || z.hull_coords.length < 3) && z.centroid_lat && z.centroid_lon),
+    [visibleZones]
+  );
+
   const layer = new GeoJsonLayer({
     id: "zones",
     data: geojson,
@@ -123,6 +129,33 @@ export default function ZonesMap({ zones }: Props) {
     onHover: (info: PickingInfo) => {
       if (info.object) {
         setTooltip({ x: info.x, y: info.y, zone: info.object.properties as Zone });
+      } else {
+        setTooltip(null);
+      }
+    },
+  });
+
+  const pointLayer = new ScatterplotLayer<Zone>({
+    id: "zones-points",
+    data: pointZones,
+    getPosition: (z) => [z.centroid_lon!, z.centroid_lat!],
+    getRadius: 200,
+    radiusMinPixels: 12,
+    radiusMaxPixels: 40,
+    filled: true,
+    stroked: true,
+    getFillColor: (z) => priceGradient(z.prix_m2_median, minPrix, maxPrix),
+    getLineColor: (z) => {
+      const [r, g, b] = TYPE_COLOR[z.type_local] ?? [200, 200, 200];
+      return [r, g, b, 220];
+    },
+    lineWidthMinPixels: 2,
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 255, 60],
+    onHover: (info: PickingInfo<Zone>) => {
+      if (info.object) {
+        setTooltip({ x: info.x, y: info.y, zone: info.object });
       } else {
         setTooltip(null);
       }
@@ -226,7 +259,7 @@ export default function ZonesMap({ zones }: Props) {
           bearing: 0,
         }}
         controller
-        layers={[layer]}
+        layers={[layer, pointLayer]}
         style={{ height: "420px", position: "relative" }}
       >
         <Map

@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Sanitize file parameter
-  if (!/^carte_\w+\.html$/.test(file)) {
+  if (!/^(carte_\w+|index)\.html$/.test(file)) {
     return NextResponse.json({ error: "Invalid file" }, { status: 400 });
   }
 
@@ -67,6 +67,9 @@ export async function GET(req: NextRequest) {
     }
 
     let html = await res.text();
+
+    // Rewrite relative .html links to go through the proxy
+    html = html.replace(/href="((?:carte_\w+|index)\.html)"/g, `href="/api/map-proxy?dept=${dept}&file=$1"`);
 
     // Inject Street View script if not already present
     if (!html.includes("sv-links")) {

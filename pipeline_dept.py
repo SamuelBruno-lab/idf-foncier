@@ -773,14 +773,17 @@ def make_map(data, cfg, type_local, out_path):
   #dash{dept_code}-toggle:hover {{ color: #fff; }}
   .back-link {{ display:block; margin-top: 10px; padding: 7px 10px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 11px; text-decoration: none; text-align: center; transition: all 0.2s; }}
   .back-link:hover {{ background: rgba(255,255,255,0.1); color: #fff; }}
+  .collapse-btn {{ display:block; margin-top: 10px; padding: 9px 10px; border-radius: 7px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); font-size: 12px; text-align: center; cursor: pointer; transition: all 0.2s; font-family: inherit; width: 100%; }}
+  .collapse-btn:hover {{ background: rgba(255,255,255,0.15); color: #fff; }}
 </style>
 <div id="dash{dept_code}">
   <div id="dash{dept_code}-header">
     <span id="dash{dept_code}-toggle" onclick="
       var b=document.getElementById('dash{dept_code}-body');
       var t=document.getElementById('dash{dept_code}-toggle');
-      if(b.style.display==='none'){{b.style.display='block';t.textContent='▲'}}
-      else{{b.style.display='none';t.textContent='▼'}}
+      var c=document.getElementById('dash{dept_code}-collapse');
+      if(b.style.display==='none'){{b.style.display='block';t.textContent='▲';c.style.display='block';}}
+      else{{b.style.display='none';t.textContent='▼';c.style.display='none';}}
     ">▲</span>
     <h2>{tc["emoji"]} {tc["label"]} · {dept_nom} ({dept_code})</h2>
     <p>2025 · Source DVF data.gouv.fr</p>
@@ -794,6 +797,13 @@ def make_map(data, cfg, type_local, out_path):
     </div>
     <a href="index.html" class="back-link">← Vue d'ensemble {dept_nom}</a>
     <a href="https://www.datamerry.com" target="_top" class="back-link">← Retour à datamerry.com</a>
+    <button class="collapse-btn" id="dash{dept_code}-collapse" onclick="
+      var b=document.getElementById('dash{dept_code}-body');
+      var c=document.getElementById('dash{dept_code}-collapse');
+      var t=document.getElementById('dash{dept_code}-toggle');
+      b.style.display='none';t.textContent='▼';
+      c.style.display='none';
+    ">▲ Replier</button>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
       © 2026 Samuel Bruno · datamerry.com
     </div>

@@ -15,6 +15,26 @@ function median(arr: number[]): number {
     : sorted[mid];
 }
 
+/** Paginate through all Supabase rows (default max-rows = 1000) */
+async function fetchAllPoints(code: string, anneeMin: number) {
+  const PAGE_SIZE = 1000;
+  const allRows: { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null }[] = [];
+  let offset = 0;
+  while (true) {
+    const { data } = await supabase
+      .from("dvf_points")
+      .select("annee,prix_m2,type_local,valeur_fonciere")
+      .eq("code_commune", code)
+      .gte("annee", anneeMin)
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (!data || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return allRows;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
@@ -31,17 +51,11 @@ export async function GET(
   // Toutes les autres communes IDF + 60 : historique complet 2020-2025
   const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
 
-  // Points DVF bruts — source de vérité quand disponibles
-  const { data: points, error: err2 } = await supabase
-    .from("dvf_points")
-    .select("annee,prix_m2,type_local,valeur_fonciere")
-    .eq("code_commune", code)
-    .gte("annee", anneeMin)
-    .limit(50000);
+  // Points DVF bruts — source de vérité quand disponibles (paginé)
+  const points = await fetchAllPoints(code, anneeMin);
 
   if (err1) return NextResponse.json({ error: err1.message }, { status: 500 });
-  if (err2) return NextResponse.json({ error: err2.message }, { status: 500 });
-  if ((!clusters || clusters.length === 0) && (!points || points.length === 0))
+  if ((!clusters || clusters.length === 0) && points.length === 0)
     return NextResponse.json({ error: "Commune introuvable" }, { status: 404 });
 
   // Micro-marchés pré-calculés (zones géospatiales)

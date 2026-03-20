@@ -129,9 +129,8 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
             onClick={() => setMobileOpen(true)}
             style={{
               position: "fixed",
-              bottom: 20,
-              left: "50%",
-              transform: "translateX(-50%)",
+              bottom: 70,
+              left: 12,
               zIndex: 900,
               background: "linear-gradient(135deg, rgba(10,10,30,0.97), rgba(20,20,50,0.97))",
               border: "1px solid rgba(0,212,255,0.4)",

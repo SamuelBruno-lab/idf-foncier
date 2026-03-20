@@ -33,6 +33,122 @@ const TIMELINES = [
   "Plus de 12 mois",
 ];
 
+const SECTEURS_75 = [
+  "1er–4e / Marais / Châtelet",
+  "5e–6e / Quartier Latin / Saint-Germain",
+  "7e / Invalides / Tour Eiffel",
+  "8e / Champs-Élysées / Madeleine",
+  "9e–10e / Opéra / Gare du Nord",
+  "11e / Bastille / Oberkampf",
+  "12e / Nation / Bercy",
+  "13e / Gobelins / Bibliothèque",
+  "14e / Montparnasse / Alésia",
+  "15e / Vaugirard / Convention",
+  "16e / Passy / Auteuil",
+  "17e / Batignolles / Ternes",
+  "18e / Montmartre / Clignancourt",
+  "19e / Buttes-Chaumont / Villette",
+  "20e / Belleville / Ménilmontant",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_77 = [
+  "Meaux / Villenoy / Nanteuil",
+  "Melun / Le Mée / Dammarie",
+  "Chelles / Vaires / Brou",
+  "Pontault-Combault / Roissy-en-Brie",
+  "Savigny / Noisiel / Torcy",
+  "Fontainebleau / Avon / Moret",
+  "Lagny / Thorigny / Pomponne",
+  "Sénart / Lieusaint / Combs",
+  "Coulommiers / Provins",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_78 = [
+  "Versailles / Le Chesnay / Viroflay",
+  "Saint-Germain / Le Pecq / Chatou",
+  "Sartrouville / Houilles / Carrières",
+  "Mantes / Limay / Les Mureaux",
+  "Poissy / Conflans / Achères",
+  "Rambouillet / Maurepas / Élancourt",
+  "Plaisir / Les Clayes / Villepreux",
+  "Montigny / Guyancourt / Trappes",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_91 = [
+  "Évry-Courcouronnes / Corbeil / Ris-Orangis",
+  "Massy / Palaiseau / Orsay",
+  "Savigny / Épinay / Juvisy",
+  "Les Ulis / Gif / Bures",
+  "Longjumeau / Chilly-Mazarin / Morangis",
+  "Draveil / Vigneux / Montgeron",
+  "Étampes / Arpajon / Brétigny",
+  "Sainte-Geneviève / Yerres / Brunoy",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_92 = [
+  "Boulogne / Issy / Vanves",
+  "Neuilly / Levallois / Courbevoie",
+  "La Défense / Puteaux / Nanterre",
+  "Rueil / Suresnes / Saint-Cloud",
+  "Meudon / Clamart / Châtillon",
+  "Colombes / Asnières / Gennevilliers",
+  "Antony / Sceaux / Bourg-la-Reine",
+  "Montrouge / Malakoff / Bagneux",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_93 = [
+  "Saint-Denis / Aubervilliers / La Courneuve",
+  "Montreuil / Bagnolet / Romainville",
+  "Bobigny / Drancy / Pantin",
+  "Aulnay / Sevran / Villepinte",
+  "Bondy / Noisy-le-Sec / Rosny",
+  "Saint-Ouen / Épinay / Villetaneuse",
+  "Livry-Gargan / Le Raincy / Clichy-sous-Bois",
+  "Noisy-le-Grand / Neuilly-sur-Marne / Gagny",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_94 = [
+  "Vincennes / Saint-Mandé",
+  "Nogent / Le Perreux / Bry",
+  "Créteil / Maisons-Alfort",
+  "Saint-Maur / Joinville",
+  "Charenton / Alfortville",
+  "Vitry / Ivry / Villejuif",
+  "Champigny / Chennevières",
+  "Orly / Choisy / Thiais",
+  "L'Haÿ / Cachan / Arcueil",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_95 = [
+  "Cergy / Pontoise / Osny",
+  "Argenteuil / Bezons / Cormeilles",
+  "Sarcelles / Garges / Villiers-le-Bel",
+  "Enghien / Montmorency / Deuil",
+  "Ermont / Eaubonne / Saint-Gratien",
+  "Gonesse / Goussainville / Roissy",
+  "Franconville / Herblay / Taverny",
+  "L'Isle-Adam / Beaumont / Persan",
+  "Autre / Pas encore décidé",
+];
+
+const SECTEURS_BY_DEPT: Record<string, { label: string; options: string[] }> = {
+  "75": { label: "Dans quel arrondissement de Paris ?", options: SECTEURS_75 },
+  "77": { label: "Dans quel coin de Seine-et-Marne ?", options: SECTEURS_77 },
+  "78": { label: "Dans quel coin des Yvelines ?", options: SECTEURS_78 },
+  "91": { label: "Dans quel coin de l'Essonne ?", options: SECTEURS_91 },
+  "92": { label: "Dans quel coin des Hauts-de-Seine ?", options: SECTEURS_92 },
+  "93": { label: "Dans quel coin de Seine-Saint-Denis ?", options: SECTEURS_93 },
+  "94": { label: "Dans quel coin du Val-de-Marne ?", options: SECTEURS_94 },
+  "95": { label: "Dans quel coin du Val-d'Oise ?", options: SECTEURS_95 },
+};
+
 const INTENT_CONFIG = {
   acheteur: {
     label: "J'achète",
@@ -94,6 +210,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
   const [intent, setIntent] = useState<Intent | null>(initialIntent ?? null);
   const [budget, setBudget] = useState("");
   const [timeline, setTimeline] = useState("");
+  const [secteur, setSecteur] = useState("");
   const [form, setForm] = useState({ nom: "", prenom: "", societe: "", email: "", telephone: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -123,6 +240,7 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
           commune_nom: commune.nom,
           budget,
           timeline,
+          secteur: secteur || undefined,
           source: `analyse_${commune.code}_${intent}`,
         }),
       });
@@ -288,6 +406,36 @@ export default function AnalyseLeadModal({ commune, initialIntent, onClose }: Pr
                   </div>
                 </div>
               )}
+
+              {/* Secteur par département (acheteur / investisseur) */}
+              {(() => {
+                const deptCode = commune.code.slice(0, 2);
+                const secteurConfig = SECTEURS_BY_DEPT[deptCode];
+                if (!secteurConfig || (intent !== "acheteur" && intent !== "investisseur")) return null;
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
+                      {secteurConfig.label}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {secteurConfig.options.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setSecteur(s)}
+                          style={{
+                            padding: "6px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer",
+                            border: `1px solid ${secteur === s ? config.color : "rgba(255,255,255,0.15)"}`,
+                            background: secteur === s ? `${config.color}22` : "rgba(255,255,255,0.04)",
+                            color: secteur === s ? config.color : "rgba(255,255,255,0.6)",
+                            fontWeight: secteur === s ? 700 : 400,
+                          }}
+                        >{s}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Timeline */}
               <div style={{ marginBottom: 16 }}>

@@ -1,9 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ShareButton() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   function getUrl() {
     return typeof window !== "undefined" ? window.location.href : "https://datamerry.com";
@@ -30,7 +38,7 @@ export default function ShareButton() {
   }
 
   return (
-    <div style={{ position: "fixed", bottom: "48px", right: "16px", zIndex: 9998 }}>
+    <div style={{ position: "fixed", bottom: isMobile ? "60px" : "48px", right: isMobile ? "8px" : "16px", zIndex: 9998 }}>
       {open && (
         <div style={{
           marginBottom: "8px",

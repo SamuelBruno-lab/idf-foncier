@@ -89,6 +89,9 @@ export default function DeptPage() {
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
+  const [topTabsCollapsed, setTopTabsCollapsed] = useState(false);
+  const [bottomTabsCollapsed, setBottomTabsCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CommuneSuggestion[]>([]);
@@ -169,7 +172,7 @@ export default function DeptPage() {
           left: isMobile ? 8 : "50%",
           right: isMobile ? 8 : "auto",
           transform: isMobile ? "none" : "translateX(-50%)",
-          zIndex: 1000, display: "flex", gap: 4,
+          zIndex: 1000, display: "flex", gap: 4, alignItems: "center",
           background: "rgba(5,5,20,0.85)", borderRadius: 12,
           padding: 4, backdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -177,8 +180,22 @@ export default function DeptPage() {
           WebkitOverflowScrolling: "touch",
           msOverflowStyle: "none" as React.CSSProperties["msOverflowStyle"],
           scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+          transition: "all 0.2s ease",
         }}>
-          {MAP_TABS.map((tab) => {
+          {isMobile && (
+            <button
+              onClick={() => setTopTabsCollapsed(!topTabsCollapsed)}
+              style={{
+                background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
+                fontSize: 14, cursor: "pointer", padding: "4px 6px", flexShrink: 0,
+                fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+              }}
+              title={topTabsCollapsed ? "Afficher les onglets" : "Réduire les onglets"}
+            >
+              {topTabsCollapsed ? "▶" : "◀"}
+            </button>
+          )}
+          {(!isMobile || !topTabsCollapsed) && MAP_TABS.map((tab) => {
             if (code === "75" && tab.key === "maisons") return null;
             const isActive = tab.key === activeTab;
             return (
@@ -202,6 +219,11 @@ export default function DeptPage() {
               </button>
             );
           })}
+          {isMobile && topTabsCollapsed && (
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
+              {MAP_TABS.find(t => t.key === activeTab)?.emoji} {MAP_TABS.find(t => t.key === activeTab)?.label}
+            </span>
+          )}
         </div>
       )}
 
@@ -294,13 +316,26 @@ export default function DeptPage() {
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
       <div style={{
         position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
-        zIndex: 800, display: "flex", flexDirection: "column",
+        zIndex: 800, display: "flex", flexDirection: "column", alignItems: "flex-end",
         gap: isMobile ? 2 : 4, padding: isMobile ? "4px 3px" : "8px 6px",
         background: "rgba(5,5,20,0.75)", borderRadius: "10px 0 0 10px",
         backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
-        borderRight: "none",
+        borderRight: "none", transition: "all 0.2s ease",
       }}>
-        {DEPT_ORDER.map((d) => {
+        {isMobile && (
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{
+              background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
+              fontSize: 10, cursor: "pointer", padding: "2px 4px",
+              fontFamily: "Segoe UI, sans-serif", lineHeight: 1, alignSelf: "center",
+            }}
+            title={sidebarCollapsed ? "Afficher les départements" : "Réduire"}
+          >
+            {sidebarCollapsed ? "◀" : "▶"}
+          </button>
+        )}
+        {(!isMobile || !sidebarCollapsed) && DEPT_ORDER.map((d) => {
           const di = DEPT_INFO[d];
           const isActive = d === code;
           return (
@@ -334,6 +369,11 @@ export default function DeptPage() {
             </Link>
           );
         })}
+        {isMobile && sidebarCollapsed && (
+          <span style={{ color: dept.color, fontSize: 9, fontWeight: 800, fontFamily: "Segoe UI, sans-serif" }}>
+            {code}
+          </span>
+        )}
       </div>
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
@@ -344,7 +384,7 @@ export default function DeptPage() {
         left: isMobile ? 8 : "50%",
         right: isMobile ? 8 : "auto",
         transform: isMobile ? "none" : "translateX(-50%)",
-        zIndex: 1000, display: "flex", gap: isMobile ? 4 : 6,
+        zIndex: 1000, display: "flex", gap: isMobile ? 4 : 6, alignItems: "center",
         background: "rgba(5,5,20,0.9)", borderRadius: isMobile ? 10 : 14,
         padding: isMobile ? 4 : 6, backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.12)",
@@ -352,8 +392,22 @@ export default function DeptPage() {
         overflowX: isMobile ? "auto" : "visible",
         WebkitOverflowScrolling: "touch",
         scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+        transition: "all 0.2s ease",
       }}>
-        {([
+        {isMobile && (
+          <button
+            onClick={() => setBottomTabsCollapsed(!bottomTabsCollapsed)}
+            style={{
+              background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
+              fontSize: 14, cursor: "pointer", padding: "4px 6px", flexShrink: 0,
+              fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+            }}
+            title={bottomTabsCollapsed ? "Afficher les options" : "Réduire les options"}
+          >
+            {bottomTabsCollapsed ? "▶" : "◀"}
+          </button>
+        )}
+        {(!isMobile || !bottomTabsCollapsed) && ([
           { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
           { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
           { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
@@ -388,6 +442,11 @@ export default function DeptPage() {
             {tab.label}
           </button>
         ))}
+        {isMobile && bottomTabsCollapsed && (
+          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
+            Mon projet immobilier
+          </span>
+        )}
       </div>
 
       {showIntentModal && (

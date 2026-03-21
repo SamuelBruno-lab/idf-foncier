@@ -621,7 +621,7 @@ def make_map(data, cfg, type_local, out_path):
     poly_fg.add_to(m)
 
     # Points par année
-    YEAR_ICONS = {2020:"🔵",2021:"🟢",2022:"🟡",2023:"🟠",2024:"🔴",2025:"🟣"}
+    YEAR_ICONS = {2020:"⚫",2021:"⚫",2022:"⚫",2023:"⚫",2024:"⚫",2025:"⚫"}
     years = sorted(data["annee"].dropna().unique().tolist())
     for year in years:
         year_int = int(year)

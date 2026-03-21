@@ -182,7 +182,7 @@ for cid in sorted(data[data["cluster"] >= 0]["cluster"].unique()):
 poly_fg.add_to(m)
 
 # ── 8. Points par année ───────────────────────────────────────────────────────
-YEAR_ICONS = {2020:"🔵",2021:"🟢",2022:"🟡",2023:"🟠",2024:"🔴",2025:"🟣"}
+YEAR_ICONS = {2020:"⚫",2021:"⚫",2022:"⚫",2023:"⚫",2024:"⚫",2025:"⚫"}
 
 for year in years:
     fg = folium.FeatureGroup(name=f"{YEAR_ICONS.get(year,'•')} {year}", show=True)

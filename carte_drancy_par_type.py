@@ -337,7 +337,7 @@ CLUSTER_COLORS = [
     "#ff9900","#ff00aa","#00ff44","#aa00ff","#ffcc00",
     "#00ccff","#ff4400","#44ffaa","#ff44cc","#aaff00",
 ]
-YEAR_ICONS = {2020:"🔵",2021:"🟢",2022:"🟡",2023:"🟠",2024:"🔴",2025:"🟣"}
+YEAR_ICONS = {2020:"⚫",2021:"⚫",2022:"⚫",2023:"⚫",2024:"⚫",2025:"⚫"}
 
 def c_color(cid):
     return CLUSTER_COLORS[cid % len(CLUSTER_COLORS)] if cid >= 0 else "#666666"

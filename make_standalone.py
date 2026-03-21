@@ -12,9 +12,9 @@ OUT_DIR = Path("/home/user/vlg_pages")
 OUT_DIR.mkdir(exist_ok=True)
 
 MAPS = [
-    ("carte_vlg_appartements.html", "🏢 Appartements",    "390 transactions · 15 micro-marchés"),
-    ("carte_vlg_maisons.html",      "🏠 Maisons / Pavillons", "69 transactions · 6 micro-marchés"),
-    ("carte_vlg_commerces.html",    "🏭 Commerces & Locaux", "51 transactions · 5 micro-marchés"),
+    ("carte_vlg_appartements.html", "🏢 Appartements",    "667 transactions · 9 micro-marchés"),
+    ("carte_vlg_maisons.html",      "🏠 Maisons / Pavillons", "80 transactions · 5 micro-marchés"),
+    ("carte_vlg_commerces.html",    "🏭 Commerces & Locaux", "51 transactions · 6 micro-marchés"),
 ]
 
 CACHE = {}

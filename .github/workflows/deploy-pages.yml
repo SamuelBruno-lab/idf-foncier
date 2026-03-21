@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: true
+      deploy_lpr:
+        description: "Déployer aussi lpr-foncier (Le Plessis-Robinson)"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   deploy-vlg:
@@ -72,6 +77,65 @@ jobs:
             -d '{"source":{"branch":"main","path":"/"}}' || echo "GitHub Pages already enabled"
 
           echo "✅ https://SamuelBruno-lab.github.io/vlg-foncier/"
+
+  deploy-lpr:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.deploy_lpr == 'true' }}
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Push lpr_pages to lpr-foncier
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          REPO="lpr-foncier"
+          OWNER="SamuelBruno-lab"
+          WORK_DIR=$(mktemp -d)
+
+          # Check if repo exists
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$OWNER/$REPO")
+
+          if [ "$HTTP_CODE" = "404" ]; then
+            echo "Creating repo $REPO..."
+            curl -s -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/user/repos" \
+              -d "{\"name\":\"$REPO\",\"description\":\"Analyse foncière · Le Plessis-Robinson · datamerry.com\",\"homepage\":\"https://$OWNER.github.io/$REPO/\",\"private\":false,\"has_pages\":true}"
+            sleep 3
+          else
+            echo "Repo $REPO already exists (HTTP $HTTP_CODE)"
+          fi
+
+          cd "$WORK_DIR"
+          git init -q
+          git config user.name "datamerry-bot"
+          git config user.email "bot@datamerry.com"
+
+          # Copy LPR pages
+          cp "$GITHUB_WORKSPACE/lpr_pages"/*.html .
+          cp "$GITHUB_WORKSPACE/lpr_pages"/.nojekyll . 2>/dev/null || true
+
+          git add -A
+          git commit -q -m "feat: cartes foncières Le Plessis-Robinson · datamerry.com"
+          git branch -M main
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${OWNER}/${REPO}.git"
+          git push -f -u origin main
+
+      - name: Enable GitHub Pages for lpr-foncier
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/SamuelBruno-lab/lpr-foncier/pages" \
+            -d '{"source":{"branch":"main","path":"/"}}' || echo "GitHub Pages already enabled"
+
+          echo "✅ https://SamuelBruno-lab.github.io/lpr-foncier/"
 
   deploy:
     runs-on: ubuntu-latest

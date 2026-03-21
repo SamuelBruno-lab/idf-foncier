@@ -175,9 +175,9 @@ index_html = f"""<!DOCTYPE html>
   </div>
 
   <div class="stats-bar">
-    <div class="stat"><div class="val">510</div><div class="lbl">Transactions</div></div>
+    <div class="stat"><div class="val">798</div><div class="lbl">Transactions</div></div>
     <div class="stat"><div class="val">2020–25</div><div class="lbl">Période</div></div>
-    <div class="stat"><div class="val">26</div><div class="lbl">Micro-marchés</div></div>
+    <div class="stat"><div class="val">20</div><div class="lbl">Micro-marchés</div></div>
     <div class="stat"><div class="val">3</div><div class="lbl">Typologies</div></div>
   </div>
 

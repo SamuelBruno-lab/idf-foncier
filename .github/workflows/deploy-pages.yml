@@ -137,6 +137,7 @@ jobs:
 
           echo "✅ https://SamuelBruno-lab.github.io/lpr-foncier/"
 
+
   deploy:
     runs-on: ubuntu-latest
     strategy:

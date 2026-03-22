@@ -96,7 +96,7 @@ export default function CommunePage() {
     }
   }, [code, activeType]);
 
-  // Fetch DVF points — filter by commune name
+  // Fetch DVF points — filter by commune code (INSEE)
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -105,21 +105,16 @@ export default function CommunePage() {
       params.set("zoom", "15");
       params.set("mode", "heatmap");
       if (activeType !== "all") params.set("type_local", activeType);
-      if (nom) params.set("commune", nom);
+      params.set("code_commune", code);
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
-      // Filter to this commune's points (by commune name, case-insensitive)
-      const nomUpper = nom.toUpperCase();
-      const communePoints = (json.data ?? []).filter(
-        (p: DvfPoint) => p.commune?.toUpperCase() === nomUpper
-      );
-      setPoints(communePoints);
+      setPoints(json.data ?? []);
     } catch (e) {
       console.error("Failed to fetch points:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [dept, nom, activeType]);
+  }, [dept, code, activeType]);
 
   // Fetch commune stats
   useEffect(() => {

@@ -15,19 +15,21 @@ export async function GET(req: NextRequest) {
   const annee_max = parseInt(searchParams.get("annee_max") ?? "2025");
   const mode = searchParams.get("mode");
   const commune = searchParams.get("commune");
+  const code_commune = searchParams.get("code_commune");
 
   // Heatmap ou Zoom > 13 → points bruts
   if (mode === "heatmap" || zoom >= 13) {
     let q = supabase
       .from("dvf_points")
-      .select("id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,dept,annee")
+      .select("id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee")
       .gte("annee", annee_min)
       .lte("annee", annee_max)
       .limit(mode === "heatmap" ? 15000 : 2000);
 
     if (dept.length > 0) q = q.in("dept", dept);
     if (type_local) q = q.eq("type_local", type_local);
-    if (commune) q = q.ilike("commune", commune);
+    if (code_commune) q = q.eq("code_commune", code_commune);
+    else if (commune) q = q.ilike("commune", `%${commune}%`);
 
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -61,9 +61,9 @@ interface TooltipInfo {
 
 export default function ZonesMap({ zones }: Props) {
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
-  const [activeType, setActiveType] = useState<string | null>(null);
-
   const types = useMemo(() => [...new Set(zones.map((z) => z.type_local))], [zones]);
+
+  const [activeType, setActiveType] = useState<string | null>(types[0] ?? "Appartement");
 
   const visibleZones = useMemo(
     () => (activeType ? zones.filter((z) => z.type_local === activeType) : zones),
@@ -181,28 +181,12 @@ export default function ZonesMap({ zones }: Props) {
           gap: 6,
         }}
       >
-        <button
-          onClick={() => setActiveType(null)}
-          style={{
-            padding: "5px 12px",
-            borderRadius: 99,
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: !activeType ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.6)",
-            color: "#fff",
-            fontSize: 11,
-            cursor: "pointer",
-            fontWeight: !activeType ? 700 : 400,
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          Tous
-        </button>
         {types.map((t) => {
           const [r, g, b] = TYPE_COLOR[t] ?? [200, 200, 200];
           return (
             <button
               key={t}
-              onClick={() => setActiveType(activeType === t ? null : t)}
+              onClick={() => setActiveType(t)}
               style={{
                 padding: "5px 12px",
                 borderRadius: 99,

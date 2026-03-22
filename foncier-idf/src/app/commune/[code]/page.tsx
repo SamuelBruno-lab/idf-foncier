@@ -21,7 +21,6 @@ const CommuneMap = dynamic(() => import("@/components/CommuneMap"), {
 type TypeFilter = "all" | "Appartement" | "Maison" | "Local industriel. commercial ou assimilé";
 
 const TYPE_TABS: { key: TypeFilter; label: string; mobileLabel: string; emoji: string }[] = [
-  { key: "all", label: "Tous types", mobileLabel: "Tous", emoji: "🗺️" },
   { key: "Appartement", label: "Appartements", mobileLabel: "Appts", emoji: "🏢" },
   { key: "Maison", label: "Maisons", mobileLabel: "Maisons", emoji: "🏠" },
   { key: "Local industriel. commercial ou assimilé", label: "Commerces", mobileLabel: "Comm.", emoji: "🏭" },
@@ -54,7 +53,7 @@ export default function CommunePage() {
   const color = commune?.color ?? "#00d4ff";
   const dept = commune?.dept ?? code.slice(0, 2);
 
-  const [activeType, setActiveType] = useState<TypeFilter>("all");
+  const [activeType, setActiveType] = useState<TypeFilter>("Appartement");
   const [showZones, setShowZones] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showPoints, setShowPoints] = useState(true);

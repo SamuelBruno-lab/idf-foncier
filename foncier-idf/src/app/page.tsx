@@ -34,15 +34,43 @@ const DvfMap = dynamic(() => import("@/components/DvfMap"), {
         width: "100%",
         height: "100%",
         background: "#0a0a1e",
+        backgroundImage: "url(/skyline-idf.svg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center bottom",
+        backgroundRepeat: "no-repeat",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#00d4ff",
-        fontFamily: "Segoe UI, sans-serif",
-        fontSize: 14,
+        flexDirection: "column",
+        gap: 16,
       }}
     >
-      Initialisation de la carte...
+      <div style={{
+        fontSize: 28,
+        fontWeight: 800,
+        fontFamily: "Segoe UI, sans-serif",
+        background: "linear-gradient(90deg, #00ff88, #00d4ff)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      }}>
+        datamerry
+      </div>
+      <div style={{
+        color: "rgba(255,255,255,0.5)",
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: 14,
+        letterSpacing: 1,
+      }}>
+        Initialisation de la carte...
+      </div>
+      <div style={{
+        width: 40,
+        height: 3,
+        borderRadius: 2,
+        background: "linear-gradient(90deg, #00d4ff, #00ff88)",
+        animation: "pulse 1.5s ease-in-out infinite",
+      }} />
     </div>
   ),
 });
@@ -145,6 +173,20 @@ export default function HomePage() {
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e" }}>
+      {/* Illustration skyline en arrière-plan */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url(/skyline-idf.svg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center bottom",
+          backgroundRepeat: "no-repeat",
+          opacity: 0.35,
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
       {/* Carte toujours en fond */}
       <DvfMap
         points={points}

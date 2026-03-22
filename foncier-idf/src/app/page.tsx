@@ -18,6 +18,8 @@ const DEPTS = [
 ];
 import FilterPanel from "@/components/FilterPanel";
 import LeadModal from "@/components/LeadModal";
+import AnalyseLeadModal from "@/components/AnalyseLeadModal";
+import type { Intent } from "@/components/AnalyseLeadModal";
 import CookieBanner from "@/components/CookieBanner";
 import type { DvfFilters, DvfPoint, DvfCluster } from "@/types/dvf";
 
@@ -56,6 +58,8 @@ export default function HomePage() {
   const [showHero, setShowHero] = useState(true);
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [activeFooter, setActiveFooter] = useState<"about" | "contact" | null>(null);
+  const [showIntentModal, setShowIntentModal] = useState(false);
+  const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
   const didCheckModal = useRef(false);
 
   // Recherche commune
@@ -408,6 +412,41 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* CTAs profil immobilier */}
+          <div style={{
+            display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center",
+            marginBottom: 20, width: "100%", maxWidth: 640,
+          }}>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 1.5, textTransform: "uppercase", textAlign: "center", width: "100%", marginBottom: 4 }}>
+              Votre projet immobilier
+            </div>
+            {([
+              { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
+              { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
+              { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
+              { key: "agent" as Intent, label: "Agent / Promoteur", icon: "💼", color: "#00ff88" },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => { setSelectedIntent(tab.key); setShowIntentModal(true); }}
+                style={{
+                  background: `${tab.color}10`,
+                  border: `1px solid ${tab.color}44`,
+                  borderRadius: 10, padding: "10px 18px",
+                  color: tab.color,
+                  fontSize: 13, fontWeight: 600,
+                  fontFamily: "Segoe UI, sans-serif",
+                  cursor: "pointer", transition: "all 0.15s",
+                  display: "flex", alignItems: "center", gap: 6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ fontSize: 15 }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* CTAs */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             {/* CTA principal — Explorer la carte */}
@@ -448,7 +487,7 @@ export default function HomePage() {
                 onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
               >
-                Actualités & projets pilotes
+                Analyses & projets pilotes
               </div>
             </Link>
             <button
@@ -632,6 +671,15 @@ export default function HomePage() {
       {/* Modal lead capture */}
       {showLeadModal && (
         <LeadModal onClose={() => setShowLeadModal(false)} />
+      )}
+
+      {/* Modal lead capture par intention */}
+      {showIntentModal && (
+        <AnalyseLeadModal
+          commune={{ code: "IDF", nom: "Île-de-France" }}
+          initialIntent={selectedIntent}
+          onClose={() => { setShowIntentModal(false); setSelectedIntent(undefined); }}
+        />
       )}
 
       {/* Bandeau cookies */}

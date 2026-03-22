@@ -2,9 +2,45 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Actualités — datamerry · Observatoire foncier IA",
-  description: "Projets pilotes et actualités datamerry : Villeneuve-la-Garenne, analyses foncières territoriales et innovations IA.",
+  title: "Analyses & projets pilotes — datamerry · Observatoire foncier IA",
+  description: "Communes analysées en détail et projets pilotes datamerry : Le Plessis-Robinson, Drancy, Villeneuve-la-Garenne — analyses foncières territoriales et innovations IA.",
 };
+
+const COMMUNES_ANALYSEES = [
+  {
+    code: "92060",
+    nom: "Le Plessis-Robinson",
+    dept: "92 · Hauts-de-Seine",
+    color: "#00d4ff",
+    stats: [
+      { val: "2 400+", label: "transactions" },
+      { val: "17", label: "micro-marchés" },
+      { val: "3", label: "typologies" },
+    ],
+  },
+  {
+    code: "93029",
+    nom: "Drancy",
+    dept: "93 · Seine-Saint-Denis",
+    color: "#00ff88",
+    stats: [
+      { val: "3 000+", label: "transactions" },
+      { val: "15+", label: "micro-marchés" },
+      { val: "3", label: "typologies" },
+    ],
+  },
+  {
+    code: "92078",
+    nom: "Villeneuve-la-Garenne",
+    dept: "92 · Hauts-de-Seine",
+    color: "#a855f7",
+    stats: [
+      { val: "2 800+", label: "transactions" },
+      { val: "7", label: "micro-marchés" },
+      { val: "5 ans", label: "historique DVF" },
+    ],
+  },
+];
 
 const ARTICLES = [
   {
@@ -76,7 +112,7 @@ export default function ActualitesPage() {
           ← datamerry.com
         </Link>
         <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)" }} />
-        <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Actualités & projets pilotes</span>
+        <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Analyses & projets pilotes</span>
       </div>
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 24px" }}>
@@ -92,12 +128,65 @@ export default function ActualitesPage() {
             Observatoire foncier IA · datamerry
           </div>
           <h1 style={{ margin: "0 0 16px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>
-            Actualités &amp; projets pilotes
+            Analyses &amp; projets pilotes
           </h1>
           <p style={{ margin: 0, fontSize: 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, maxWidth: 620 }}>
-            Datamerry cartographie le marché immobilier français commune par commune grâce à l'IA.
-            Retrouvez ici nos analyses territoriales, projets pilotes et couvertures géographiques.
+            Datamerry cartographie le marché immobilier français commune par commune grâce à l&apos;IA.
+            Retrouvez ici nos analyses communales détaillées, projets pilotes et couvertures géographiques.
           </p>
+        </div>
+
+        {/* Communes analysées en détail */}
+        <div style={{ marginBottom: 56 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fff" }}>
+              Communes analysées en détail
+            </h2>
+            <span style={{
+              padding: "3px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
+              background: "rgba(0,255,136,0.12)", color: "#00ff88", letterSpacing: 0.5,
+            }}>
+              {COMMUNES_ANALYSEES.length} disponibles
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
+            {COMMUNES_ANALYSEES.map((commune) => (
+              <Link key={commune.code} href={`/analyse/${commune.code}`} style={{ textDecoration: "none" }}>
+                <div style={{
+                  background: `${commune.color}08`,
+                  border: `1px solid ${commune.color}33`,
+                  borderRadius: 14,
+                  padding: "22px 20px",
+                  transition: "all 0.15s",
+                  cursor: "pointer",
+                }}>
+                  <div style={{ fontSize: 11, color: `${commune.color}aa`, letterSpacing: 0.5, marginBottom: 6 }}>
+                    {commune.dept}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 4 }}>
+                    {commune.nom}
+                  </div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>
+                    Cartographie des micro-marchés + évolution prix
+                  </div>
+                  <div style={{ display: "flex", gap: 16 }}>
+                    {commune.stats.map((s) => (
+                      <div key={s.label}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: commune.color }}>{s.val}</div>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{
+                    marginTop: 14, fontSize: 12, fontWeight: 600, color: commune.color,
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    Voir l&apos;analyse complète →
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* Articles */}

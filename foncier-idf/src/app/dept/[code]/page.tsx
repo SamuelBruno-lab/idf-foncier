@@ -182,13 +182,18 @@ export default function DeptPage() {
           scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
           transition: "all 0.2s ease",
         }}>
+          {/* Bouton toggle gauche (mobile) */}
           {isMobile && (
             <button
               onClick={() => setTopTabsCollapsed(!topTabsCollapsed)}
               style={{
-                background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
-                fontSize: 14, cursor: "pointer", padding: "4px 6px", flexShrink: 0,
+                background: topTabsCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
+                border: topTabsCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
+                color: topTabsCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
+                fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
                 fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+                borderRadius: 8, minWidth: 36, minHeight: 36,
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}
               title={topTabsCollapsed ? "Afficher les onglets" : "Réduire les onglets"}
             >
@@ -223,6 +228,23 @@ export default function DeptPage() {
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
               {MAP_TABS.find(t => t.key === activeTab)?.emoji} {MAP_TABS.find(t => t.key === activeTab)?.label}
             </span>
+          )}
+          {/* Bouton toggle droit (mobile, visible quand déplié) */}
+          {isMobile && !topTabsCollapsed && (
+            <button
+              onClick={() => setTopTabsCollapsed(true)}
+              style={{
+                background: "transparent", border: "none",
+                color: "rgba(255,255,255,0.4)",
+                fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
+                fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+                borderRadius: 8, minWidth: 36, minHeight: 36,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+              title="Réduire les onglets"
+            >
+              ✕
+            </button>
           )}
         </div>
       )}
@@ -322,13 +344,18 @@ export default function DeptPage() {
         backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
         borderRight: "none", transition: "all 0.2s ease",
       }}>
+        {/* Bouton toggle haut (mobile) */}
         {isMobile && (
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{
-              background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
-              fontSize: 10, cursor: "pointer", padding: "2px 4px",
+              background: sidebarCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
+              border: sidebarCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
+              color: sidebarCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
+              fontSize: 12, cursor: "pointer", padding: "6px 8px",
               fontFamily: "Segoe UI, sans-serif", lineHeight: 1, alignSelf: "center",
+              borderRadius: 6, minWidth: 32, minHeight: 32,
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}
             title={sidebarCollapsed ? "Afficher les départements" : "Réduire"}
           >
@@ -341,12 +368,12 @@ export default function DeptPage() {
           return (
             <Link key={d} href={`/dept/${d}`} title={di.nomFull} style={{ textDecoration: "none" }}>
               <div style={{
-                width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius: isMobile ? 6 : 8,
+                width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: isMobile ? 6 : 8,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: isActive ? `${di.color}30` : "transparent",
                 border: `1px solid ${isActive ? di.color : "rgba(255,255,255,0.08)"}`,
                 color: isActive ? di.color : "rgba(255,255,255,0.4)",
-                fontSize: isMobile ? 9 : 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
+                fontSize: isMobile ? 10 : 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
                 cursor: "pointer", transition: "all 0.15s",
               }}
                 onMouseEnter={(e) => {
@@ -370,9 +397,26 @@ export default function DeptPage() {
           );
         })}
         {isMobile && sidebarCollapsed && (
-          <span style={{ color: dept.color, fontSize: 9, fontWeight: 800, fontFamily: "Segoe UI, sans-serif" }}>
+          <span style={{ color: dept.color, fontSize: 10, fontWeight: 800, fontFamily: "Segoe UI, sans-serif" }}>
             {code}
           </span>
+        )}
+        {/* Bouton toggle bas (mobile, visible quand déplié) */}
+        {isMobile && !sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(true)}
+            style={{
+              background: "transparent", border: "none",
+              color: "rgba(255,255,255,0.4)",
+              fontSize: 12, cursor: "pointer", padding: "6px 8px",
+              fontFamily: "Segoe UI, sans-serif", lineHeight: 1, alignSelf: "center",
+              borderRadius: 6, minWidth: 32, minHeight: 32,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            title="Réduire les départements"
+          >
+            ✕
+          </button>
         )}
       </div>
 
@@ -394,13 +438,18 @@ export default function DeptPage() {
         scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
         transition: "all 0.2s ease",
       }}>
+        {/* Bouton toggle gauche (mobile) */}
         {isMobile && (
           <button
             onClick={() => setBottomTabsCollapsed(!bottomTabsCollapsed)}
             style={{
-              background: "transparent", border: "none", color: "rgba(255,255,255,0.6)",
-              fontSize: 14, cursor: "pointer", padding: "4px 6px", flexShrink: 0,
+              background: bottomTabsCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
+              border: bottomTabsCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
+              color: bottomTabsCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
+              fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
               fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+              borderRadius: 8, minWidth: 36, minHeight: 36,
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}
             title={bottomTabsCollapsed ? "Afficher les options" : "Réduire les options"}
           >
@@ -446,6 +495,23 @@ export default function DeptPage() {
           <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
             Mon projet immobilier
           </span>
+        )}
+        {/* Bouton toggle droit (mobile, visible quand déplié) */}
+        {isMobile && !bottomTabsCollapsed && (
+          <button
+            onClick={() => setBottomTabsCollapsed(true)}
+            style={{
+              background: "transparent", border: "none",
+              color: "rgba(255,255,255,0.4)",
+              fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
+              fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
+              borderRadius: 8, minWidth: 36, minHeight: 36,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            title="Réduire les options"
+          >
+            ✕
+          </button>
         )}
       </div>
 

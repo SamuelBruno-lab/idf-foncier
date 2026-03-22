@@ -165,11 +165,11 @@ export default function DeptPage() {
       {/* === ONGLETS TYPE DE CARTE === */}
       {DEPT_REPOS[code] && (
         <div style={{
-          position: "absolute", top: isMobile ? 8 : 12,
+          position: "fixed", top: isMobile ? 8 : 12,
           left: isMobile ? 8 : "50%",
           right: isMobile ? 8 : "auto",
           transform: isMobile ? "none" : "translateX(-50%)",
-          zIndex: 1000, display: "flex", gap: isMobile ? 2 : 4, alignItems: "center",
+          zIndex: 10000, display: "flex", gap: isMobile ? 2 : 4, alignItems: "center",
           background: "rgba(5,5,20,0.85)", borderRadius: isMobile ? 10 : 12,
           padding: isMobile ? 3 : 4, backdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -177,7 +177,23 @@ export default function DeptPage() {
           WebkitOverflowScrolling: "touch",
           msOverflowStyle: "none" as React.CSSProperties["msOverflowStyle"],
           scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+          pointerEvents: "all",
         }}>
+          {/* Bouton retour datamerry */}
+          <Link href="/" style={{
+            background: "transparent",
+            border: "1px solid rgba(0,212,255,0.3)",
+            borderRadius: isMobile ? 7 : 8, padding: isMobile ? "6px 8px" : "7px 14px",
+            color: "rgba(0,212,255,0.8)",
+            fontSize: isMobile ? 10 : 12, fontWeight: 700,
+            fontFamily: "Segoe UI, sans-serif",
+            cursor: "pointer", transition: "all 0.15s",
+            display: "flex", alignItems: "center", gap: isMobile ? 3 : 4,
+            whiteSpace: "nowrap", flexShrink: 0,
+            textDecoration: "none",
+          }}>
+            ← {isMobile ? "" : "datamerry"}
+          </Link>
           {MAP_TABS.map((tab) => {
             if (code === "75" && tab.key === "maisons") return null;
             const isActive = tab.key === activeTab;
@@ -342,11 +358,11 @@ export default function DeptPage() {
 
       {/* === ONGLETS PROFIL : J'achète, Je vends, J'investis, Agent === */}
       <div style={{
-        position: "absolute", bottom: isMobile ? 10 : 48,
+        position: "fixed", bottom: isMobile ? 10 : 48,
         left: isMobile ? 8 : "50%",
         right: isMobile ? 8 : "auto",
         transform: isMobile ? "none" : "translateX(-50%)",
-        zIndex: 1000, display: "flex", gap: isMobile ? 3 : 6, alignItems: "center",
+        zIndex: 10000, display: "flex", gap: isMobile ? 3 : 6, alignItems: "center",
         background: "rgba(5,5,20,0.9)", borderRadius: isMobile ? 10 : 14,
         padding: isMobile ? 3 : 6, backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.12)",
@@ -354,6 +370,7 @@ export default function DeptPage() {
         overflowX: isMobile ? "auto" : "visible",
         WebkitOverflowScrolling: "touch",
         scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+        pointerEvents: "all",
       }}>
         {([
           { key: "acheteur" as Intent, label: "J'achète", mobileLabel: "Acheter", icon: "🔑", color: "#00d4ff" },

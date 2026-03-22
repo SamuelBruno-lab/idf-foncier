@@ -43,13 +43,9 @@ const MOBILE_FIX = `
 .dm-home-btn:hover { background: rgba(0,212,255,0.15); border-color: rgba(0,212,255,0.4); }
 
 @media (max-width: 640px) {
-  /* ── Home button: compact on mobile ── */
+  /* ── Home button: hidden on mobile (parent page provides nav) ── */
   .dm-home-btn {
-    top: 8px;
-    right: 8px;
-    padding: 7px 10px;
-    font-size: 11px;
-    border-radius: 8px;
+    display: none !important;
   }
 
   /* ── Layer control: collapsible on mobile ── */
@@ -105,9 +101,9 @@ const MOBILE_FIX = `
     width: calc(100vw - 16px) !important;
     max-width: 360px !important;
     top: auto !important;
-    bottom: 8px !important;
+    bottom: 52px !important;
     left: 8px !important;
-    max-height: 55vh !important;
+    max-height: 45vh !important;
     overflow: hidden !important;
     transition: max-height 0.3s ease, opacity 0.3s ease;
     border-radius: 14px !important;

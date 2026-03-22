@@ -19,41 +19,79 @@ const MOBILE_FIX = `
 <style>
 @media (max-width: 640px) {
   [id^="dash"] {
-    width: calc(100vw - 20px) !important;
-    max-width: 340px !important;
+    width: calc(100vw - 16px) !important;
+    max-width: 360px !important;
     top: auto !important;
-    bottom: 10px !important;
-    left: 10px !important;
-    max-height: 60vh !important;
-    overflow-y: auto !important;
-    transition: transform 0.25s ease, opacity 0.25s ease;
+    bottom: 8px !important;
+    left: 8px !important;
+    max-height: 55vh !important;
+    overflow: hidden !important;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    border-radius: 14px !important;
   }
+  /* When collapsed: only the handle bar (48px) is visible */
   [id^="dash"].dm-collapsed {
-    transform: translateY(calc(100% - 44px)) !important;
+    max-height: 48px !important;
     overflow: hidden !important;
   }
   [id^="dash"].dm-hidden {
-    transform: translateY(120%) !important;
+    max-height: 0 !important;
     opacity: 0 !important;
     pointer-events: none !important;
+    bottom: -10px !important;
   }
-  .dm-mobile-toggle {
+  /* Full-width handle bar at the top - always visible, easy to tap */
+  .dm-handle-bar {
     display: flex !important;
-    position: absolute;
-    top: 8px;
-    right: 8px;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 10000;
-    background: rgba(0,212,255,0.15);
-    border: 1px solid rgba(0,212,255,0.4);
-    border-radius: 8px;
-    color: #00d4ff;
-    font-size: 18px;
-    width: 32px;
-    height: 32px;
+    height: 48px;
+    min-height: 48px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,180,220,0.08));
+    border-bottom: 1px solid rgba(0,212,255,0.25);
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    line-height: 1;
+    -webkit-tap-highlight-color: rgba(0,212,255,0.2);
+    gap: 8px;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+  .dm-handle-bar:active {
+    background: rgba(0,212,255,0.22);
+  }
+  /* Drag-style indicator pill */
+  .dm-handle-pill {
+    width: 36px;
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(0,212,255,0.5);
+    flex-shrink: 0;
+  }
+  .dm-handle-label {
+    color: #00d4ff;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    flex-shrink: 0;
+  }
+  .dm-handle-arrow {
+    color: #00d4ff;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+  [id^="dash"].dm-collapsed .dm-handle-arrow {
+    transform: rotate(180deg);
+  }
+  /* Scrollable content area below the handle */
+  .dm-content-wrap {
+    overflow-y: auto !important;
+    max-height: calc(55vh - 48px) !important;
+    -webkit-overflow-scrolling: touch;
   }
   .dm-mobile-show-btn {
     display: flex !important;
@@ -71,7 +109,8 @@ const MOBILE_FIX = `
     max-width: calc(100vw - 60px) !important;
   }
 }
-.dm-mobile-toggle { display: none; }
+/* Hidden by default on desktop */
+.dm-handle-bar { display: none; }
 .dm-mobile-show-btn {
   display: none;
   position: fixed;
@@ -89,6 +128,7 @@ const MOBILE_FIX = `
   box-shadow: 0 4px 24px rgba(0,0,0,0.7);
   align-items: center;
   gap: 6px;
+  -webkit-tap-highlight-color: rgba(0,212,255,0.2);
 }
 </style>
 <script>
@@ -97,32 +137,52 @@ const MOBILE_FIX = `
   function init(){
     var dash=document.querySelector('[id^="dash"]');
     if(!dash)return;
-    /* Add collapse/close button */
-    var btn=document.createElement('button');
-    btn.className='dm-mobile-toggle';
-    btn.innerHTML='&#x2715;';
-    btn.title='Réduire le panneau';
     dash.style.position='fixed';
-    dash.insertBefore(btn,dash.firstChild);
-    /* Add show button (when hidden) */
+    dash.style.zIndex='9999';
+    /* Wrap existing content in a scrollable div */
+    var wrap=document.createElement('div');
+    wrap.className='dm-content-wrap';
+    while(dash.firstChild)wrap.appendChild(dash.firstChild);
+    /* Create handle bar */
+    var bar=document.createElement('div');
+    bar.className='dm-handle-bar';
+    bar.innerHTML='<span class="dm-handle-pill"></span><span class="dm-handle-label">Stats</span><span class="dm-handle-arrow">▼</span>';
+    dash.appendChild(bar);
+    dash.appendChild(wrap);
+    /* Create "show" floating button (when fully hidden) */
     var showBtn=document.createElement('button');
     showBtn.className='dm-mobile-show-btn';
-    showBtn.innerHTML='☰ Stats';
+    showBtn.innerHTML='📊 Stats';
     document.body.appendChild(showBtn);
-    var state=0; /* 0=open, 1=collapsed, 2=hidden */
-    btn.addEventListener('click',function(e){
-      e.stopPropagation();
-      if(state===0){dash.classList.add('dm-collapsed');state=1;btn.innerHTML='&#x25B2;';btn.title='Afficher';}
-      else if(state===1){dash.classList.remove('dm-collapsed');dash.classList.add('dm-hidden');showBtn.style.display='flex';state=2;}
-      else{dash.classList.remove('dm-hidden');state=0;btn.innerHTML='&#x2715;';btn.title='Réduire';}
-    });
+    var state=1; /* 0=open, 1=collapsed, 2=hidden */
+    dash.classList.add('dm-collapsed');
+    function toggle(e){
+      if(e)e.stopPropagation();
+      if(state===0){
+        dash.classList.add('dm-collapsed');
+        dash.classList.remove('dm-hidden');
+        state=1;
+      } else if(state===1){
+        dash.classList.remove('dm-collapsed');
+        dash.classList.remove('dm-hidden');
+        showBtn.style.display='none';
+        state=0;
+      }
+    }
+    bar.addEventListener('click',toggle);
+    /* Long press on handle bar hides panel completely */
+    var longTimer=null;
+    bar.addEventListener('touchstart',function(){longTimer=setTimeout(function(){
+      dash.classList.add('dm-hidden');dash.classList.remove('dm-collapsed');
+      showBtn.style.display='flex';state=2;
+    },600);},{passive:true});
+    bar.addEventListener('touchend',function(){clearTimeout(longTimer);},{passive:true});
+    bar.addEventListener('touchmove',function(){clearTimeout(longTimer);},{passive:true});
     showBtn.addEventListener('click',function(){
-      dash.classList.remove('dm-hidden');dash.classList.remove('dm-collapsed');
-      showBtn.style.display='none';state=0;btn.innerHTML='&#x2715;';
+      dash.classList.remove('dm-hidden');dash.classList.add('dm-collapsed');
+      showBtn.style.display='none';state=1;
     });
-    /* Start collapsed on mobile */
-    dash.classList.add('dm-collapsed');state=1;btn.innerHTML='&#x25B2;';
-    /* Hide existing toggle on mobile to avoid conflict */
+    /* Hide existing desktop toggle to avoid conflict */
     var oldToggle=dash.querySelector('[id$="-toggle"]');
     if(oldToggle)oldToggle.style.display='none';
   }

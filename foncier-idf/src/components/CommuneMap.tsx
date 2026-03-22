@@ -34,7 +34,9 @@ interface Props {
   commune: CommuneInfo;
   points: DvfPoint[];
   zones: HdbscanZone[];
-  mode: "zones" | "heatmap" | "points";
+  showZones: boolean;
+  showHeatmap: boolean;
+  showPoints: boolean;
   isLoading: boolean;
 }
 
@@ -93,7 +95,7 @@ const TYPE_LABEL: Record<string, string> = {
   "Local industriel. commercial ou assimilé": "Locaux",
 };
 
-export default function CommuneMap({ commune, points, zones, mode, isLoading }: Props) {
+export default function CommuneMap({ commune, points, zones, showZones, showHeatmap, showPoints, isLoading }: Props) {
   const [hoveredZone, setHoveredZone] = useState<{ x: number; y: number; zone: HdbscanZone } | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<DvfPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<DvfPoint | null>(null);
@@ -140,9 +142,36 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
       })),
   }), [zones]);
 
+  // Build all layers - shown simultaneously based on toggle states
   const layers = useMemo(() => {
-    if (mode === "zones" && zones.length > 0) {
-      return [
+    const result: (HeatmapLayer<DvfPoint> | GeoJsonLayer | ScatterplotLayer<HdbscanZone> | ScatterplotLayer<DvfPoint>)[] = [];
+
+    // Layer 1: Heatmap (bottom layer)
+    if (showHeatmap && points.length > 0) {
+      result.push(
+        new HeatmapLayer<DvfPoint>({
+          id: "heatmap",
+          data: points,
+          getPosition: (d) => [d.lon, d.lat],
+          getWeight: (d) => d.prix_m2 ?? 1,
+          radiusPixels: 40,
+          intensity: 1,
+          threshold: 0.1,
+          colorRange: [
+            [0, 25, 180, 0],
+            [0, 150, 255, 200],
+            [0, 255, 150, 220],
+            [255, 200, 0, 230],
+            [255, 60, 0, 240],
+            [200, 0, 50, 255],
+          ],
+        }),
+      );
+    }
+
+    // Layer 2: HDBSCAN zone polygons
+    if (showZones && zones.length > 0) {
+      result.push(
         new GeoJsonLayer({
           id: "hdbscan-zones",
           data: zonesGeojson,
@@ -193,49 +222,12 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
             }
           },
         }),
-      ];
+      );
     }
 
-    if (mode === "heatmap" && points.length > 0) {
-      return [
-        new HeatmapLayer<DvfPoint>({
-          id: "heatmap",
-          data: points,
-          getPosition: (d) => [d.lon, d.lat],
-          getWeight: (d) => d.prix_m2 ?? 1,
-          radiusPixels: 40,
-          intensity: 1,
-          threshold: 0.1,
-          colorRange: [
-            [0, 25, 180, 0],
-            [0, 150, 255, 200],
-            [0, 255, 150, 220],
-            [255, 200, 0, 230],
-            [255, 60, 0, 240],
-            [200, 0, 50, 255],
-          ],
-        }),
-        new ScatterplotLayer<DvfPoint>({
-          id: "dvf-points-hover",
-          data: points,
-          getPosition: (d) => [d.lon, d.lat],
-          getRadius: 4,
-          radiusUnits: "pixels",
-          getFillColor: [255, 255, 255, 0],
-          pickable: true,
-          onHover: (info: PickingInfo) => {
-            setHoveredPoint(info.object ?? null);
-            setCursor(info.object ? "pointer" : "grab");
-          },
-          onClick: (info: PickingInfo) => {
-            if (info.object) setSelectedPoint(info.object as DvfPoint);
-          },
-        }),
-      ];
-    }
-
-    if (mode === "points" && points.length > 0) {
-      return [
+    // Layer 3: DVF points (top layer, always clickable)
+    if (showPoints && points.length > 0) {
+      result.push(
         new ScatterplotLayer<DvfPoint>({
           id: "dvf-points",
           data: points,
@@ -254,11 +246,11 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
             if (info.object) setSelectedPoint(info.object as DvfPoint);
           },
         }),
-      ];
+      );
     }
 
-    return [];
-  }, [mode, points, zones, zonesGeojson, pointPriceRange, zonePriceRange]);
+    return result;
+  }, [showZones, showHeatmap, showPoints, points, zones, zonesGeojson, pointPriceRange, zonePriceRange]);
 
   const renderZoneTooltip = useCallback(() => {
     if (!hoveredZone) return null;
@@ -372,13 +364,10 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
             background: "linear-gradient(90deg, #00b4ff, #00dc78, #ffc800, #ff501e)",
           }} />
           <span style={{ fontSize: 9 }}>
-            {mode === "zones"
-              ? `${zonePriceRange[0].toLocaleString("fr-FR")} → ${zonePriceRange[1].toLocaleString("fr-FR")}`
-              : `${pointPriceRange[0].toLocaleString("fr-FR")} → ${pointPriceRange[1].toLocaleString("fr-FR")}`
-            }
+            {pointPriceRange[0].toLocaleString("fr-FR")} → {pointPriceRange[1].toLocaleString("fr-FR")}
           </span>
         </div>
-        {mode === "zones" && (
+        {showZones && (
           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
             {Object.entries(TYPE_COLOR).map(([type, [r, g, b]]) => (
               <div key={type} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -391,7 +380,7 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
       </div>
 
       {/* Zone count badge */}
-      {mode === "zones" && zones.length > 0 && (
+      {showZones && zones.length > 0 && (
         <div style={{
           position: "absolute", bottom: 32, left: 12, zIndex: 10,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
@@ -402,7 +391,7 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
         </div>
       )}
 
-      {/* Detail panel for selected point */}
+      {/* Detail panel for selected point — with StreetView */}
       {selectedPoint && (
         <div style={{
           position: "absolute", bottom: 16, left: 16, zIndex: 1001,
@@ -473,6 +462,10 @@ export default function CommuneMap({ commune, points, zones, mode, isLoading }: 
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >Cadastre</button>
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+            Vues fournies par Google Maps et le Geoportail
           </div>
         </div>
       )}

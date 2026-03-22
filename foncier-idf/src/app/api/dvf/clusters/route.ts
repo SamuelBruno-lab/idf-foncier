@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const annee_min = parseInt(searchParams.get("annee_min") ?? "2020");
   const annee_max = parseInt(searchParams.get("annee_max") ?? "2025");
   const mode = searchParams.get("mode");
+  const commune = searchParams.get("commune");
 
   // Heatmap ou Zoom > 13 → points bruts
   if (mode === "heatmap" || zoom >= 13) {
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
     if (dept.length > 0) q = q.in("dept", dept);
     if (type_local) q = q.eq("type_local", type_local);
+    if (commune) q = q.ilike("commune", commune);
 
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

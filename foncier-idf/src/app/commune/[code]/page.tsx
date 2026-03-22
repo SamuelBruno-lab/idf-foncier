@@ -18,7 +18,6 @@ const CommuneMap = dynamic(() => import("@/components/CommuneMap"), {
   ),
 });
 
-type MapMode = "zones" | "heatmap" | "points";
 type TypeFilter = "all" | "Appartement" | "Maison" | "Local industriel. commercial ou assimilé";
 
 const TYPE_TABS: { key: TypeFilter; label: string; mobileLabel: string; emoji: string }[] = [
@@ -28,7 +27,7 @@ const TYPE_TABS: { key: TypeFilter; label: string; mobileLabel: string; emoji: s
   { key: "Local industriel. commercial ou assimilé", label: "Commerces", mobileLabel: "Comm.", emoji: "🏭" },
 ];
 
-const MODE_TABS: { key: MapMode; label: string; emoji: string }[] = [
+const LAYER_TOGGLES: { key: "zones" | "heatmap" | "points"; label: string; emoji: string }[] = [
   { key: "zones", label: "Micromarchés", emoji: "🎯" },
   { key: "heatmap", label: "Heatmap", emoji: "🔥" },
   { key: "points", label: "Points DVF", emoji: "📍" },
@@ -56,7 +55,9 @@ export default function CommunePage() {
   const dept = commune?.dept ?? code.slice(0, 2);
 
   const [activeType, setActiveType] = useState<TypeFilter>("all");
-  const [activeMode, setActiveMode] = useState<MapMode>("zones");
+  const [showZones, setShowZones] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showPoints, setShowPoints] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
@@ -83,12 +84,10 @@ export default function CommunePage() {
       const typeParam = activeType !== "all" ? `&type_local=${encodeURIComponent(activeType)}` : "";
       const res = await fetch(`/api/foncier/hdbscan-zones?insee=${code}${typeParam}&limit=100`);
       const json = await res.json();
-      // Convert GeoJSON features back to flat zone objects for CommuneMap
       const zoneList: HdbscanZone[] = (json.features ?? []).map((f: { properties: Record<string, unknown>; geometry: { coordinates: number[][][] } }) => ({
         ...f.properties,
-        // Reverse GeoJSON [lon,lat] back to [lat,lon] for hull_coords
         hull_coords: f.geometry.coordinates[0]
-          .slice(0, -1) // remove closing point
+          .slice(0, -1)
           .map((c: number[]) => [c[1], c[0]] as [number, number]),
       }));
       setZones(zoneList);
@@ -97,21 +96,22 @@ export default function CommunePage() {
     }
   }, [code, activeType]);
 
-  // Fetch DVF points
+  // Fetch DVF points — filter by commune name
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("dept", dept);
-      params.set("zoom", "15"); // force points mode
-      params.set("mode", "heatmap"); // gets raw points
+      params.set("zoom", "15");
+      params.set("mode", "heatmap");
       if (activeType !== "all") params.set("type_local", activeType);
-      // We'll filter by commune client-side from the points
+      if (nom) params.set("commune", nom);
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
-      // Filter to just this commune's points
+      // Filter to this commune's points (by commune name, case-insensitive)
+      const nomUpper = nom.toUpperCase();
       const communePoints = (json.data ?? []).filter(
-        (p: DvfPoint) => p.commune === nom || String(p.dept) === dept
+        (p: DvfPoint) => p.commune?.toUpperCase() === nomUpper
       );
       setPoints(communePoints);
     } catch (e) {
@@ -131,13 +131,11 @@ export default function CommunePage() {
       .catch(() => {});
   }, [code]);
 
-  // Fetch data based on mode
+  // Always fetch both zones and points
   useEffect(() => {
     fetchZones();
-    if (activeMode === "heatmap" || activeMode === "points") {
-      fetchPoints();
-    }
-  }, [activeMode, fetchZones, fetchPoints]);
+    fetchPoints();
+  }, [fetchZones, fetchPoints]);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>
@@ -147,7 +145,9 @@ export default function CommunePage() {
         commune={commune ?? { code, nom, dept, deptNom: "", color, lat: 48.86, lon: 2.35, population: 0 }}
         points={points}
         zones={zones}
-        mode={activeMode}
+        showZones={showZones}
+        showHeatmap={showHeatmap}
+        showPoints={showPoints}
         isLoading={isLoading}
       />
 
@@ -266,7 +266,7 @@ export default function CommunePage() {
         )}
       </div>
 
-      {/* === MODE SWITCH (bas gauche) === */}
+      {/* === LAYER TOGGLES (bas gauche) === */}
       <div style={{
         position: "fixed",
         bottom: isMobile ? 60 : 100,
@@ -278,22 +278,28 @@ export default function CommunePage() {
         border: "1px solid rgba(255,255,255,0.1)",
         pointerEvents: "all",
       }}>
-        {MODE_TABS.map((tab) => {
-          const isActive = tab.key === activeMode;
+        {LAYER_TOGGLES.map((tab) => {
+          const isActive = tab.key === "zones" ? showZones : tab.key === "heatmap" ? showHeatmap : showPoints;
+          const toggleFn = tab.key === "zones"
+            ? () => setShowZones((v) => !v)
+            : tab.key === "heatmap"
+              ? () => setShowHeatmap((v) => !v)
+              : () => setShowPoints((v) => !v);
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveMode(tab.key)}
+              onClick={toggleFn}
               style={{
                 background: isActive ? `${color}30` : "transparent",
-                border: `1px solid ${isActive ? color : "transparent"}`,
+                border: `1px solid ${isActive ? color : "rgba(255,255,255,0.15)"}`,
                 borderRadius: 7, padding: isMobile ? "6px 8px" : "7px 12px",
-                color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
+                color: isActive ? "#fff" : "rgba(255,255,255,0.35)",
                 fontSize: isMobile ? 10 : 11, fontWeight: isActive ? 700 : 500,
                 fontFamily: "Segoe UI, sans-serif",
                 cursor: "pointer", transition: "all 0.15s",
                 display: "flex", alignItems: "center", gap: 6,
                 whiteSpace: "nowrap",
+                opacity: isActive ? 1 : 0.6,
               }}
             >
               <span style={{ fontSize: 12 }}>{tab.emoji}</span>
@@ -314,7 +320,6 @@ export default function CommunePage() {
           borderRight: "none", maxHeight: "60vh", overflowY: "auto",
           scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
         }}>
-          {/* Link to all communes */}
           <Link href={`/dept/${dept}`} title={`Retour dept ${dept}`} style={{ textDecoration: "none" }}>
             <div style={{
               width: 36, height: 36, borderRadius: 8,

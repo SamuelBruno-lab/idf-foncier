@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import Map, { NavigationControl, ScaleControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer, GeoJsonLayer } from "@deck.gl/layers";
@@ -38,6 +38,7 @@ interface Props {
   showHeatmap: boolean;
   showPoints: boolean;
   isLoading: boolean;
+  onPointSelected?: (selected: boolean) => void;
 }
 
 const TYPE_COLOR: Record<string, [number, number, number]> = {
@@ -95,11 +96,25 @@ const TYPE_LABEL: Record<string, string> = {
   "Local industriel. commercial ou assimilé": "Locaux",
 };
 
-export default function CommuneMap({ commune, points, zones, showZones, showHeatmap, showPoints, isLoading }: Props) {
+export default function CommuneMap({ commune, points, zones, showZones, showHeatmap, showPoints, isLoading, onPointSelected }: Props) {
   const [hoveredZone, setHoveredZone] = useState<{ x: number; y: number; zone: HdbscanZone } | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<DvfPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<DvfPoint | null>(null);
   const [cursor, setCursor] = useState("grab");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Notify parent when a point is selected/deselected
+  useEffect(() => {
+    onPointSelected?.(!!selectedPoint);
+  }, [selectedPoint, onPointSelected]);
+
   const [viewState, setViewState] = useState({
     longitude: commune.lon,
     latitude: commune.lat,
@@ -232,11 +247,13 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
           id: "dvf-points",
           data: points,
           getPosition: (d) => [d.lon, d.lat],
-          getRadius: 6,
+          getRadius: isMobile ? 8 : 6,
           radiusUnits: "pixels",
+          filled: true,
+          stroked: true,
           getFillColor: (d) => priceColor(d.prix_m2, pointPriceRange[0], pointPriceRange[1]),
-          getLineColor: [255, 255, 255, 60],
-          lineWidthMinPixels: 1,
+          getLineColor: [255, 255, 255, 120],
+          lineWidthMinPixels: 1.5,
           pickable: true,
           onHover: (info: PickingInfo) => {
             setHoveredPoint(info.object ?? null);
@@ -250,35 +267,36 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     }
 
     return result;
-  }, [showZones, showHeatmap, showPoints, points, zones, zonesGeojson, pointPriceRange, zonePriceRange]);
+  }, [showZones, showHeatmap, showPoints, points, zones, zonesGeojson, pointPriceRange, zonePriceRange, isMobile]);
 
   const renderZoneTooltip = useCallback(() => {
     if (!hoveredZone) return null;
     const z = hoveredZone.zone;
     return (
       <div style={{
-        position: "fixed", top: 16, right: 16, zIndex: 1000,
+        position: "fixed", top: isMobile ? 52 : 16, right: isMobile ? 8 : 16, zIndex: 1000,
         background: "rgba(10,10,30,0.95)", color: "#e8e8f0",
-        borderRadius: 10, padding: "14px 18px", minWidth: 220,
+        borderRadius: 10, padding: isMobile ? "10px 14px" : "14px 18px",
+        minWidth: isMobile ? 180 : 220, maxWidth: isMobile ? "60vw" : "none",
         border: "1px solid rgba(255,255,255,0.12)",
-        fontFamily: "Segoe UI, Arial, sans-serif", fontSize: 13,
+        fontFamily: "Segoe UI, Arial, sans-serif", fontSize: isMobile ? 12 : 13,
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
       }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>
           <span style={{ color: `rgb(${(TYPE_COLOR[z.type_local] ?? [200,200,200]).join(",")})` }}>
             Zone {z.cluster_id}
           </span>
-          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginLeft: 8 }}>
+          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginLeft: 6 }}>
             {TYPE_LABEL[z.type_local] ?? z.type_local}
           </span>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: "#ffdd00", marginBottom: 4 }}>
+        <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: "#ffdd00", marginBottom: 3 }}>
           {z.prix_m2_median?.toLocaleString("fr-FR")} €/m²
         </div>
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
           {z.prix_m2_p25?.toLocaleString("fr-FR")} – {z.prix_m2_p75?.toLocaleString("fr-FR")} €/m²
         </div>
-        <div style={{ color: "#00d4ff", marginTop: 6 }}>
+        <div style={{ color: "#00d4ff", marginTop: 4 }}>
           {z.count} transactions
         </div>
         {z.prix_median && (
@@ -294,14 +312,15 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     if (!hoveredPoint || hoveredZone) return null;
     return (
       <div style={{
-        position: "fixed", top: 16, right: 16, zIndex: 1000,
+        position: "fixed", top: isMobile ? 52 : 16, right: isMobile ? 8 : 16, zIndex: 1000,
         background: "rgba(10,10,30,0.95)", color: "#e8e8f0",
-        borderRadius: 10, padding: "14px 18px", minWidth: 220,
+        borderRadius: 10, padding: isMobile ? "10px 14px" : "14px 18px",
+        minWidth: isMobile ? 180 : 220, maxWidth: isMobile ? "60vw" : "none",
         border: "1px solid rgba(255,255,255,0.12)",
-        fontFamily: "Segoe UI, Arial, sans-serif", fontSize: 13,
+        fontFamily: "Segoe UI, Arial, sans-serif", fontSize: isMobile ? 12 : 13,
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
       }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, marginBottom: 6 }}>
           {hoveredPoint.adresse ?? "Adresse inconnue"}
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>
@@ -352,7 +371,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
 
       {/* Prix/m² legend */}
       <div style={{
-        position: "absolute", bottom: 32, right: 12, zIndex: 10,
+        position: "absolute", bottom: isMobile ? 56 : 32, right: 12, zIndex: 10,
         background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
         borderRadius: 8, padding: "8px 12px", fontSize: 10,
         color: "rgba(255,255,255,0.6)",
@@ -382,7 +401,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
       {/* Zone count badge */}
       {showZones && zones.length > 0 && (
         <div style={{
-          position: "absolute", bottom: 32, left: 12, zIndex: 10,
+          position: "absolute", bottom: isMobile ? 56 : 32, left: 12, zIndex: 10,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
           borderRadius: 8, padding: "8px 12px", fontSize: 11,
           color: "rgba(255,255,255,0.6)",
@@ -394,43 +413,53 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
       {/* Detail panel for selected point — with StreetView */}
       {selectedPoint && (
         <div style={{
-          position: "absolute", bottom: 16, left: 16, zIndex: 1001,
-          background: "rgba(10,10,30,0.96)", color: "#e8e8f0",
-          borderRadius: 14, padding: "18px 22px",
-          minWidth: 280, maxWidth: 340,
+          position: "absolute",
+          bottom: isMobile ? 50 : 16,
+          left: isMobile ? 0 : 16,
+          right: isMobile ? 0 : "auto",
+          zIndex: 10001,
+          background: "rgba(10,10,30,0.97)", color: "#e8e8f0",
+          borderRadius: isMobile ? "14px 14px 0 0" : 14,
+          padding: isMobile ? "16px 16px 12px" : "18px 22px",
+          minWidth: isMobile ? "auto" : 280,
+          maxWidth: isMobile ? "100%" : 340,
           border: "1px solid rgba(0,212,255,0.25)",
           fontFamily: "Segoe UI, Arial, sans-serif", fontSize: 13,
-          boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+          boxShadow: "0 -4px 40px rgba(0,0,0,0.7)",
+          maxHeight: isMobile ? "50vh" : "auto",
+          overflowY: "auto",
         }}>
           <button onClick={() => setSelectedPoint(null)} style={{
             position: "absolute", top: 10, right: 12,
-            background: "none", border: "none", color: "rgba(255,255,255,0.4)",
-            fontSize: 16, cursor: "pointer", lineHeight: 1,
+            background: "rgba(255,255,255,0.08)", border: "none", color: "rgba(255,255,255,0.6)",
+            fontSize: 18, cursor: "pointer", lineHeight: 1,
+            width: 28, height: 28, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
 
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: "#00d4ff", paddingRight: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, marginBottom: 4, color: "#00d4ff", paddingRight: 36 }}>
             {selectedPoint.adresse ?? "Adresse inconnue"}
           </div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 12 }}>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 10 }}>
             {selectedPoint.commune} ({selectedPoint.dept}) · {selectedPoint.date_mutation?.slice(0, 10)}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>
                 {selectedPoint.valeur_fonciere.toLocaleString("fr-FR")} €
               </div>
             </div>
             <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix/m²</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#ffdd00", marginTop: 2 }}>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: "#ffdd00", marginTop: 2 }}>
                 {selectedPoint.prix_m2?.toLocaleString("fr-FR") ?? "—"} €
               </div>
             </div>
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
             {selectedPoint.type_local ?? "—"} · {selectedPoint.surface ?? "—"} m²
           </div>
 
@@ -438,34 +467,30 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
             <button
               onClick={() => openExternalUrl(buildGoogleStreetViewUrl(selectedPoint.lat, selectedPoint.lon))}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)",
-                color: "#00d4ff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >Voir l&apos;environnement</button>
             <button
               onClick={() => { try { openExternalUrl(buildGoogleMapsUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.adresse)); } catch { /* noop */ } }}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 500, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >Google Maps</button>
             <button
               onClick={() => openExternalUrl(buildCadastreUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.commune))}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 500, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >Cadastre</button>
-          </div>
-
-          <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
-            Vues fournies par Google Maps et le Geoportail
           </div>
         </div>
       )}

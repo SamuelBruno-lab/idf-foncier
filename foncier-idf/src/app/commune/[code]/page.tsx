@@ -61,6 +61,7 @@ export default function CommunePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
+  const [pointSelected, setPointSelected] = useState(false);
 
   // Data
   const [points, setPoints] = useState<DvfPoint[]>([]);
@@ -149,6 +150,7 @@ export default function CommunePage() {
         showHeatmap={showHeatmap}
         showPoints={showPoints}
         isLoading={isLoading}
+        onPointSelected={setPointSelected}
       />
 
       {/* === ONGLETS TYPE (haut centre) === */}
@@ -210,7 +212,7 @@ export default function CommunePage() {
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 900,
         background: "linear-gradient(180deg, rgba(5,5,20,0.97) 0%, rgba(5,5,20,0.0) 100%)",
-        padding: isMobile ? "52px 12px 40px" : "56px 20px 60px",
+        padding: isMobile ? "56px 12px 30px" : "56px 20px 60px",
         display: "flex", alignItems: isMobile ? "flex-start" : "flex-start",
         justifyContent: "space-between", gap: isMobile ? 8 : 12,
         flexWrap: "wrap",
@@ -272,7 +274,8 @@ export default function CommunePage() {
         bottom: isMobile ? 60 : 100,
         left: isMobile ? 8 : 16,
         zIndex: 10000,
-        display: "flex", flexDirection: "column", gap: 3,
+        display: (isMobile && pointSelected) ? "none" : "flex",
+        flexDirection: "column", gap: 3,
         background: "rgba(5,5,20,0.9)", borderRadius: 10,
         padding: 3, backdropFilter: "blur(10px)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -370,7 +373,9 @@ export default function CommunePage() {
         left: isMobile ? 8 : "50%",
         right: isMobile ? 8 : "auto",
         transform: isMobile ? "none" : "translateX(-50%)",
-        zIndex: 10000, display: "flex", gap: isMobile ? 3 : 6, alignItems: "center",
+        zIndex: 10000,
+        display: (isMobile && pointSelected) ? "none" : "flex",
+        gap: isMobile ? 3 : 6, alignItems: "center",
         background: "rgba(5,5,20,0.9)", borderRadius: isMobile ? 10 : 14,
         padding: isMobile ? 3 : 6, backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.12)",

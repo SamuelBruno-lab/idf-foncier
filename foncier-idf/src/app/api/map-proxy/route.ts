@@ -190,7 +190,7 @@ const MOBILE_FIX = `
 .dm-mobile-show-btn {
   display: none;
   position: fixed;
-  bottom: 14px;
+  bottom: 62px;
   left: 10px;
   z-index: 9998;
   background: linear-gradient(135deg, rgba(10,10,30,0.97), rgba(20,20,50,0.97));

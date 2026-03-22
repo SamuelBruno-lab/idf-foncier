@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import LeadModal from "@/components/LeadModal";
+import AnalyseLeadModal from "@/components/AnalyseLeadModal";
+import type { Intent } from "@/components/AnalyseLeadModal";
+import CookieBanner from "@/components/CookieBanner";
 
 const DEPTS = [
   { code: "75", shortName: "Paris", color: "#ef4444" },
@@ -16,74 +19,11 @@ const DEPTS = [
   { code: "77", shortName: "Seine-et-Marne", color: "#f97316" },
   { code: "60", shortName: "Oise", color: "#ec4899" },
 ];
-import FilterPanel from "@/components/FilterPanel";
-import LeadModal from "@/components/LeadModal";
-import AnalyseLeadModal from "@/components/AnalyseLeadModal";
-import type { Intent } from "@/components/AnalyseLeadModal";
-import CookieBanner from "@/components/CookieBanner";
-import type { DvfFilters, DvfPoint, DvfCluster } from "@/types/dvf";
 
 type CommuneSuggestion = { code: string; nom: string };
 
-// DvfMap importé dynamiquement (WebGL, no SSR)
-const DvfMap = dynamic(() => import("@/components/DvfMap"), {
-  ssr: false,
-  loading: () => (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        background: "#0a0a1e",
-        backgroundImage: "url(/skyline-idf.svg)",
-        backgroundSize: "cover",
-        backgroundPosition: "center bottom",
-        backgroundRepeat: "no-repeat",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      <div style={{
-        fontSize: 28,
-        fontWeight: 800,
-        fontFamily: "Segoe UI, sans-serif",
-        background: "linear-gradient(90deg, #00ff88, #00d4ff)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        backgroundClip: "text",
-      }}>
-        datamerry
-      </div>
-      <div style={{
-        color: "rgba(255,255,255,0.5)",
-        fontFamily: "Segoe UI, sans-serif",
-        fontSize: 14,
-        letterSpacing: 1,
-      }}>
-        Initialisation de la carte...
-      </div>
-      <div style={{
-        width: 40,
-        height: 3,
-        borderRadius: 2,
-        background: "linear-gradient(90deg, #00d4ff, #00ff88)",
-        animation: "pulse 1.5s ease-in-out infinite",
-      }} />
-    </div>
-  ),
-});
-
 export default function HomePage() {
   const router = useRouter();
-  const [filters, setFilters] = useState<DvfFilters>({ type_local: ["Appartement"] });
-  const [mode, setMode] = useState<"clusters" | "heatmap">("clusters");
-  const [points, setPoints] = useState<DvfPoint[]>([]);
-  const [clusters, setClusters] = useState<DvfCluster[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [zoom] = useState(10);
-  const [showHero, setShowHero] = useState(false);
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [activeFooter, setActiveFooter] = useState<"about" | "contact" | null>(null);
   const [showIntentModal, setShowIntentModal] = useState(false);
@@ -122,54 +62,14 @@ export default function HomePage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters.dept?.length) params.set("dept", filters.dept.join(","));
-      if (filters.type_local?.length) params.set("type_local", filters.type_local[0]);
-      if (filters.annee?.length) {
-        params.set("annee_min", String(Math.min(...filters.annee)));
-        params.set("annee_max", String(Math.max(...filters.annee)));
-      }
-      params.set("zoom", String(zoom));
-      params.set("mode", mode);
-
-      const res = await fetch(`/api/dvf/clusters?${params}`);
-      const json = await res.json();
-
-      if (json.mode === "points") {
-        setPoints(json.data ?? []);
-        setClusters([]);
-      } else {
-        setClusters(json.data ?? []);
-        setPoints([]);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters, zoom, mode]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   // Ouvre le modal leads si ?modal=leads (ex: depuis page /analyse)
   useEffect(() => {
     if (didCheckModal.current) return;
     didCheckModal.current = true;
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("modal") === "leads") {
-      setShowHero(false);
       setShowLeadModal(true);
     }
   }, []);
-
-  const totalTx =
-    mode === "heatmap"
-      ? points.length
-      : clusters.reduce((s, c) => s + c.count, 0);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e" }}>
@@ -186,25 +86,6 @@ export default function HomePage() {
           pointerEvents: "none",
           zIndex: 0,
         }}
-      />
-      {/* Carte toujours en fond */}
-      <DvfMap
-        points={points}
-        clusters={clusters}
-        mode={mode}
-        filters={filters}
-        isLoading={isLoading}
-        onCommuneClick={(code) => window.open(`/analyse/${code}`, "_blank")}
-      />
-
-      {/* Panneau filtres — toujours visible */}
-      <FilterPanel
-        filters={filters}
-        onFiltersChange={setFilters}
-        mode={mode}
-        onModeChange={setMode}
-        onLeadClick={() => setShowLeadModal(true)}
-        totalTx={totalTx}
       />
 
       {/* Bandeau onboarding compact — toujours visible en haut */}
@@ -534,13 +415,6 @@ export default function HomePage() {
 
       {/* Bandeau cookies */}
       <CookieBanner />
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
     </div>
   );
 }

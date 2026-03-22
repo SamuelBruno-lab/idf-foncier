@@ -26,14 +26,30 @@ export async function GET(req: NextRequest) {
       .lte("annee", annee_max)
       .limit(mode === "heatmap" ? 15000 : 2000);
 
-    if (dept.length > 0) q = q.in("dept", dept);
-    if (type_local) q = q.eq("type_local", type_local);
-    if (code_commune) q = q.eq("code_commune", code_commune);
-    else if (commune) q = q.ilike("commune", `%${commune}%`);
+    if (code_commune) {
+      // Filtrer par commune (INSEE) — ne pas ajouter dept (redondant) ni
+      // type_local dans la requête SQL pour éviter les timeouts Supabase
+      // quand il n'y a pas d'index composite. On filtre type_local côté JS.
+      // Exclure Dépendance et null pour maximiser les résultats utiles
+      // dans la limite de lignes Supabase (1000 par défaut).
+      q = q.eq("code_commune", code_commune)
+        .not("type_local", "is", null)
+        .neq("type_local", "Dépendance");
+    } else {
+      if (dept.length > 0) q = q.in("dept", dept);
+      if (type_local) q = q.eq("type_local", type_local);
+      if (commune) q = q.ilike("commune", `%${commune}%`);
+    }
 
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ mode: "points", data });
+
+    // Filtre type_local côté JS quand code_commune est utilisé
+    const filtered = (code_commune && type_local)
+      ? (data ?? []).filter((d: { type_local?: string }) => d.type_local === type_local)
+      : data;
+
+    return NextResponse.json({ mode: "points", data: filtered });
   }
 
   // Zoom < 13 → clusters pré-calculés

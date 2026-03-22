@@ -63,10 +63,16 @@ export default function CommunePage() {
   const [pointSelected, setPointSelected] = useState(false);
 
   // Data
-  const [points, setPoints] = useState<DvfPoint[]>([]);
+  const [allPoints, setAllPoints] = useState<DvfPoint[]>([]);
   const [zones, setZones] = useState<HdbscanZone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<{ totalCount: number; prix_m2_median: number } | null>(null);
+
+  // Filter points by active type (client-side, instant switch)
+  const points = useMemo(
+    () => activeType === "all" ? allPoints : allPoints.filter((p) => p.type_local === activeType),
+    [allPoints, activeType],
+  );
 
   // Sibling communes in same dept (for sidebar nav)
   const siblings = useMemo(() => communesByDept(dept).filter((c) => c.code !== code), [dept, code]);
@@ -96,7 +102,7 @@ export default function CommunePage() {
     }
   }, [code, activeType]);
 
-  // Fetch DVF points — filter by commune code (INSEE)
+  // Fetch DVF points — all types at once, filter client-side
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -104,17 +110,16 @@ export default function CommunePage() {
       params.set("dept", dept);
       params.set("zoom", "15");
       params.set("mode", "heatmap");
-      if (activeType !== "all") params.set("type_local", activeType);
       params.set("code_commune", code);
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
-      setPoints(json.data ?? []);
+      setAllPoints(json.data ?? []);
     } catch (e) {
       console.error("Failed to fetch points:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [dept, code, activeType]);
+  }, [dept, code]);
 
   // Fetch commune stats
   useEffect(() => {
@@ -126,11 +131,14 @@ export default function CommunePage() {
       .catch(() => {});
   }, [code]);
 
-  // Always fetch both zones and points
+  // Fetch points once on mount, zones on type change
+  useEffect(() => {
+    fetchPoints();
+  }, [fetchPoints]);
+
   useEffect(() => {
     fetchZones();
-    fetchPoints();
-  }, [fetchZones, fetchPoints]);
+  }, [fetchZones]);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e", overflow: "hidden" }}>

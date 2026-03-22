@@ -89,9 +89,6 @@ export default function DeptPage() {
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
-  const [topTabsCollapsed, setTopTabsCollapsed] = useState(false);
-  const [bottomTabsCollapsed, setBottomTabsCollapsed] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CommuneSuggestion[]>([]);
@@ -168,39 +165,20 @@ export default function DeptPage() {
       {/* === ONGLETS TYPE DE CARTE === */}
       {DEPT_REPOS[code] && (
         <div style={{
-          position: "absolute", top: 12,
+          position: "absolute", top: isMobile ? 8 : 12,
           left: isMobile ? 8 : "50%",
           right: isMobile ? 8 : "auto",
           transform: isMobile ? "none" : "translateX(-50%)",
-          zIndex: 1000, display: "flex", gap: 4, alignItems: "center",
-          background: "rgba(5,5,20,0.85)", borderRadius: 12,
-          padding: 4, backdropFilter: "blur(10px)",
+          zIndex: 1000, display: "flex", gap: isMobile ? 2 : 4, alignItems: "center",
+          background: "rgba(5,5,20,0.85)", borderRadius: isMobile ? 10 : 12,
+          padding: isMobile ? 3 : 4, backdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.1)",
           overflowX: "auto",
           WebkitOverflowScrolling: "touch",
           msOverflowStyle: "none" as React.CSSProperties["msOverflowStyle"],
           scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
-          transition: "all 0.2s ease",
         }}>
-          {/* Bouton toggle gauche (mobile) */}
-          {isMobile && (
-            <button
-              onClick={() => setTopTabsCollapsed(!topTabsCollapsed)}
-              style={{
-                background: topTabsCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
-                border: topTabsCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
-                color: topTabsCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
-                fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
-                fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
-                borderRadius: 8, minWidth: 36, minHeight: 36,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-              title={topTabsCollapsed ? "Afficher les onglets" : "Réduire les onglets"}
-            >
-              {topTabsCollapsed ? "▶" : "◀"}
-            </button>
-          )}
-          {(!isMobile || !topTabsCollapsed) && MAP_TABS.map((tab) => {
+          {MAP_TABS.map((tab) => {
             if (code === "75" && tab.key === "maisons") return null;
             const isActive = tab.key === activeTab;
             return (
@@ -210,42 +188,20 @@ export default function DeptPage() {
                 style={{
                   background: isActive ? `${dept.color}30` : "transparent",
                   border: `1px solid ${isActive ? dept.color : "transparent"}`,
-                  borderRadius: 8, padding: isMobile ? "7px 10px" : "7px 14px",
+                  borderRadius: isMobile ? 7 : 8, padding: isMobile ? "6px 8px" : "7px 14px",
                   color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
-                  fontSize: isMobile ? 11 : 12, fontWeight: isActive ? 700 : 500,
+                  fontSize: isMobile ? 10 : 12, fontWeight: isActive ? 700 : 500,
                   fontFamily: "Segoe UI, sans-serif",
                   cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 4,
+                  display: "flex", alignItems: "center", gap: isMobile ? 3 : 4,
                   whiteSpace: "nowrap", flexShrink: 0,
                 }}
               >
-                <span style={{ fontSize: 13 }}>{tab.emoji}</span>
-                {tab.label}
+                <span style={{ fontSize: isMobile ? 11 : 13 }}>{tab.emoji}</span>
+                {isMobile ? tab.label.slice(0, 5) : tab.label}
               </button>
             );
           })}
-          {isMobile && topTabsCollapsed && (
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
-              {MAP_TABS.find(t => t.key === activeTab)?.emoji} {MAP_TABS.find(t => t.key === activeTab)?.label}
-            </span>
-          )}
-          {/* Bouton toggle droit (mobile, visible quand déplié) */}
-          {isMobile && !topTabsCollapsed && (
-            <button
-              onClick={() => setTopTabsCollapsed(true)}
-              style={{
-                background: "transparent", border: "none",
-                color: "rgba(255,255,255,0.4)",
-                fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
-                fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
-                borderRadius: 8, minWidth: 36, minHeight: 36,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-              title="Réduire les onglets"
-            >
-              ✕
-            </button>
-          )}
         </div>
       )}
 
@@ -336,131 +292,74 @@ export default function DeptPage() {
       )}
 
       {/* === NAVIGATION LATERALE DEPTS (petits boutons côté droit) === */}
-      <div style={{
-        position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
-        zIndex: 800, display: "flex", flexDirection: "column", alignItems: "flex-end",
-        gap: isMobile ? 2 : 4, padding: isMobile ? "4px 3px" : "8px 6px",
-        background: "rgba(5,5,20,0.75)", borderRadius: "10px 0 0 10px",
-        backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
-        borderRight: "none", transition: "all 0.2s ease",
-      }}>
-        {/* Bouton toggle haut (mobile) */}
-        {isMobile && (
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            style={{
-              background: sidebarCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
-              border: sidebarCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
-              color: sidebarCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
-              fontSize: 12, cursor: "pointer", padding: "6px 8px",
-              fontFamily: "Segoe UI, sans-serif", lineHeight: 1, alignSelf: "center",
-              borderRadius: 6, minWidth: 32, minHeight: 32,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-            title={sidebarCollapsed ? "Afficher les départements" : "Réduire"}
-          >
-            {sidebarCollapsed ? "◀" : "▶"}
-          </button>
-        )}
-        {(!isMobile || !sidebarCollapsed) && DEPT_ORDER.map((d) => {
-          const di = DEPT_INFO[d];
-          const isActive = d === code;
-          return (
-            <Link key={d} href={`/dept/${d}`} title={di.nomFull} style={{ textDecoration: "none" }}>
-              <div style={{
-                width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: isMobile ? 6 : 8,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: isActive ? `${di.color}30` : "transparent",
-                border: `1px solid ${isActive ? di.color : "rgba(255,255,255,0.08)"}`,
-                color: isActive ? di.color : "rgba(255,255,255,0.4)",
-                fontSize: isMobile ? 10 : 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
-                cursor: "pointer", transition: "all 0.15s",
-              }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLDivElement).style.background = `${di.color}20`;
-                    (e.currentTarget as HTMLDivElement).style.borderColor = `${di.color}88`;
-                    (e.currentTarget as HTMLDivElement).style.color = di.color;
-                  }
+      {!isMobile && (
+        <div style={{
+          position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
+          zIndex: 800, display: "flex", flexDirection: "column", alignItems: "flex-end",
+          gap: 4, padding: "8px 6px",
+          background: "rgba(5,5,20,0.75)", borderRadius: "10px 0 0 10px",
+          backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
+          borderRight: "none",
+        }}>
+          {DEPT_ORDER.map((d) => {
+            const di = DEPT_INFO[d];
+            const isActive = d === code;
+            return (
+              <Link key={d} href={`/dept/${d}`} title={di.nomFull} style={{ textDecoration: "none" }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: isActive ? `${di.color}30` : "transparent",
+                  border: `1px solid ${isActive ? di.color : "rgba(255,255,255,0.08)"}`,
+                  color: isActive ? di.color : "rgba(255,255,255,0.4)",
+                  fontSize: 11, fontWeight: 800, fontFamily: "Segoe UI, sans-serif",
+                  cursor: "pointer", transition: "all 0.15s",
                 }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLDivElement).style.background = "transparent";
-                    (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
-                    (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.4)";
-                  }
-                }}
-              >
-                {d}
-              </div>
-            </Link>
-          );
-        })}
-        {isMobile && sidebarCollapsed && (
-          <span style={{ color: dept.color, fontSize: 10, fontWeight: 800, fontFamily: "Segoe UI, sans-serif" }}>
-            {code}
-          </span>
-        )}
-        {/* Bouton toggle bas (mobile, visible quand déplié) */}
-        {isMobile && !sidebarCollapsed && (
-          <button
-            onClick={() => setSidebarCollapsed(true)}
-            style={{
-              background: "transparent", border: "none",
-              color: "rgba(255,255,255,0.4)",
-              fontSize: 12, cursor: "pointer", padding: "6px 8px",
-              fontFamily: "Segoe UI, sans-serif", lineHeight: 1, alignSelf: "center",
-              borderRadius: 6, minWidth: 32, minHeight: 32,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-            title="Réduire les départements"
-          >
-            ✕
-          </button>
-        )}
-      </div>
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLDivElement).style.background = `${di.color}20`;
+                      (e.currentTarget as HTMLDivElement).style.borderColor = `${di.color}88`;
+                      (e.currentTarget as HTMLDivElement).style.color = di.color;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                      (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
+                      (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.4)";
+                    }
+                  }}
+                >
+                  {d}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
 
       {/* === ONGLETS PROFIL : J'achète, Je vends, J'investis, Agent === */}
       <div style={{
-        position: "absolute", bottom: isMobile ? 16 : 48,
+        position: "absolute", bottom: isMobile ? 10 : 48,
         left: isMobile ? 8 : "50%",
         right: isMobile ? 8 : "auto",
         transform: isMobile ? "none" : "translateX(-50%)",
-        zIndex: 1000, display: "flex", gap: isMobile ? 4 : 6, alignItems: "center",
+        zIndex: 1000, display: "flex", gap: isMobile ? 3 : 6, alignItems: "center",
         background: "rgba(5,5,20,0.9)", borderRadius: isMobile ? 10 : 14,
-        padding: isMobile ? 4 : 6, backdropFilter: "blur(12px)",
+        padding: isMobile ? 3 : 6, backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.12)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         overflowX: isMobile ? "auto" : "visible",
         WebkitOverflowScrolling: "touch",
         scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
-        transition: "all 0.2s ease",
       }}>
-        {/* Bouton toggle gauche (mobile) */}
-        {isMobile && (
-          <button
-            onClick={() => setBottomTabsCollapsed(!bottomTabsCollapsed)}
-            style={{
-              background: bottomTabsCollapsed ? "rgba(0,212,255,0.12)" : "transparent",
-              border: bottomTabsCollapsed ? "1px solid rgba(0,212,255,0.3)" : "none",
-              color: bottomTabsCollapsed ? "#00d4ff" : "rgba(255,255,255,0.6)",
-              fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
-              fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
-              borderRadius: 8, minWidth: 36, minHeight: 36,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-            title={bottomTabsCollapsed ? "Afficher les options" : "Réduire les options"}
-          >
-            {bottomTabsCollapsed ? "▶" : "◀"}
-          </button>
-        )}
-        {(!isMobile || !bottomTabsCollapsed) && ([
-          { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
-          { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
-          { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
-          { key: "agent" as Intent, label: isMobile ? "Agent" : "Agent / Promoteur", icon: "💼", color: "#00ff88" },
+        {([
+          { key: "acheteur" as Intent, label: "J'achète", mobileLabel: "Acheter", icon: "🔑", color: "#00d4ff" },
+          { key: "vendeur" as Intent, label: "Je vends", mobileLabel: "Vendre", icon: "🏠", color: "#ff8844" },
+          { key: "investisseur" as Intent, label: "J'investis", mobileLabel: "Investir", icon: "📈", color: "#a855f7" },
+          { key: "agent" as Intent, label: "Agent / Promoteur", mobileLabel: "Pro", icon: "💼", color: "#00ff88" },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -468,12 +367,12 @@ export default function DeptPage() {
             style={{
               background: "rgba(255,255,255,0.04)",
               border: `1px solid ${tab.color}33`,
-              borderRadius: isMobile ? 8 : 10, padding: isMobile ? "7px 10px" : "9px 16px",
+              borderRadius: isMobile ? 7 : 10, padding: isMobile ? "6px 8px" : "9px 16px",
               color: "rgba(255,255,255,0.7)",
               fontSize: isMobile ? 10 : 12, fontWeight: 600,
               fontFamily: "Segoe UI, sans-serif",
               cursor: "pointer", transition: "all 0.15s",
-              display: "flex", alignItems: "center", gap: isMobile ? 4 : 6,
+              display: "flex", alignItems: "center", gap: isMobile ? 3 : 6,
               whiteSpace: "nowrap", flexShrink: 0,
             }}
             onMouseEnter={(e) => {
@@ -487,32 +386,10 @@ export default function DeptPage() {
               (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)";
             }}
           >
-            <span style={{ fontSize: isMobile ? 12 : 14 }}>{tab.icon}</span>
-            {tab.label}
+            <span style={{ fontSize: isMobile ? 11 : 14 }}>{tab.icon}</span>
+            {isMobile ? tab.mobileLabel : tab.label}
           </button>
         ))}
-        {isMobile && bottomTabsCollapsed && (
-          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap" }}>
-            Mon projet immobilier
-          </span>
-        )}
-        {/* Bouton toggle droit (mobile, visible quand déplié) */}
-        {isMobile && !bottomTabsCollapsed && (
-          <button
-            onClick={() => setBottomTabsCollapsed(true)}
-            style={{
-              background: "transparent", border: "none",
-              color: "rgba(255,255,255,0.4)",
-              fontSize: 16, cursor: "pointer", padding: "8px 10px", flexShrink: 0,
-              fontFamily: "Segoe UI, sans-serif", lineHeight: 1,
-              borderRadius: 8, minWidth: 36, minHeight: 36,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-            title="Réduire les options"
-          >
-            ✕
-          </button>
-        )}
       </div>
 
       {showIntentModal && (

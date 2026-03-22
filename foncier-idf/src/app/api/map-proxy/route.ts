@@ -17,7 +17,90 @@ const DEPT_REPOS: Record<string, string> = {
 /* Mobile-friendly CSS/JS: collapse the stats panel on small screens */
 const MOBILE_FIX = `
 <style>
+/* ── Home button (always visible) ── */
+.dm-home-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 10001;
+  background: rgba(10,10,30,0.92);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: all 0.2s;
+}
+.dm-home-btn:hover { background: rgba(0,212,255,0.15); border-color: rgba(0,212,255,0.4); }
+
 @media (max-width: 640px) {
+  /* ── Home button: compact on mobile ── */
+  .dm-home-btn {
+    top: 8px;
+    right: 8px;
+    padding: 7px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
+  /* ── Layer control: collapsible on mobile ── */
+  .leaflet-control-layers {
+    max-width: 44px !important;
+    max-height: 44px !important;
+    overflow: hidden !important;
+    transition: max-width 0.25s ease, max-height 0.25s ease !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+  }
+  .leaflet-control-layers.dm-layers-open {
+    max-width: calc(100vw - 80px) !important;
+    max-height: 80vh !important;
+    overflow: visible !important;
+    padding: 8px 10px 8px 8px !important;
+  }
+  /* Toggle icon when collapsed */
+  .leaflet-control-layers::before {
+    content: '⚙';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  .leaflet-control-layers.dm-layers-open::before {
+    content: '✕';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    z-index: 1;
+  }
+  .leaflet-control-layers-list {
+    display: none !important;
+  }
+  .leaflet-control-layers.dm-layers-open .leaflet-control-layers-list {
+    display: block !important;
+  }
+  /* Smaller labels */
+  .leaflet-control-layers label {
+    font-size: 12px !important;
+    padding: 4px 2px !important;
+  }
+
+  /* ── Stats panel ── */
   [id^="dash"] {
     width: calc(100vw - 16px) !important;
     max-width: 360px !important;
@@ -29,7 +112,6 @@ const MOBILE_FIX = `
     transition: max-height 0.3s ease, opacity 0.3s ease;
     border-radius: 14px !important;
   }
-  /* When collapsed: only the handle bar (48px) is visible */
   [id^="dash"].dm-collapsed {
     max-height: 48px !important;
     overflow: hidden !important;
@@ -40,7 +122,6 @@ const MOBILE_FIX = `
     pointer-events: none !important;
     bottom: -10px !important;
   }
-  /* Full-width handle bar at the top - always visible, easy to tap */
   .dm-handle-bar {
     display: flex !important;
     position: sticky;
@@ -63,7 +144,6 @@ const MOBILE_FIX = `
   .dm-handle-bar:active {
     background: rgba(0,212,255,0.22);
   }
-  /* Drag-style indicator pill */
   .dm-handle-pill {
     width: 36px;
     height: 4px;
@@ -87,7 +167,6 @@ const MOBILE_FIX = `
   [id^="dash"].dm-collapsed .dm-handle-arrow {
     transform: rotate(180deg);
   }
-  /* Scrollable content area below the handle */
   .dm-content-wrap {
     overflow-y: auto !important;
     max-height: calc(55vh - 48px) !important;
@@ -96,7 +175,6 @@ const MOBILE_FIX = `
   .dm-mobile-show-btn {
     display: flex !important;
   }
-  /* Leaflet popups: make close button bigger on mobile */
   .leaflet-popup-close-button {
     width: 28px !important;
     height: 28px !important;
@@ -108,6 +186,8 @@ const MOBILE_FIX = `
   .leaflet-popup-content-wrapper {
     max-width: calc(100vw - 60px) !important;
   }
+  /* ── Minimap: hide on mobile ── */
+  .leaflet-control-minimap { display: none !important; }
 }
 /* Hidden by default on desktop */
 .dm-handle-bar { display: none; }
@@ -133,28 +213,68 @@ const MOBILE_FIX = `
 </style>
 <script>
 (function(){
-  if(window.innerWidth>640)return;
+  /* ── Home button (all devices) ── */
+  function addHomeBtn(){
+    var btn=document.createElement('a');
+    btn.className='dm-home-btn';
+    btn.href='/';
+    btn.innerHTML='← datamerry';
+    document.body.appendChild(btn);
+  }
+  /* ── Layer control: make collapsible on mobile ── */
+  function initLayerControl(){
+    if(window.innerWidth>640)return;
+    var lc=document.querySelector('.leaflet-control-layers');
+    if(!lc)return;
+    /* Start collapsed */
+    lc.classList.remove('leaflet-control-layers-expanded');
+    /* Toggle on click on the control itself */
+    lc.addEventListener('click',function(e){
+      if(!lc.classList.contains('dm-layers-open')){
+        lc.classList.add('dm-layers-open');
+        e.stopPropagation();
+      }
+    });
+    /* Close icon click */
+    lc.addEventListener('click',function(e){
+      if(lc.classList.contains('dm-layers-open') && e.offsetX > lc.offsetWidth - 36 && e.offsetY < 36){
+        lc.classList.remove('dm-layers-open');
+        e.stopPropagation();
+      }
+    });
+    /* Close when clicking outside */
+    document.addEventListener('click',function(e){
+      if(!lc.contains(e.target)){
+        lc.classList.remove('dm-layers-open');
+      }
+    });
+  }
+
+  if(window.innerWidth>640){
+    if(document.readyState==='complete')addHomeBtn();
+    else window.addEventListener('load',addHomeBtn);
+    return;
+  }
   function init(){
+    addHomeBtn();
+    initLayerControl();
     var dash=document.querySelector('[id^="dash"]');
     if(!dash)return;
     dash.style.position='fixed';
     dash.style.zIndex='9999';
-    /* Wrap existing content in a scrollable div */
     var wrap=document.createElement('div');
     wrap.className='dm-content-wrap';
     while(dash.firstChild)wrap.appendChild(dash.firstChild);
-    /* Create handle bar */
     var bar=document.createElement('div');
     bar.className='dm-handle-bar';
     bar.innerHTML='<span class="dm-handle-pill"></span><span class="dm-handle-label">Stats</span><span class="dm-handle-arrow">▼</span>';
     dash.appendChild(bar);
     dash.appendChild(wrap);
-    /* Create "show" floating button (when fully hidden) */
     var showBtn=document.createElement('button');
     showBtn.className='dm-mobile-show-btn';
     showBtn.innerHTML='📊 Stats';
     document.body.appendChild(showBtn);
-    var state=1; /* 0=open, 1=collapsed, 2=hidden */
+    var state=1;
     dash.classList.add('dm-collapsed');
     function toggle(e){
       if(e)e.stopPropagation();
@@ -170,7 +290,6 @@ const MOBILE_FIX = `
       }
     }
     bar.addEventListener('click',toggle);
-    /* Long press on handle bar hides panel completely */
     var longTimer=null;
     bar.addEventListener('touchstart',function(){longTimer=setTimeout(function(){
       dash.classList.add('dm-hidden');dash.classList.remove('dm-collapsed');
@@ -182,7 +301,6 @@ const MOBILE_FIX = `
       dash.classList.remove('dm-hidden');dash.classList.add('dm-collapsed');
       showBtn.style.display='none';state=1;
     });
-    /* Hide existing desktop toggle to avoid conflict */
     var oldToggle=dash.querySelector('[id$="-toggle"]');
     if(oldToggle)oldToggle.style.display='none';
   }

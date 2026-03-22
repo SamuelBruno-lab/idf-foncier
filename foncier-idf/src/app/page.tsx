@@ -55,11 +55,12 @@ export default function HomePage() {
   const [clusters, setClusters] = useState<DvfCluster[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [zoom] = useState(10);
-  const [showHero, setShowHero] = useState(true);
+  const [showHero, setShowHero] = useState(false);
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [activeFooter, setActiveFooter] = useState<"about" | "contact" | null>(null);
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
+  const [bannerExpanded, setBannerExpanded] = useState(false);
   const didCheckModal = useRef(false);
 
   // Recherche commune
@@ -154,190 +155,83 @@ export default function HomePage() {
         onCommuneClick={(code) => window.open(`/analyse/${code}`, "_blank")}
       />
 
-      {/* Panneau filtres — visible uniquement si hero fermé */}
-      {!showHero && (
-        <FilterPanel
-          filters={filters}
-          onFiltersChange={setFilters}
-          mode={mode}
-          onModeChange={setMode}
-          onLeadClick={() => setShowLeadModal(true)}
-          totalTx={totalTx}
-        />
-      )}
+      {/* Panneau filtres — toujours visible */}
+      <FilterPanel
+        filters={filters}
+        onFiltersChange={setFilters}
+        mode={mode}
+        onModeChange={setMode}
+        onLeadClick={() => setShowLeadModal(true)}
+        totalTx={totalTx}
+      />
 
-      {/* Hero overlay landing page */}
-      {showHero && (
+      {/* Bandeau onboarding compact — toujours visible en haut */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          background: "linear-gradient(180deg, rgba(5,5,20,0.92) 0%, rgba(5,5,20,0.7) 100%)",
+          backdropFilter: "blur(6px)",
+          borderBottom: "1px solid rgba(0,212,255,0.15)",
+          fontFamily: "Segoe UI, Arial, sans-serif",
+        }}
+      >
+        {/* Ligne principale du bandeau */}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 1000,
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "flex-start",
-            background: "linear-gradient(180deg, rgba(5,5,20,0.92) 0%, rgba(5,5,20,0.75) 60%, rgba(5,5,20,0.55) 100%)",
-            backdropFilter: "blur(1px)",
-            padding: "24px",
-            paddingTop: "max(24px, env(safe-area-inset-top, 24px))",
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
+            justifyContent: "space-between",
+            padding: "10px 16px",
+            gap: 12,
+            flexWrap: "wrap",
           }}
         >
-          {/* Badge */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              background: "rgba(0,212,255,0.12)",
-              border: "1px solid rgba(0,212,255,0.35)",
-              borderRadius: 99,
-              padding: "6px 16px",
-              marginTop: 20,
-              marginBottom: 20,
-              fontSize: 12,
-              color: "#00d4ff",
-              letterSpacing: 1.5,
-              textTransform: "uppercase",
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#00d4ff", display: "inline-block", animation: "pulse 2s infinite" }} />
-            Île-de-France + Oise · 2025
-          </div>
-
-          {/* Titre principal */}
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: "Segoe UI, Arial, sans-serif",
-              fontSize: "clamp(28px, 4.5vw, 56px)",
-              fontWeight: 800,
-              color: "#fff",
-              textAlign: "center",
-              lineHeight: 1.15,
-              maxWidth: 800,
-            }}
-          >
-            Détectez les{" "}
-            <span
-              style={{
-                background: "linear-gradient(90deg, #00ff88, #00d4ff)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              opportunités foncières
+          {/* Logo + titre */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span style={{
+              fontSize: 14, fontWeight: 800, color: "#fff",
+              background: "linear-gradient(90deg, #00ff88, #00d4ff)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              whiteSpace: "nowrap",
+            }}>
+              datamerry
             </span>
-            <br />
-            invisibles en Île-de-France
-          </h1>
-
-          {/* Sous-titre */}
-          <p
-            style={{
-              margin: "20px 0 12px",
-              fontFamily: "Segoe UI, Arial, sans-serif",
-              fontSize: "clamp(15px, 2vw, 20px)",
-              color: "rgba(255,255,255,0.65)",
-              textAlign: "center",
-              maxWidth: 600,
-              lineHeight: 1.6,
-            }}
-          >
-            Analyse automatique de 1,2M transactions DVF + DPE
-            pour identifier les micro-zones à potentiel
-          </p>
-
-          {/* Bullets hook */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              alignItems: "center",
-              marginBottom: 24,
-            }}
-          >
-            {[
-              { icon: "📍", text: "Zones sous-évaluées détectées" },
-              { icon: "🏗️", text: "Opportunités promoteurs & marchands" },
-              { icon: "📊", text: "Données DVF + DPE enrichies" },
-            ].map(({ icon, text }) => (
-              <div
-                key={text}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: "clamp(12px, 2vw, 14px)",
-                  color: "rgba(255,255,255,0.75)",
-                  fontFamily: "Segoe UI, sans-serif",
-                }}
-              >
-                <span style={{ fontSize: 18 }}>{icon}</span>
-                {text}
-              </div>
-            ))}
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>
+              1,2M transactions DVF · IDF + Oise
+            </span>
           </div>
 
-          {/* Stats */}
-          <div
-            style={{
-              display: "flex",
-              gap: "clamp(20px, 4vw, 48px)",
-              marginBottom: 40,
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
-            {[
-              { val: "9 depts", label: "IDF + Oise" },
-              { val: "2025", label: "Période" },
-              { val: "1 200+", label: "Communes" },
-            ].map(({ val, label }) => (
-              <div key={label} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>
-                  {val}
-                </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: 0.5 }}>
-                  {label}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Barre de recherche commune */}
-          <div ref={searchRef} style={{ position: "relative", width: "100%", maxWidth: 480, marginBottom: 24 }}>
+          {/* Recherche commune (compact) */}
+          <div ref={searchRef} style={{ position: "relative", flex: "1 1 240px", maxWidth: 360 }}>
             <div style={{ position: "relative" }}>
               <span style={{
-                position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-                fontSize: 18, pointerEvents: "none"
-              }}>🔍</span>
+                position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                fontSize: 14, pointerEvents: "none", color: "rgba(255,255,255,0.3)",
+              }}>&#x1F50D;</span>
               <input
                 type="text"
-                placeholder="Rechercher une commune IDF…"
+                placeholder="Rechercher une commune…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "14px 16px 14px 46px",
-                  borderRadius: 12,
-                  border: "1.5px solid rgba(0,212,255,0.4)",
-                  background: "rgba(10,10,30,0.85)",
+                  padding: "8px 12px 8px 32px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(0,212,255,0.3)",
+                  background: "rgba(10,10,30,0.7)",
                   color: "#fff",
-                  fontSize: 16,
+                  fontSize: 13,
                   fontFamily: "Segoe UI, sans-serif",
                   outline: "none",
                   boxSizing: "border-box",
-                  boxShadow: "0 0 20px rgba(0,212,255,0.15)",
                 }}
               />
               {searchLoading && (
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 13 }}>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 12 }}>
                   …
                 </span>
               )}
@@ -352,7 +246,7 @@ export default function HomePage() {
                 {suggestions.map((s) => (
                   <div
                     key={s.code}
-                    onClick={() => router.push(`/analyse/${s.code}`)}
+                    onClick={() => { router.push(`/analyse/${s.code}`); setSuggestions([]); setSearchQuery(""); }}
                     style={{
                       padding: "11px 16px",
                       cursor: "pointer",
@@ -375,298 +269,212 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Navigation départements */}
-          <div style={{ width: "100%", maxWidth: 640, marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
-              Explorer par département
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {DEPTS.map((d) => (
-                <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
-                  <div
-                    style={{
-                      padding: "12px 6px",
-                      borderRadius: 10,
-                      border: `1px solid ${d.color}44`,
-                      background: `${d.color}11`,
-                      textAlign: "center",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}22`;
-                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}99`;
-                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}11`;
-                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}44`;
-                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
-                    }}
-                  >
-                    <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{d.code}</div>
-                    <div style={{ fontSize: 9, color: `${d.color}cc`, marginTop: 2, lineHeight: 1.3 }}>{d.shortName}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* CTAs profil immobilier */}
-          <div style={{
-            display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center",
-            marginBottom: 20, width: "100%", maxWidth: 640,
-          }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 1.5, textTransform: "uppercase", textAlign: "center", width: "100%", marginBottom: 4 }}>
-              Votre projet immobilier
-            </div>
+          {/* Quick CTAs */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
             {([
-              { key: "acheteur" as Intent, label: "J'achète", icon: "🔑", color: "#00d4ff" },
-              { key: "vendeur" as Intent, label: "Je vends", icon: "🏠", color: "#ff8844" },
-              { key: "investisseur" as Intent, label: "J'investis", icon: "📈", color: "#a855f7" },
-              { key: "agent" as Intent, label: "Agent / Promoteur", icon: "💼", color: "#00ff88" },
+              { key: "acheteur" as Intent, label: "J'achète", color: "#00d4ff" },
+              { key: "vendeur" as Intent, label: "Je vends", color: "#ff8844" },
+              { key: "investisseur" as Intent, label: "J'investis", color: "#a855f7" },
             ]).map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => { setSelectedIntent(tab.key); setShowIntentModal(true); }}
                 style={{
-                  background: `${tab.color}10`,
+                  background: `${tab.color}15`,
                   border: `1px solid ${tab.color}44`,
-                  borderRadius: 10, padding: "10px 18px",
+                  borderRadius: 6, padding: "6px 12px",
                   color: tab.color,
-                  fontSize: 13, fontWeight: 600,
+                  fontSize: 11, fontWeight: 600,
                   fontFamily: "Segoe UI, sans-serif",
-                  cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 6,
-                  whiteSpace: "nowrap",
+                  cursor: "pointer", whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ fontSize: 15 }}>{tab.icon}</span>
                 {tab.label}
               </button>
             ))}
-          </div>
-
-          {/* CTAs */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            {/* CTA principal — Explorer la carte */}
             <button
-              onClick={() => setShowHero(false)}
+              onClick={() => setBannerExpanded(!bannerExpanded)}
               style={{
-                padding: "14px 36px",
-                borderRadius: 12,
-                border: "none",
-                background: "linear-gradient(135deg, #00ff88, #00d4ff)",
-                color: "#0a0a1e",
-                fontWeight: 700,
-                fontSize: 16,
-                cursor: "pointer",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 6, padding: "6px 10px",
+                color: "rgba(255,255,255,0.5)",
+                fontSize: 11, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
-                boxShadow: "0 4px 24px rgba(0,212,255,0.3)",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              Explorer la carte →
+              {bannerExpanded ? "Fermer" : "Plus"}
             </button>
-            <Link href="/actualites" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(168,85,247,0.4)",
-                  background: "rgba(168,85,247,0.1)",
-                  color: "#c084fc",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
-              >
-                Analyses & projets pilotes
-              </div>
-            </Link>
-            <button
-              onClick={() => setActiveFooter(activeFooter === "about" ? null : "about")}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: `1px solid ${activeFooter === "about" ? "rgba(16,185,129,0.7)" : "rgba(16,185,129,0.4)"}`,
-                background: `rgba(16,185,129,${activeFooter === "about" ? "0.2" : "0.1"})`,
-                color: "#34d399",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              À propos
-            </button>
-            <button
-              onClick={() => setActiveFooter(activeFooter === "contact" ? null : "contact")}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: `1px solid ${activeFooter === "contact" ? "rgba(251,191,36,0.7)" : "rgba(251,191,36,0.4)"}`,
-                background: `rgba(251,191,36,${activeFooter === "contact" ? "0.2" : "0.1"})`,
-                color: "#fbbf24",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              Contact
-            </button>
-            <Link href="/methodologie" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,255,136,0.4)",
-                  background: "rgba(0,255,136,0.1)",
-                  color: "#00ff88",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
-              >
-                Méthodologie
-              </div>
-            </Link>
-            <Link href="/cgu" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.6)",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
-              >
-                CGU
-              </div>
-            </Link>
-          </div>
-
-          {/* Panneau dépliable À propos / Contact */}
-          {activeFooter && (
-            <div
-              style={{
-                maxWidth: 560,
-                width: "100%",
-                marginTop: 20,
-                padding: "20px 24px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 12,
-                color: "rgba(255,255,255,0.6)",
-                fontSize: 14,
-                lineHeight: 1.7,
-                fontFamily: "Segoe UI, Arial, sans-serif",
-              }}
-            >
-              {activeFooter === "about" && (
-                <>
-                  <p>
-                    Datamerry est un prototype d&apos;analyse foncière utilisant les
-                    données ouvertes DVF et DPE pour identifier automatiquement les
-                    micro-marchés immobiliers.
-                  </p>
-                  <p style={{ marginTop: 10 }}>
-                    L&apos;objectif est d&apos;explorer de nouvelles approches de
-                    prospection et d&apos;analyse territoriale pour les
-                    professionnels de l&apos;immobilier, les collectivités et les
-                    investisseurs.
-                  </p>
-                </>
-              )}
-              {activeFooter === "contact" && (
-                <p>
-                  Pour toute question ou retour :{" "}
-                  <a href="mailto:contact@datamerry.com" style={{ color: "#00d4ff", textDecoration: "none" }}>
-                    contact@datamerry.com
-                  </a>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Preuve sociale */}
-          <div
-            style={{
-              marginTop: 32,
-              fontSize: 13,
-              color: "rgba(255,255,255,0.45)",
-              fontFamily: "Segoe UI, sans-serif",
-              textAlign: "center",
-              fontStyle: "italic",
-            }}
-          >
-            Déjà utilisé par des professionnels du foncier en Île-de-France
-          </div>
-
-          {/* Signature open data */}
-          <div
-            style={{
-              marginTop: 16,
-              marginBottom: 20,
-              fontSize: 11,
-              color: "rgba(255,255,255,0.2)",
-              fontFamily: "Segoe UI, sans-serif",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <Link href="/cgu" style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11 }}>CGU</Link>
           </div>
         </div>
-      )}
 
-      {/* Bouton retour hero (quand carte visible) */}
-      {!showHero && (
-        <button
-          onClick={() => setShowHero(true)}
-          style={{
-            position: "absolute",
-            bottom: 16,
-            right: 16,
-            zIndex: 900,
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "1px solid rgba(0,212,255,0.3)",
-            background: "rgba(10,10,30,0.9)",
-            color: "rgba(0,212,255,0.7)",
-            fontSize: 11,
-            cursor: "pointer",
-            fontFamily: "Segoe UI, sans-serif",
-          }}
-        >
-          datamerry.com
-        </button>
-      )}
+        {/* Panneau dépliable */}
+        {bannerExpanded && (
+          <div
+            style={{
+              padding: "12px 16px 16px",
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
+            {/* Départements */}
+            <div style={{ width: "100%", maxWidth: 640 }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 8 }}>
+                Explorer par département
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(60px, 1fr))", gap: 6 }}>
+                {DEPTS.map((d) => (
+                  <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
+                    <div
+                      style={{
+                        padding: "8px 4px",
+                        borderRadius: 8,
+                        border: `1px solid ${d.color}44`,
+                        background: `${d.color}11`,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = `${d.color}22`;
+                        (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}99`;
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = `${d.color}11`;
+                        (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}44`;
+                      }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{d.code}</div>
+                      <div style={{ fontSize: 8, color: `${d.color}cc`, marginTop: 1, lineHeight: 1.2 }}>{d.shortName}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Liens rapides */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              <button
+                onClick={() => { setSelectedIntent("agent"); setShowIntentModal(true); }}
+                style={{
+                  background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.3)",
+                  borderRadius: 6, padding: "6px 14px",
+                  color: "#00ff88", fontSize: 11, fontWeight: 600,
+                  fontFamily: "Segoe UI, sans-serif", cursor: "pointer",
+                }}
+              >
+                Agent / Promoteur
+              </button>
+              <Link href="/actualites" style={{ textDecoration: "none" }}>
+                <span style={{
+                  display: "inline-block", padding: "6px 14px", borderRadius: 6,
+                  border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.1)",
+                  color: "#c084fc", fontSize: 11, fontWeight: 600,
+                }}>
+                  Analyses
+                </span>
+              </Link>
+              <Link href="/methodologie" style={{ textDecoration: "none" }}>
+                <span style={{
+                  display: "inline-block", padding: "6px 14px", borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600,
+                }}>
+                  Méthodologie
+                </span>
+              </Link>
+              <button
+                onClick={() => setActiveFooter(activeFooter === "about" ? null : "about")}
+                style={{
+                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 6, padding: "6px 14px",
+                  color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600,
+                  fontFamily: "Segoe UI, sans-serif", cursor: "pointer",
+                }}
+              >
+                À propos
+              </button>
+              <button
+                onClick={() => setActiveFooter(activeFooter === "contact" ? null : "contact")}
+                style={{
+                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 6, padding: "6px 14px",
+                  color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600,
+                  fontFamily: "Segoe UI, sans-serif", cursor: "pointer",
+                }}
+              >
+                Contact
+              </button>
+              <Link href="/cgu" style={{ textDecoration: "none" }}>
+                <span style={{
+                  display: "inline-block", padding: "6px 14px", borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)",
+                  color: "rgba(255,255,255,0.35)", fontSize: 11,
+                }}>
+                  CGU
+                </span>
+              </Link>
+            </div>
+
+            {/* Panneau À propos / Contact */}
+            {activeFooter && (
+              <div
+                style={{
+                  maxWidth: 560, width: "100%",
+                  padding: "14px 18px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10,
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: 13, lineHeight: 1.6,
+                }}
+              >
+                {activeFooter === "about" && (
+                  <>
+                    <p style={{ margin: 0 }}>
+                      Datamerry est un prototype d&apos;analyse foncière utilisant les
+                      données ouvertes DVF et DPE pour identifier automatiquement les
+                      micro-marchés immobiliers.
+                    </p>
+                    <p style={{ margin: "8px 0 0" }}>
+                      L&apos;objectif est d&apos;explorer de nouvelles approches de
+                      prospection et d&apos;analyse territoriale pour les
+                      professionnels de l&apos;immobilier, les collectivités et les
+                      investisseurs.
+                    </p>
+                  </>
+                )}
+                {activeFooter === "contact" && (
+                  <p style={{ margin: 0 }}>
+                    Pour toute question ou retour :{" "}
+                    <a href="mailto:contact@datamerry.com" style={{ color: "#00d4ff", textDecoration: "none" }}>
+                      contact@datamerry.com
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Signature en bas à droite */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 8,
+          right: 12,
+          zIndex: 900,
+          fontSize: 10,
+          color: "rgba(255,255,255,0.25)",
+          fontFamily: "Segoe UI, sans-serif",
+        }}
+      >
+        datamerry.com · Données DVF open data
+      </div>
 
       {/* Modal lead capture */}
       {showLeadModal && (

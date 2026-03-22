@@ -834,6 +834,23 @@ export default async function AnalysePage({
         {/* CTAs monétisables */}
         <AnalyseLeadSection commune={{ code: stats.code, nom: stats.nom }} />
 
+        {/* Lien SEO vers page marché */}
+        <div style={{
+          marginTop: 24,
+          padding: "16px 20px",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          borderRadius: 10,
+          textAlign: "center",
+        }}>
+          <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
+            Lire aussi :{" "}
+            <Link href={`/marche-immobilier/${stats.code}`} style={{ color: "#00d4ff", textDecoration: "underline" }}>
+              Marché immobilier {stats.nom} {yearMax} — Prix, tendances, quartiers
+            </Link>
+          </p>
+        </div>
+
         {/* Footer */}
         <div
           style={{

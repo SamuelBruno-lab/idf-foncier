@@ -9,24 +9,24 @@ interface Props {
 
 const INTENTS: { key: Intent; icon: string; label: string; sub: string; color: string }[] = [
   {
-    key: "acheteur",
-    icon: "🔑",
-    label: "J'achète à " ,
-    sub: "Être mis en relation avec un expert local",
-    color: "#00d4ff",
-  },
-  {
     key: "vendeur",
     icon: "🏠",
-    label: "Je vends",
-    sub: "Estimation gratuite de votre bien",
+    label: "Estimez votre bien",
+    sub: "Estimation gratuite basée sur les données DVF",
     color: "#ff8844",
+  },
+  {
+    key: "acheteur",
+    icon: "🔑",
+    label: "Trouvez votre quartier idéal",
+    sub: "Mise en relation avec un expert local",
+    color: "#00d4ff",
   },
   {
     key: "investisseur",
     icon: "📈",
     label: "J'investis",
-    sub: "Micro-marchés à fort potentiel",
+    sub: "Micro-marchés à fort rendement",
     color: "#a855f7",
   },
 ];
@@ -55,10 +55,10 @@ export default function AnalyseLeadSection({ commune }: Props) {
               margin: "0 0 6px",
             }}
           >
-            Vous êtes sur ce marché ?
+            Votre projet immobilier à {commune.nom}
           </h2>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
-            Obtenez une mise en relation gratuite avec un expert de {commune.nom}.
+            Estimation gratuite, mise en relation expert, analyse de rendement.
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export default function AnalyseLeadSection({ commune }: Props) {
             >
               <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color, marginBottom: 4 }}>
-                {key === "acheteur" ? `${label}${commune.nom}` : label}
+                {label}
               </div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", lineHeight: 1.4 }}>{sub}</div>
             </button>

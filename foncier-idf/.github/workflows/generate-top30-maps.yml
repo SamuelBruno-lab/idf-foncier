@@ -1,0 +1,110 @@
+name: Generate Top 30 commune maps
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Skip DVF download (use cached data)"
+        type: boolean
+        default: false
+  schedule:
+    # Exécution mensuelle le 1er du mois à 3h UTC
+    - cron: "0 3 1 * *"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm
+
+      - name: Run HDBSCAN pipeline for Top 30 communes
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          cd ..
+          DOWNLOAD_FLAG=""
+          if [ "${{ inputs.skip_download }}" != "true" ]; then
+            DOWNLOAD_FLAG="--download"
+          fi
+          python idf-foncier/pipeline_top30_communes.py $DOWNLOAD_FLAG \
+            --csv-dir /tmp/dvf
+
+      - name: Generate static HTML maps for each commune
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          COMMUNES=(
+            "75056:Paris"
+            "92012:Boulogne-Billancourt"
+            "93066:Saint-Denis"
+            "93048:Montreuil"
+            "95018:Argenteuil"
+            "92050:Nanterre"
+            "94028:Créteil"
+            "94081:Vitry-sur-Seine"
+            "92025:Colombes"
+            "92004:Asnières-sur-Seine"
+            "78646:Versailles"
+            "92026:Courbevoie"
+            "93001:Aubervilliers"
+            "93005:Aulnay-sous-Bois"
+            "92063:Rueil-Malmaison"
+            "94017:Champigny-sur-Marne"
+            "77284:Meaux"
+            "93029:Drancy"
+            "92040:Issy-les-Moulineaux"
+            "93051:Noisy-le-Grand"
+            "92044:Levallois-Perret"
+            "94041:Ivry-sur-Seine"
+            "95127:Cergy"
+            "78586:Sartrouville"
+            "92002:Antony"
+            "93031:Épinay-sur-Seine"
+            "93010:Bondy"
+            "92023:Clamart"
+            "94033:Fontenay-sous-Bois"
+            "93071:Sevran"
+          )
+
+          mkdir -p public/maps
+          for entry in "${COMMUNES[@]}"; do
+            CODE="${entry%%:*}"
+            NOM="${entry##*:}"
+            DEPT="${CODE:0:2}"
+
+            echo "Generating map for $NOM ($CODE)..."
+            # Download DVF CSV for this commune
+            curl -sL "https://files.data.gouv.fr/geo-dvf/latest/csv/${DEPT}/communes/${CODE}.csv" \
+              -o /tmp/dvf_${CODE}.csv || echo "No CSV found for $CODE"
+
+            COMMUNE_CODE="$CODE" COMMUNE_NOM="$NOM" \
+              python scripts/generate_commune_map.py || echo "Failed for $CODE, continuing..."
+
+            if [ -f "/tmp/map_${CODE}.html" ]; then
+              cp "/tmp/map_${CODE}.html" "public/maps/${CODE}.html"
+            fi
+          done
+
+      - name: Commit maps
+        run: |
+          git config user.name "datamerry-bot"
+          git config user.email "bot@datamerry.com"
+          git add public/maps/*.html
+          git diff --staged --quiet || git commit -m "feat: cartes Top 30 communes IDF générées automatiquement"
+          git push

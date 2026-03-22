@@ -9,6 +9,7 @@ import LeadModal from "@/components/LeadModal";
 import AnalyseLeadModal from "@/components/AnalyseLeadModal";
 import type { Intent } from "@/components/AnalyseLeadModal";
 import type { DvfFilters, DvfPoint, DvfCluster } from "@/types/dvf";
+import { communesByDept } from "@/lib/communes-top30";
 
 const DvfMap = dynamic(() => import("@/components/DvfMap"), {
   ssr: false,
@@ -353,6 +354,54 @@ export default function DeptPage() {
           })}
         </div>
       )}
+
+      {/* === NAVIGATION LATERALE COMMUNES (côté gauche, bas) === */}
+      {!isMobile && (() => {
+        const deptCommunes = communesByDept(code);
+        if (deptCommunes.length === 0) return null;
+        return (
+          <div style={{
+            position: "absolute", left: 0, bottom: 100,
+            zIndex: 800, display: "flex", flexDirection: "column", alignItems: "flex-start",
+            gap: 3, padding: "8px 6px",
+            background: "rgba(5,5,20,0.8)", borderRadius: "0 10px 10px 0",
+            backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)",
+            borderLeft: "none", maxHeight: "40vh", overflowY: "auto",
+            scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+          }}>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", letterSpacing: 1, textTransform: "uppercase", padding: "0 4px", marginBottom: 2 }}>
+              Communes
+            </div>
+            {deptCommunes.map((c) => (
+              <Link key={c.code} href={`/commune/${c.code}`} title={c.nom} style={{ textDecoration: "none" }}>
+                <div style={{
+                  minWidth: 60, height: 24, borderRadius: 5,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "transparent",
+                  border: `1px solid ${c.color}22`,
+                  color: "rgba(255,255,255,0.45)",
+                  fontSize: 8, fontWeight: 700, fontFamily: "Segoe UI, sans-serif",
+                  cursor: "pointer", transition: "all 0.15s",
+                  padding: "0 6px", whiteSpace: "nowrap",
+                }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.background = `${c.color}20`;
+                    (e.currentTarget as HTMLDivElement).style.borderColor = `${c.color}88`;
+                    (e.currentTarget as HTMLDivElement).style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                    (e.currentTarget as HTMLDivElement).style.borderColor = `${c.color}22`;
+                    (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.45)";
+                  }}
+                >
+                  {c.nom}
+                </div>
+              </Link>
+            ))}
+          </div>
+        );
+      })()}
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
 

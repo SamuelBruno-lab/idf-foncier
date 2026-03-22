@@ -7,6 +7,7 @@ import LeadModal from "@/components/LeadModal";
 import AnalyseLeadModal from "@/components/AnalyseLeadModal";
 import type { Intent } from "@/components/AnalyseLeadModal";
 import CookieBanner from "@/components/CookieBanner";
+import { COMMUNES_TOP30 } from "@/lib/communes-top30";
 
 const DEPTS = [
   { code: "75", shortName: "Paris", color: "#ef4444" },
@@ -272,6 +273,43 @@ export default function HomePage() {
                     >
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{d.code}</div>
                       <div style={{ fontSize: 8, color: `${d.color}cc`, marginTop: 1, lineHeight: 1.2 }}>{d.shortName}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Top 30 communes */}
+            <div style={{ width: "100%", maxWidth: 640 }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 8 }}>
+                Top 30 communes — Micromarchés
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 4 }}>
+                {COMMUNES_TOP30.map((c) => (
+                  <Link key={c.code} href={`/commune/${c.code}`} style={{ textDecoration: "none" }}>
+                    <div
+                      style={{
+                        padding: "6px 4px",
+                        borderRadius: 6,
+                        border: `1px solid ${c.color}33`,
+                        background: `${c.color}08`,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = `${c.color}22`;
+                        (e.currentTarget as HTMLDivElement).style.borderColor = `${c.color}88`;
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = `${c.color}08`;
+                        (e.currentTarget as HTMLDivElement).style.borderColor = `${c.color}33`;
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", fontFamily: "Segoe UI, sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {c.nom}
+                      </div>
+                      <div style={{ fontSize: 8, color: `${c.color}aa`, marginTop: 1 }}>{c.dept}</div>
                     </div>
                   </Link>
                 ))}

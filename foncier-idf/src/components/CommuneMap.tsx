@@ -115,6 +115,9 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     onPointSelected?.(!!selectedPoint);
   }, [selectedPoint, onPointSelected]);
 
+  const controller = useMemo(() => ({ dragPan: true, scrollZoom: true, doubleClickZoom: true }), []);
+  const getCursorFn = useCallback(() => cursor, [cursor]);
+
   const [viewState, setViewState] = useState({
     longitude: commune.lon,
     latitude: commune.lat,
@@ -157,104 +160,127 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
       })),
   }), [zones]);
 
-  // Build all layers - use `visible` prop instead of conditional inclusion
-  // to prevent deck.gl from losing layer state during diffing
-  const layers = useMemo(() => [
-    // Layer 1: Heatmap (bottom layer)
-    new HeatmapLayer<DvfPoint>({
-      id: "heatmap",
-      visible: showHeatmap && points.length > 0,
-      data: points,
-      getPosition: (d) => [d.lon, d.lat],
-      getWeight: (d) => d.prix_m2 ?? 1,
-      radiusPixels: 40,
-      intensity: 1,
-      threshold: 0.1,
-      colorRange: [
-        [0, 25, 180, 0],
-        [0, 150, 255, 200],
-        [0, 255, 150, 220],
-        [255, 200, 0, 230],
-        [255, 60, 0, 240],
-        [200, 0, 50, 255],
-      ],
-    }),
-    // Layer 2: HDBSCAN zone polygons
-    new GeoJsonLayer({
-      id: "hdbscan-zones",
-      visible: showZones && zones.length > 0,
-      data: zonesGeojson,
-      filled: true,
-      stroked: true,
-      getFillColor: (f) => {
-        const z = f.properties as HdbscanZone;
-        return priceGradient(z.prix_m2_median, zonePriceRange[0], zonePriceRange[1]);
-      },
-      getLineColor: (f) => {
-        const type = (f.properties as HdbscanZone).type_local;
-        const [r, g, b] = TYPE_COLOR[type] ?? [200, 200, 200];
-        return [r, g, b, 220];
-      },
-      lineWidthMinPixels: 2,
-      lineWidthMaxPixels: 3,
-      pickable: true,
-      autoHighlight: true,
-      highlightColor: [255, 255, 255, 60],
-      onHover: (info: PickingInfo) => {
-        if (info.object) {
-          setHoveredZone({ x: info.x, y: info.y, zone: info.object.properties as HdbscanZone });
-          setCursor("pointer");
-        } else {
-          setHoveredZone(null);
-          setCursor("grab");
-        }
-      },
-    }),
-    new ScatterplotLayer<HdbscanZone>({
-      id: "zone-centroids",
-      visible: showZones && zones.length > 0,
-      data: zones.filter((z) => z.centroid_lat && z.centroid_lon),
-      getPosition: (z) => [z.centroid_lon, z.centroid_lat],
-      getRadius: (z) => Math.max(6, Math.min(Math.sqrt(z.count) * 2, 20)),
-      radiusUnits: "pixels",
-      filled: true,
-      getFillColor: (z) => priceGradient(z.prix_m2_median, zonePriceRange[0], zonePriceRange[1]),
-      getLineColor: [255, 255, 255, 180],
-      lineWidthMinPixels: 2,
-      pickable: true,
-      onHover: (info: PickingInfo<HdbscanZone>) => {
-        if (info.object) {
-          setHoveredZone({ x: info.x, y: info.y, zone: info.object });
-          setCursor("pointer");
-        } else {
-          setHoveredZone(null);
-          setCursor("grab");
-        }
-      },
-    }),
-    // Layer 3: DVF points (top layer, always clickable)
-    new ScatterplotLayer<DvfPoint>({
-      id: "dvf-points",
-      visible: showPoints && points.length > 0,
-      data: points,
-      getPosition: (d) => [d.lon, d.lat],
-      getRadius: isMobile ? 8 : 6,
-      radiusUnits: "pixels",
-      filled: true,
-      stroked: true,
-      getFillColor: (d) => priceColor(d.prix_m2, pointPriceRange[0], pointPriceRange[1]),
-      getLineColor: [255, 255, 255, 120],
-      lineWidthMinPixels: 1.5,
-      pickable: true,
-      onHover: (info: PickingInfo) => {
-        setHoveredPoint(info.object ?? null);
-        setCursor(info.object ? "pointer" : "grab");
-      },
-      onClick: (info: PickingInfo) => {
-        if (info.object) setSelectedPoint(info.object as DvfPoint);
-      },
-    }),
-  ], [showZones, showHeatmap, showPoints, points, zones, zonesGeojson, pointPriceRange, zonePriceRange, isMobile]);
+  // Split layers into separate useMemos so that loading zones doesn't
+  // recreate the heatmap/points layers (which triggers GPU re-aggregation
+  // in HeatmapLayer and can make dvf-points disappear).
+  const heatmapLayer = useMemo(() => new HeatmapLayer<DvfPoint>({
+    id: "heatmap",
+    visible: showHeatmap && points.length > 0,
+    data: points,
+    getPosition: (d) => [d.lon, d.lat],
+    getWeight: (d) => d.prix_m2 ?? 1,
+    radiusPixels: 40,
+    intensity: 1,
+    threshold: 0.1,
+    colorRange: [
+      [0, 25, 180, 0],
+      [0, 150, 255, 200],
+      [0, 255, 150, 220],
+      [255, 200, 0, 230],
+      [255, 60, 0, 240],
+      [200, 0, 50, 255],
+    ],
+    updateTriggers: {
+      getPosition: [],
+      getWeight: [],
+    },
+  }), [showHeatmap, points]);
+
+  const zoneLayer = useMemo(() => new GeoJsonLayer({
+    id: "hdbscan-zones",
+    visible: showZones && zones.length > 0,
+    data: zonesGeojson,
+    filled: true,
+    stroked: true,
+    getFillColor: (f) => {
+      const z = f.properties as HdbscanZone;
+      return priceGradient(z.prix_m2_median, zonePriceRange[0], zonePriceRange[1]);
+    },
+    getLineColor: (f) => {
+      const type = (f.properties as HdbscanZone).type_local;
+      const [r, g, b] = TYPE_COLOR[type] ?? [200, 200, 200];
+      return [r, g, b, 220];
+    },
+    lineWidthMinPixels: 2,
+    lineWidthMaxPixels: 3,
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 255, 60],
+    onHover: (info: PickingInfo) => {
+      if (info.object) {
+        setHoveredZone({ x: info.x, y: info.y, zone: info.object.properties as HdbscanZone });
+        setCursor("pointer");
+      } else {
+        setHoveredZone(null);
+        setCursor("grab");
+      }
+    },
+    updateTriggers: {
+      getFillColor: zonePriceRange,
+      getLineColor: [],
+    },
+  }), [showZones, zones, zonesGeojson, zonePriceRange]);
+
+  const centroidLayer = useMemo(() => new ScatterplotLayer<HdbscanZone>({
+    id: "zone-centroids",
+    visible: showZones && zones.length > 0,
+    data: zones.filter((z) => z.centroid_lat && z.centroid_lon),
+    getPosition: (z) => [z.centroid_lon, z.centroid_lat],
+    getRadius: (z) => Math.max(6, Math.min(Math.sqrt(z.count) * 2, 20)),
+    radiusUnits: "pixels",
+    filled: true,
+    getFillColor: (z) => priceGradient(z.prix_m2_median, zonePriceRange[0], zonePriceRange[1]),
+    getLineColor: [255, 255, 255, 180],
+    lineWidthMinPixels: 2,
+    pickable: true,
+    onHover: (info: PickingInfo<HdbscanZone>) => {
+      if (info.object) {
+        setHoveredZone({ x: info.x, y: info.y, zone: info.object });
+        setCursor("pointer");
+      } else {
+        setHoveredZone(null);
+        setCursor("grab");
+      }
+    },
+    updateTriggers: {
+      getFillColor: zonePriceRange,
+      getPosition: [],
+      getRadius: [],
+    },
+  }), [showZones, zones, zonePriceRange]);
+
+  const pointsLayer = useMemo(() => new ScatterplotLayer<DvfPoint>({
+    id: "dvf-points",
+    visible: showPoints && points.length > 0,
+    data: points,
+    getPosition: (d) => [d.lon, d.lat],
+    getRadius: isMobile ? 8 : 6,
+    radiusUnits: "pixels",
+    filled: true,
+    stroked: true,
+    getFillColor: (d) => priceColor(d.prix_m2, pointPriceRange[0], pointPriceRange[1]),
+    getLineColor: [255, 255, 255, 120],
+    lineWidthMinPixels: 1.5,
+    pickable: true,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parameters: { depthTest: false } as any,
+    onHover: (info: PickingInfo) => {
+      setHoveredPoint(info.object ?? null);
+      setCursor(info.object ? "pointer" : "grab");
+    },
+    onClick: (info: PickingInfo) => {
+      if (info.object) setSelectedPoint(info.object as DvfPoint);
+    },
+    updateTriggers: {
+      getFillColor: pointPriceRange,
+      getPosition: [],
+    },
+  }), [showPoints, points, pointPriceRange, isMobile]);
+
+  const layers = useMemo(
+    () => [heatmapLayer, zoneLayer, centroidLayer, pointsLayer],
+    [heatmapLayer, zoneLayer, centroidLayer, pointsLayer],
+  );
 
   const renderZoneTooltip = useCallback(() => {
     if (!hoveredZone) return null;
@@ -340,9 +366,9 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState: vs }) => setViewState(vs as typeof viewState)}
-        controller={{ dragPan: true, scrollZoom: true, doubleClickZoom: true }}
+        controller={controller}
         layers={layers}
-        getCursor={() => cursor}
+        getCursor={getCursorFn}
       >
         <Map
           mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"

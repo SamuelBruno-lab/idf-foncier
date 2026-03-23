@@ -6,6 +6,36 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
+
+/** Paginate through all Supabase rows for a commune (default max-rows = 1000) */
+async function fetchAllCommunePoints(
+  code_commune: string,
+  annee_min: number,
+  annee_max: number,
+) {
+  const PAGE_SIZE = 1000;
+  const allRows: Record<string, unknown>[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("dvf_points")
+      .select(COLUMNS)
+      .eq("code_commune", code_commune)
+      .gte("annee", annee_min)
+      .lte("annee", annee_max)
+      .not("type_local", "is", null)
+      .neq("type_local", "Dépendance")
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return allRows;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const dept = searchParams.get("dept")?.split(",").filter(Boolean) ?? [];
@@ -19,37 +49,36 @@ export async function GET(req: NextRequest) {
 
   // Heatmap ou Zoom > 13 → points bruts
   if (mode === "heatmap" || zoom >= 13) {
+    // Commune spécifique → pagination pour récupérer TOUS les points
+    if (code_commune) {
+      try {
+        const allData = await fetchAllCommunePoints(code_commune, annee_min, annee_max);
+        const filtered = type_local
+          ? allData.filter((d) => d.type_local === type_local)
+          : allData;
+        return NextResponse.json({ mode: "points", data: filtered });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Unknown error";
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
+    // Pas de commune → requête classique avec limit
     let q = supabase
       .from("dvf_points")
-      .select("id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee")
+      .select(COLUMNS)
       .gte("annee", annee_min)
       .lte("annee", annee_max)
       .limit(mode === "heatmap" ? 15000 : 2000);
 
-    if (code_commune) {
-      // Filtrer par commune (INSEE) — ne pas ajouter dept (redondant) ni
-      // type_local dans la requête SQL pour éviter les timeouts Supabase
-      // quand il n'y a pas d'index composite. On filtre type_local côté JS.
-      // Exclure Dépendance et null pour maximiser les résultats utiles
-      // dans la limite de lignes Supabase (1000 par défaut).
-      q = q.eq("code_commune", code_commune)
-        .not("type_local", "is", null)
-        .neq("type_local", "Dépendance");
-    } else {
-      if (dept.length > 0) q = q.in("dept", dept);
-      if (type_local) q = q.eq("type_local", type_local);
-      if (commune) q = q.ilike("commune", `%${commune}%`);
-    }
+    if (dept.length > 0) q = q.in("dept", dept);
+    if (type_local) q = q.eq("type_local", type_local);
+    if (commune) q = q.ilike("commune", `%${commune}%`);
 
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Filtre type_local côté JS quand code_commune est utilisé
-    const filtered = (code_commune && type_local)
-      ? (data ?? []).filter((d: { type_local?: string }) => d.type_local === type_local)
-      : data;
-
-    return NextResponse.json({ mode: "points", data: filtered });
+    return NextResponse.json({ mode: "points", data });
   }
 
   // Zoom < 13 → clusters pré-calculés

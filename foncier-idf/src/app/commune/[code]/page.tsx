@@ -103,40 +103,30 @@ export default function CommunePage() {
   }, [code, activeType]);
 
   // Fetch DVF points — all types at once, filter client-side
-  // Tries recent years first for high-volume communes; falls back to broader range if empty.
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
     try {
-      const tryFetch = async (anneeMin: number) => {
-        const params = new URLSearchParams();
-        params.set("dept", dept);
-        params.set("zoom", "15");
-        params.set("mode", "heatmap");
-        params.set("code_commune", code);
-        params.set("annee_min", String(anneeMin));
-        params.set("annee_max", "2025");
-        const res = await fetch(`/api/dvf/clusters?${params}`);
-        const json = await res.json();
-        return (json.data ?? []) as DvfPoint[];
-      };
-
-      // Paris arrondissements: try 2023 first, then fallback to 2020
-      // All other communes: start with 2020 directly
-      const isParis = code.startsWith("75");
-      let pts = await tryFetch(isParis ? 2023 : 2020);
-
-      // Fallback: if no data, try broader range
-      if (pts.length === 0 && isParis) {
-        pts = await tryFetch(2020);
+      const params = new URLSearchParams();
+      params.set("dept", dept);
+      params.set("zoom", "15");
+      params.set("mode", "heatmap");
+      params.set("code_commune", code);
+      params.set("annee_min", "2020");
+      params.set("annee_max", "2025");
+      // Pass commune coordinates for geographic fallback if code_commune match fails
+      if (commune) {
+        params.set("lat", String(commune.lat));
+        params.set("lon", String(commune.lon));
       }
-
-      setAllPoints(pts);
+      const res = await fetch(`/api/dvf/clusters?${params}`);
+      const json = await res.json();
+      setAllPoints((json.data ?? []) as DvfPoint[]);
     } catch (e) {
       console.error("Failed to fetch points:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [dept, code]);
+  }, [dept, code, commune]);
 
   // Fetch commune stats
   useEffect(() => {

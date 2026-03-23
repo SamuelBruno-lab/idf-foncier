@@ -102,6 +102,9 @@ export default function CommunePage() {
     }
   }, [code, activeType]);
 
+  // Année min : Paris et Boulogne-Billancourt limités (trop de volume)
+  const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
+
   // Fetch DVF points — all types at once, filter client-side
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
@@ -111,6 +114,8 @@ export default function CommunePage() {
       params.set("zoom", "15");
       params.set("mode", "heatmap");
       params.set("code_commune", code);
+      params.set("annee_min", String(anneeMin));
+      params.set("annee_max", "2025");
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
       setAllPoints(json.data ?? []);
@@ -119,7 +124,7 @@ export default function CommunePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dept, code]);
+  }, [dept, code, anneeMin]);
 
   // Fetch commune stats
   useEffect(() => {

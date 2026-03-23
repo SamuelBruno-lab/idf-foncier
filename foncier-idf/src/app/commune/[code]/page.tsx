@@ -102,29 +102,41 @@ export default function CommunePage() {
     }
   }, [code, activeType]);
 
-  // Année min : Paris et Boulogne-Billancourt limités (trop de volume)
-  const anneeMin = code.startsWith("75") || code === "92012" ? 2024 : 2020;
-
   // Fetch DVF points — all types at once, filter client-side
+  // Tries recent years first for high-volume communes; falls back to broader range if empty.
   const fetchPoints = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set("dept", dept);
-      params.set("zoom", "15");
-      params.set("mode", "heatmap");
-      params.set("code_commune", code);
-      params.set("annee_min", String(anneeMin));
-      params.set("annee_max", "2025");
-      const res = await fetch(`/api/dvf/clusters?${params}`);
-      const json = await res.json();
-      setAllPoints(json.data ?? []);
+      const tryFetch = async (anneeMin: number) => {
+        const params = new URLSearchParams();
+        params.set("dept", dept);
+        params.set("zoom", "15");
+        params.set("mode", "heatmap");
+        params.set("code_commune", code);
+        params.set("annee_min", String(anneeMin));
+        params.set("annee_max", "2025");
+        const res = await fetch(`/api/dvf/clusters?${params}`);
+        const json = await res.json();
+        return (json.data ?? []) as DvfPoint[];
+      };
+
+      // Paris arrondissements: try 2023 first, then fallback to 2020
+      // All other communes: start with 2020 directly
+      const isParis = code.startsWith("75");
+      let pts = await tryFetch(isParis ? 2023 : 2020);
+
+      // Fallback: if no data, try broader range
+      if (pts.length === 0 && isParis) {
+        pts = await tryFetch(2020);
+      }
+
+      setAllPoints(pts);
     } catch (e) {
       console.error("Failed to fetch points:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [dept, code, anneeMin]);
+  }, [dept, code]);
 
   // Fetch commune stats
   useEffect(() => {

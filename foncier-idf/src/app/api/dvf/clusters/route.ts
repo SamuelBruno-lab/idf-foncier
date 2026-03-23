@@ -8,7 +8,9 @@ const supabase = createClient(
 
 const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
 
-/** Paginate through all Supabase rows for a commune (default max-rows = 1000) */
+/** Paginate through all Supabase rows for a commune (cap at MAX_COMMUNE_POINTS) */
+const MAX_COMMUNE_POINTS = 8000;
+
 async function fetchAllCommunePoints(
   code_commune: string,
   annee_min: number,
@@ -30,10 +32,11 @@ async function fetchAllCommunePoints(
     if (error) throw error;
     if (!data || data.length === 0) break;
     allRows.push(...data);
+    if (allRows.length >= MAX_COMMUNE_POINTS) break;
     if (data.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
-  return allRows;
+  return allRows.slice(0, MAX_COMMUNE_POINTS);
 }
 
 export async function GET(req: NextRequest) {

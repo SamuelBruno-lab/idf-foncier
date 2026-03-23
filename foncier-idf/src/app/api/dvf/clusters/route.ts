@@ -46,16 +46,15 @@ async function fetchAllCommunePoints(
   lat?: number,
   lon?: number,
 ) {
-  // Strategy 1: dept (indexed) + code_commune LIKE prefix
-  // Using LIKE instead of eq because eq times out on unindexed code_commune
-  // Adding dept filter first so Postgres uses the dept index to narrow the scan.
+  // Strategy 1: dept (indexed) + exact code_commune match
+  // dept filter first so Postgres uses the dept index to narrow the scan.
   if (dept) {
     const rows = await paginateQuery((offset, pageSize) =>
       supabase
         .from("dvf_points")
         .select(COLUMNS)
         .eq("dept", dept)
-        .like("code_commune", `${code_commune}%`)
+        .eq("code_commune", code_commune)
         .gte("annee", annee_min)
         .lte("annee", annee_max)
         .not("type_local", "is", null)
@@ -65,12 +64,12 @@ async function fetchAllCommunePoints(
     if (rows.length > 0) return rows;
   }
 
-  // Strategy 2: just LIKE on code_commune without dept (broader)
+  // Strategy 2: exact code_commune match without dept
   const rows = await paginateQuery((offset, pageSize) =>
     supabase
       .from("dvf_points")
       .select(COLUMNS)
-      .like("code_commune", `${code_commune}%`)
+      .eq("code_commune", code_commune)
       .gte("annee", annee_min)
       .lte("annee", annee_max)
       .not("type_local", "is", null)
@@ -80,10 +79,11 @@ async function fetchAllCommunePoints(
   if (rows.length > 0) return rows;
 
   // Strategy 3: geographic bounding box (~2km radius around commune center)
+  // Filter client-side to keep only the exact commune
   if (dept && lat && lon) {
     const DELTA_LAT = 0.02; // ~2.2km
     const DELTA_LON = 0.03; // ~2.1km at 48°N
-    return await paginateQuery((offset, pageSize) =>
+    const bboxRows = await paginateQuery((offset, pageSize) =>
       supabase
         .from("dvf_points")
         .select(COLUMNS)
@@ -98,6 +98,8 @@ async function fetchAllCommunePoints(
         .neq("type_local", "Dépendance")
         .range(offset, offset + pageSize - 1)
     );
+    // bbox includes neighboring communes → filter to exact code_commune
+    return bboxRows.filter((r) => r.code_commune === code_commune);
   }
 
   return rows;

@@ -10,17 +10,20 @@ const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_muta
 
 const MAX_COMMUNE_POINTS = 8000;
 
-/** Paginate through Supabase rows with a builder function */
+/** Paginate through Supabase rows; returns [] on error instead of throwing */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function paginateQuery(
   buildQuery: (offset: number, pageSize: number) => any,
-) {
+): Promise<Record<string, unknown>[]> {
   const PAGE_SIZE = 1000;
   const allRows: Record<string, unknown>[] = [];
   let offset = 0;
   while (true) {
     const { data, error } = await buildQuery(offset, PAGE_SIZE);
-    if (error) throw error;
+    if (error) {
+      console.error("paginateQuery error:", error.message ?? error);
+      return allRows; // return what we have so far instead of throwing
+    }
     if (!data || data.length === 0) break;
     allRows.push(...data);
     if (allRows.length >= MAX_COMMUNE_POINTS) break;
@@ -31,10 +34,9 @@ async function paginateQuery(
 }
 
 /**
- * Fetch DVF points for a commune using multiple strategies:
- * 1. Exact code_commune match
- * 2. Prefix match (handles "92012.0" format)
- * 3. Geographic bbox fallback using dept + lat/lon
+ * Fetch DVF points for a commune.
+ * Uses dept as primary filter (indexed) + code_commune as secondary.
+ * Falls back to geographic bbox if code_commune queries fail/timeout.
  */
 async function fetchAllCommunePoints(
   code_commune: string,
@@ -44,23 +46,27 @@ async function fetchAllCommunePoints(
   lat?: number,
   lon?: number,
 ) {
-  // Strategy 1: exact code_commune match
-  let rows = await paginateQuery((offset, pageSize) =>
-    supabase
-      .from("dvf_points")
-      .select(COLUMNS)
-      .eq("code_commune", code_commune)
-      .gte("annee", annee_min)
-      .lte("annee", annee_max)
-      .not("type_local", "is", null)
-      .neq("type_local", "Dépendance")
-      .range(offset, offset + pageSize - 1)
-  );
+  // Strategy 1: dept (indexed) + code_commune LIKE prefix
+  // Using LIKE instead of eq because eq times out on unindexed code_commune
+  // Adding dept filter first so Postgres uses the dept index to narrow the scan.
+  if (dept) {
+    const rows = await paginateQuery((offset, pageSize) =>
+      supabase
+        .from("dvf_points")
+        .select(COLUMNS)
+        .eq("dept", dept)
+        .like("code_commune", `${code_commune}%`)
+        .gte("annee", annee_min)
+        .lte("annee", annee_max)
+        .not("type_local", "is", null)
+        .neq("type_local", "Dépendance")
+        .range(offset, offset + pageSize - 1)
+    );
+    if (rows.length > 0) return rows;
+  }
 
-  if (rows.length > 0) return rows;
-
-  // Strategy 2: prefix match (handles "92012.0" or similar format mismatches)
-  rows = await paginateQuery((offset, pageSize) =>
+  // Strategy 2: just LIKE on code_commune without dept (broader)
+  const rows = await paginateQuery((offset, pageSize) =>
     supabase
       .from("dvf_points")
       .select(COLUMNS)
@@ -71,14 +77,13 @@ async function fetchAllCommunePoints(
       .neq("type_local", "Dépendance")
       .range(offset, offset + pageSize - 1)
   );
-
   if (rows.length > 0) return rows;
 
   // Strategy 3: geographic bounding box (~2km radius around commune center)
   if (dept && lat && lon) {
     const DELTA_LAT = 0.02; // ~2.2km
     const DELTA_LON = 0.03; // ~2.1km at 48°N
-    rows = await paginateQuery((offset, pageSize) =>
+    return await paginateQuery((offset, pageSize) =>
       supabase
         .from("dvf_points")
         .select(COLUMNS)
@@ -115,19 +120,14 @@ export async function GET(req: NextRequest) {
   if (mode === "heatmap" || zoom >= 13) {
     // Commune spécifique → pagination pour récupérer TOUS les points
     if (code_commune) {
-      try {
-        const allData = await fetchAllCommunePoints(
-          code_commune, annee_min, annee_max,
-          dept[0], lat, lon,
-        );
-        const filtered = type_local
-          ? allData.filter((d) => d.type_local === type_local)
-          : allData;
-        return NextResponse.json({ mode: "points", data: filtered });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : "Unknown error";
-        return NextResponse.json({ error: msg }, { status: 500 });
-      }
+      const allData = await fetchAllCommunePoints(
+        code_commune, annee_min, annee_max,
+        dept[0], lat, lon,
+      );
+      const filtered = type_local
+        ? allData.filter((d) => d.type_local === type_local)
+        : allData;
+      return NextResponse.json({ mode: "points", data: filtered });
     }
 
     // Pas de commune → requête classique avec limit

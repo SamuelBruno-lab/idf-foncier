@@ -69,7 +69,7 @@ function priceGradient(prix: number | null, min: number, max: number): [number, 
 }
 
 function priceColor(prix_m2: number | null, min: number, max: number): [number, number, number, number] {
-  if (!prix_m2) return [150, 150, 150, 180];
+  if (!prix_m2) return [150, 150, 150, 220];
   const t = Math.max(0, Math.min(1, (prix_m2 - min) / (max - min)));
   const stops = [
     [0, 100, 255],
@@ -86,7 +86,7 @@ function priceColor(prix_m2: number | null, min: number, max: number): [number, 
     Math.round(stops[lo][0] + f * (stops[hi][0] - stops[lo][0])),
     Math.round(stops[lo][1] + f * (stops[hi][1] - stops[lo][1])),
     Math.round(stops[lo][2] + f * (stops[hi][2] - stops[lo][2])),
-    200,
+    240,
   ];
 }
 
@@ -163,9 +163,12 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
   // Split layers into separate useMemos so that loading zones doesn't
   // recreate the heatmap/points layers (which triggers GPU re-aggregation
   // in HeatmapLayer and can make dvf-points disappear).
+  // FIX: When showPoints is active, hide heatmap — HeatmapLayer's GPU
+  // aggregation texture composites ON TOP of ScatterplotLayer regardless
+  // of layer order, making points invisible. They use the same data anyway.
   const heatmapLayer = useMemo(() => new HeatmapLayer<DvfPoint>({
     id: "heatmap",
-    visible: showHeatmap && points.length > 0,
+    visible: showHeatmap && !showPoints && points.length > 0,
     data: points,
     getPosition: (d) => [d.lon, d.lat],
     getWeight: (d) => d.prix_m2 ?? 1,
@@ -184,7 +187,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
       getPosition: [],
       getWeight: [],
     },
-  }), [showHeatmap, points]);
+  }), [showHeatmap, showPoints, points]);
 
   const zoneLayer = useMemo(() => new GeoJsonLayer({
     id: "hdbscan-zones",
@@ -254,13 +257,13 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     visible: showPoints && points.length > 0,
     data: points,
     getPosition: (d) => [d.lon, d.lat],
-    getRadius: isMobile ? 8 : 6,
+    getRadius: isMobile ? 10 : 8,
     radiusUnits: "pixels",
     filled: true,
     stroked: true,
     getFillColor: (d) => priceColor(d.prix_m2, pointPriceRange[0], pointPriceRange[1]),
-    getLineColor: [255, 255, 255, 120],
-    lineWidthMinPixels: 1.5,
+    getLineColor: [255, 255, 255, 180],
+    lineWidthMinPixels: 2,
     pickable: true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters: { depthTest: false } as any,
@@ -411,8 +414,20 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
         )}
       </div>
 
+      {/* Point count badge */}
+      {showPoints && points.length > 0 && (
+        <div style={{
+          position: "absolute", bottom: isMobile ? 56 : 32, left: 12, zIndex: 10,
+          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+          borderRadius: 8, padding: "8px 12px", fontSize: 11,
+          color: "rgba(255,255,255,0.6)",
+        }}>
+          <span style={{ fontWeight: 700, color: "#00ff88" }}>{points.length.toLocaleString("fr-FR")}</span> points DVF
+        </div>
+      )}
+
       {/* Zone count badge */}
-      {showZones && zones.length > 0 && (
+      {showZones && zones.length > 0 && !showPoints && (
         <div style={{
           position: "absolute", bottom: isMobile ? 56 : 32, left: 12, zIndex: 10,
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",

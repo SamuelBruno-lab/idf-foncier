@@ -8,6 +8,27 @@ const supabase = createClient(
 
 const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
 
+// Seuils outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py / 02_import_dvf.py)
+const PRIX_M2_MAX: Record<string, number> = {
+  Appartement: 20_000,
+  Maison: 15_000,
+  "Local industriel. commercial ou assimilé": 15_000,
+};
+const PRIX_M2_MIN = 500;
+
+/** Filtre les points dont le prix/m² est aberrant */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterOutliers(rows: any[]): any[] {
+  return rows.filter((r) => {
+    const pm2 = r.prix_m2;
+    if (pm2 == null) return true; // pas de prix/m² → on garde
+    if (pm2 < PRIX_M2_MIN) return false;
+    const max = PRIX_M2_MAX[r.type_local];
+    if (max && pm2 > max) return false;
+    return true;
+  });
+}
+
 const MAX_COMMUNE_POINTS = 8000;
 
 /** Paginate through Supabase rows; returns [] on error instead of throwing */
@@ -129,7 +150,7 @@ export async function GET(req: NextRequest) {
       const filtered = type_local
         ? allData.filter((d) => d.type_local === type_local)
         : allData;
-      return NextResponse.json({ mode: "points", data: filtered });
+      return NextResponse.json({ mode: "points", data: filterOutliers(filtered) });
     }
 
     // Pas de commune → requête classique avec limit
@@ -147,7 +168,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ mode: "points", data });
+    return NextResponse.json({ mode: "points", data: filterOutliers(data ?? []) });
   }
 
   // Zoom < 13 → clusters pré-calculés

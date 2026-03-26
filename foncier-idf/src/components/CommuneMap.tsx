@@ -13,6 +13,7 @@ import {
   buildGoogleMapsUrl,
   buildCadastreUrl,
   openExternalUrl,
+  formatDateFr,
 } from "@/lib/location-links";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -346,7 +347,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
           {hoveredPoint.prix_m2?.toLocaleString("fr-FR")} €/m²
         </div>
         <div style={{ color: "#aaa", marginTop: 6, fontSize: 12 }}>
-          {hoveredPoint.type_local} · {hoveredPoint.surface} m² · {hoveredPoint.date_mutation?.slice(0, 7)}
+          {hoveredPoint.type_local} · {hoveredPoint.surface} m² · {formatDateFr(hoveredPoint.date_mutation)}
         </div>
       </div>
     );
@@ -469,7 +470,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
             {selectedPoint.adresse ?? "Adresse inconnue"}
           </div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 10 }}>
-            {selectedPoint.commune} ({selectedPoint.dept}) · {selectedPoint.date_mutation?.slice(0, 10)}
+            {selectedPoint.commune} ({selectedPoint.dept}) · {formatDateFr(selectedPoint.date_mutation)}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>

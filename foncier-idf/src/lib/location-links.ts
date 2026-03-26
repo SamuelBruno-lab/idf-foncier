@@ -3,7 +3,7 @@ export function isValidCoord(value: unknown): value is number {
 }
 
 export function buildGoogleStreetViewUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lng}`;
+  return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}&source=outdoor`;
 }
 
 export function buildGoogleMapsUrl(
@@ -36,6 +36,13 @@ export function buildCadastreUrl(
   }
 
   return "https://www.cadastre.gouv.fr/";
+}
+
+export function formatDateFr(dateStr?: string | null): string {
+  if (!dateStr) return "—";
+  const parts = dateStr.slice(0, 10).split("-");
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 export function openExternalUrl(url: string): void {

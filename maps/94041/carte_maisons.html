@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_b66603da1b29b49ff6702d8e1adc9177 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.css"/>
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+<style>
+  .leaflet-popup-content-wrapper { border-radius:8px!important; padding:0!important; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.35)!important; }
+  .leaflet-popup-content { margin:0!important; }
+  .leaflet-control-layers { background:rgba(15,15,35,0.95)!important; color:#ddd!important; border:1px solid rgba(255,255,255,0.15)!important; border-radius:8px!important; max-width:none!important; }
+  .leaflet-control-layers label { color:#ccc!important; white-space:nowrap!important; }
+  #copyright-banner { position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(10,10,20,0.75);color:rgba(255,255,255,0.7);font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(4px);pointer-events:none; }
+</style></head>
+<body>
+    
+    
+<style>
+  #dash94041 {
+    position: fixed; top: 10px; left: 10px; z-index: 9999;
+    background: linear-gradient(135deg, rgba(10,10,30,0.97), rgba(20,20,50,0.97));
+    color: #e8e8f0; font-family: 'Segoe UI', Arial, sans-serif;
+    border-radius: 12px; padding: 0; width: 290px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.1); overflow: hidden;
+  }
+  #dash94041-header {
+    background: linear-gradient(90deg, #00ff8822, rgba(255,255,255,0.03));
+    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  #dash94041-header h2 { margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+  #dash94041-header p { margin: 3px 0 0; font-size: 11px; color: rgba(255,255,255,.5); }
+  #dash94041-body { padding: 12px 16px; }
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .kpi { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 9px; text-align: center; border: 1px solid rgba(255,255,255,0.08); }
+  .kpi .val { font-size: 16px; font-weight: 800; color: #00ff88; }
+  .kpi .lbl { font-size: 10px; color: rgba(255,255,255,.45); margin-top: 2px; text-transform:uppercase; letter-spacing:.5px; }
+  #dash94041-toggle { position: absolute; top: 8px; right: 12px; cursor: pointer; color: rgba(255,255,255,.5); font-size: 16px; user-select:none; }
+  #dash94041-toggle:hover { color: #fff; }
+  .back-link { display:block; margin-top: 10px; padding: 7px 10px; border-radius: 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 11px; text-decoration: none; text-align: center; transition: all 0.2s; }
+  .back-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .collapse-btn { display:block; margin-top: 10px; padding: 9px 10px; border-radius: 7px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); font-size: 12px; text-align: center; cursor: pointer; transition: all 0.2s; font-family: inherit; width: 100%; }
+  .collapse-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+</style>
+<div id="dash94041">
+  <div id="dash94041-header">
+    <span id="dash94041-toggle" onclick="
+      var b=document.getElementById('dash94041-body');
+      var t=document.getElementById('dash94041-toggle');
+      var c=document.getElementById('dash94041-collapse');
+      if(b.style.display==='none'){b.style.display='block';t.textContent='▲';c.style.display='block';}
+      else{b.style.display='none';t.textContent='▼';c.style.display='none';}
+    ">▲</span>
+    <h2>🏠 Maisons / Pavillons · Ivry-sur-Seine (94041)</h2>
+    <p>2025 · Source DVF data.gouv.fr</p>
+  </div>
+  <div id="dash94041-body">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="val">37</div><div class="lbl">Transactions</div></div>
+      <div class="kpi"><div class="val">5</div><div class="lbl">Micro-marchés</div></div>
+      <div class="kpi"><div class="val">450k€</div><div class="lbl">Prix médian</div></div>
+      <div class="kpi"><div class="val">5,658€</div><div class="lbl">Médiane/m²</div></div>
+    </div>
+    <a href="index.html" class="back-link">← Vue d'ensemble Ivry-sur-Seine</a>
+    <a href="https://www.datamerry.com" target="_top" class="back-link">← Retour à datamerry.com</a>
+    <button class="collapse-btn" id="dash94041-collapse" onclick="
+      var b=document.getElementById('dash94041-body');
+      var c=document.getElementById('dash94041-collapse');
+      var t=document.getElementById('dash94041-toggle');
+      b.style.display='none';t.textContent='▼';
+      c.style.display='none';
+    ">▲ Replier</button>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.25);text-align:center;">
+      © 2026 Samuel Bruno · datamerry.com
+    </div>
+  </div>
+</div>
+    
+            <div class="folium-map" id="map_b66603da1b29b49ff6702d8e1adc9177" ></div>
+        
+<div id="copyright-banner">© 2026 Samuel Bruno — datamerry.com</div>
+</body>
+<script>
+    
+    
+            var map_b66603da1b29b49ff6702d8e1adc9177 = L.map(
+                "map_b66603da1b29b49ff6702d8e1adc9177",
+                {
+                    center: [48.81219843243243, 2.377997081081081],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 14,
+  "zoomControl": true,
+  "preferCanvas": true,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_b298f5dd41cb693e4e02803d33d8265f = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; OSM \u0026copy; CARTO",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_b298f5dd41cb693e4e02803d33d8265f.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+            var tile_layer_d3f006427e933568a61cd01c641c8dc4 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; OSM \u0026copy; CARTO",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_d3f006427e933568a61cd01c641c8dc4.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+            L.control.fullscreen(
+                {
+  "position": "topright",
+  "title": "Full Screen",
+  "titleCancel": "Exit Full Screen",
+  "forceSeparateButton": false,
+}
+            ).addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+            var tile_layer_3aebaeb5bcca6a9e4e4b6f3a3a6205ca = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e", "detect_retina": false, "max_native_zoom": 20, "max_zoom": 20, "min_zoom": 0, "no_wrap": false, "opacity": 1, "subdomains": "abcd", "tms": false}
+            );
+            var mini_map_6baaa5b99b23eca375977133fa209c83 = new L.Control.MiniMap(
+                tile_layer_3aebaeb5bcca6a9e4e4b6f3a3a6205ca,
+                {
+  "position": "bottomleft",
+  "width": 150,
+  "height": 150,
+  "collapsedWidth": 25,
+  "collapsedHeight": 25,
+  "zoomLevelOffset": -5,
+  "centerFixed": false,
+  "zoomAnimation": false,
+  "toggleDisplay": false,
+  "autoToggleDisplay": false,
+  "minimized": false,
+}
+            );
+            map_b66603da1b29b49ff6702d8e1adc9177.addControl(mini_map_6baaa5b99b23eca375977133fa209c83);
+        
+    
+            var feature_group_f44a7c257258557407bf0c864cb2f605 = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var heat_map_cacffad7e85143cbd864f4ac8f2152c0 = L.heatLayer(
+                [[48.817042, 2.381022, 0.714266065140845], [48.815443, 2.375202, 0.659869278169014], [48.81503, 2.372434, 0.7542677942655934], [48.816369, 2.366867, 0.609513644366197], [48.806326, 2.373163, 0.6771564150528169], [48.805919, 2.38732, 0.715100498826291], [48.816517, 2.366131, 0.47287632042253513], [48.808, 2.376983, 0.8640755852683668], [48.811686, 2.372296, 0.2234402508802817], [48.816268, 2.371661, 0.6338028169014084], [48.813486, 2.394274, 0.12742077464788729], [48.810437, 2.374559, 0.9561164619553256], [48.817823, 2.377658, 0.4060299295774647], [48.81083, 2.375291, 0.0], [48.807148, 2.369602, 0.7243984741784036], [48.807378, 2.384169, 0.5518766005121639], [48.807501, 2.369309, 0.8481753018108651], [48.812542, 2.394396, 0.5087824635675323], [48.812546, 2.395971, 0.8351672535211268], [48.813311, 2.379318, 0.641725352112676], [48.813526, 2.395448, 0.3977772887323944], [48.810751, 2.379114, 0.19512910798122066], [48.807383, 2.370633, 1.0], [48.806577, 2.388619, 0.5258263289413901], [48.816639, 2.380934, 0.3904290468840439], [48.810208, 2.399604, 0.8777335063009636], [48.816043, 2.364698, 0.6305297356170924], [48.804744, 2.393002, 0.589759775759822], [48.812976, 2.378546, 0.6760460222271126], [48.807238, 2.370884, 0.3665712027848912], [48.815534, 2.366665, 0.49322334871296736], [48.817879, 2.369397, 0.8698283450704224], [48.816212, 2.365201, 0.3384553645401822], [48.806597, 2.374688, 0.4648299955985915], [48.816543, 2.37477, 0.576818018766313], [48.813231, 2.376814, 0.5456375206818799], [48.817659, 2.379249, 0.36176892730699217]],
+                {
+  "minOpacity": 0.3,
+  "maxZoom": 18,
+  "radius": 20,
+  "blur": 15,
+  "gradient": {
+  0.2: "#00d4ff",
+  0.5: "#ffdd00",
+  0.8: "#ff6600",
+  1.0: "#ff0055",
+},
+}
+            );
+        
+    
+            heat_map_cacffad7e85143cbd864f4ac8f2152c0.addTo(feature_group_f44a7c257258557407bf0c864cb2f605);
+        
+    
+            var feature_group_f2968f36249bb99e414bdc6a4a38105f = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var polygon_7144287bff61fa2a32f3fe1bae1b65bc = L.polygon(
+                [[48.813526, 2.395448], [48.810208, 2.399604], [48.812542, 2.394396], [48.813486, 2.394274], [48.813526, 2.395448]],
+                {"bubblingMouseEvents": true, "color": "#00d4ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00d4ff", "fillOpacity": 0.1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_f2968f36249bb99e414bdc6a4a38105f);
+        
+    
+        var popup_e329e06299442237f279cdff6f4fdf06 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_9b2f4b5c3ef688e1abf40be6d9ae8204 = $(`<div id="html_9b2f4b5c3ef688e1abf40be6d9ae8204" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:210px; color:#222;">               <div style="background:#00d4ff;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">Micro-marché 0</div>               <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">                 <table style="width:100%;font-size:13px;border-collapse:collapse;">                   <tr><td style="color:#666;padding:3px 0;">Transactions</td><td style="font-weight:600;text-align:right;">5</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix médian</td><td style="font-weight:600;text-align:right;">450,000 €</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix/m² médian</td><td style="font-weight:600;text-align:right;">5,029 €/m²</td></tr>                 </table>               </div>             </div></div>`)[0];
+                popup_e329e06299442237f279cdff6f4fdf06.setContent(html_9b2f4b5c3ef688e1abf40be6d9ae8204);
+            
+        
+
+        polygon_7144287bff61fa2a32f3fe1bae1b65bc.bindPopup(popup_e329e06299442237f279cdff6f4fdf06)
+        ;
+
+        
+    
+    
+            polygon_7144287bff61fa2a32f3fe1bae1b65bc.bindTooltip(
+                `<div>
+                     <b style='color:#00d4ff'>Micro-marché 0</b> · 5 tx · 450,000 €
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_c721410796a71dc5991de091194963dd = L.polygon(
+                [[48.805919, 2.38732], [48.807378, 2.384169], [48.806577, 2.388619], [48.805919, 2.38732]],
+                {"bubblingMouseEvents": true, "color": "#00ff88", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00ff88", "fillOpacity": 0.1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_f2968f36249bb99e414bdc6a4a38105f);
+        
+    
+        var popup_10d537aed7905647ca183ab0f391f6b0 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_3f80a31c6fd17cc9a6a97cfa9e8fff13 = $(`<div id="html_3f80a31c6fd17cc9a6a97cfa9e8fff13" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:210px; color:#222;">               <div style="background:#00ff88;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">Micro-marché 1</div>               <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">                 <table style="width:100%;font-size:13px;border-collapse:collapse;">                   <tr><td style="color:#666;padding:3px 0;">Transactions</td><td style="font-weight:600;text-align:right;">3</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix médian</td><td style="font-weight:600;text-align:right;">320,000 €</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix/m² médian</td><td style="font-weight:600;text-align:right;">5,364 €/m²</td></tr>                 </table>               </div>             </div></div>`)[0];
+                popup_10d537aed7905647ca183ab0f391f6b0.setContent(html_3f80a31c6fd17cc9a6a97cfa9e8fff13);
+            
+        
+
+        polygon_c721410796a71dc5991de091194963dd.bindPopup(popup_10d537aed7905647ca183ab0f391f6b0)
+        ;
+
+        
+    
+    
+            polygon_c721410796a71dc5991de091194963dd.bindTooltip(
+                `<div>
+                     <b style='color:#00ff88'>Micro-marché 1</b> · 3 tx · 320,000 €
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_80cdab4138c5910bccb7d5676990cdb7 = L.polygon(
+                [[48.806597, 2.374688], [48.806326, 2.373163], [48.807148, 2.369602], [48.807501, 2.369309], [48.807383, 2.370633], [48.806597, 2.374688]],
+                {"bubblingMouseEvents": true, "color": "#ff6600", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff6600", "fillOpacity": 0.1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_f2968f36249bb99e414bdc6a4a38105f);
+        
+    
+        var popup_32c9181ad6e2c4896b82c96d040c9658 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_dc4c090792cd8e537d27efc7a9da697d = $(`<div id="html_dc4c090792cd8e537d27efc7a9da697d" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:210px; color:#222;">               <div style="background:#ff6600;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">Micro-marché 2</div>               <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">                 <table style="width:100%;font-size:13px;border-collapse:collapse;">                   <tr><td style="color:#666;padding:3px 0;">Transactions</td><td style="font-weight:600;text-align:right;">6</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix médian</td><td style="font-weight:600;text-align:right;">521,750 €</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix/m² médian</td><td style="font-weight:600;text-align:right;">6,520 €/m²</td></tr>                 </table>               </div>             </div></div>`)[0];
+                popup_32c9181ad6e2c4896b82c96d040c9658.setContent(html_dc4c090792cd8e537d27efc7a9da697d);
+            
+        
+
+        polygon_80cdab4138c5910bccb7d5676990cdb7.bindPopup(popup_32c9181ad6e2c4896b82c96d040c9658)
+        ;
+
+        
+    
+    
+            polygon_80cdab4138c5910bccb7d5676990cdb7.bindTooltip(
+                `<div>
+                     <b style='color:#ff6600'>Micro-marché 2</b> · 6 tx · 521,750 €
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_184e3922985579339a758db04323700e = L.polygon(
+                [[48.817879, 2.369397], [48.815534, 2.366665], [48.816043, 2.364698], [48.817879, 2.369397]],
+                {"bubblingMouseEvents": true, "color": "#ff0055", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0055", "fillOpacity": 0.1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_f2968f36249bb99e414bdc6a4a38105f);
+        
+    
+        var popup_e10b3f8b57bf283f4e845abb1104d781 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_8ed0b2e0558db2d35ad00f0e58d5f535 = $(`<div id="html_8ed0b2e0558db2d35ad00f0e58d5f535" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:210px; color:#222;">               <div style="background:#ff0055;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">Micro-marché 3</div>               <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">                 <table style="width:100%;font-size:13px;border-collapse:collapse;">                   <tr><td style="color:#666;padding:3px 0;">Transactions</td><td style="font-weight:600;text-align:right;">6</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix médian</td><td style="font-weight:600;text-align:right;">431,425 €</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix/m² médian</td><td style="font-weight:600;text-align:right;">5,360 €/m²</td></tr>                 </table>               </div>             </div></div>`)[0];
+                popup_e10b3f8b57bf283f4e845abb1104d781.setContent(html_8ed0b2e0558db2d35ad00f0e58d5f535);
+            
+        
+
+        polygon_184e3922985579339a758db04323700e.bindPopup(popup_e10b3f8b57bf283f4e845abb1104d781)
+        ;
+
+        
+    
+    
+            polygon_184e3922985579339a758db04323700e.bindTooltip(
+                `<div>
+                     <b style='color:#ff0055'>Micro-marché 3</b> · 6 tx · 431,425 €
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var polygon_f9af4327a30e53faf10a1de7f70725df = L.polygon(
+                [[48.816268, 2.371661], [48.817823, 2.377658], [48.817659, 2.379249], [48.817042, 2.381022], [48.816639, 2.380934], [48.812976, 2.378546], [48.813231, 2.376814], [48.81503, 2.372434], [48.816268, 2.371661]],
+                {"bubblingMouseEvents": true, "color": "#cc00ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#cc00ff", "fillOpacity": 0.1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(feature_group_f2968f36249bb99e414bdc6a4a38105f);
+        
+    
+        var popup_ad878cf7f0a347368b8ca40f4f1efbd4 = L.popup({
+  "maxWidth": 250,
+});
+
+        
+            
+                var html_297955cd18968b002b9cb7172edac07c = $(`<div id="html_297955cd18968b002b9cb7172edac07c" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:210px; color:#222;">               <div style="background:#cc00ff;color:#000;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;">Micro-marché 4</div>               <div style="padding:10px 12px;background:#f9f9f9;border-radius:0 0 6px 6px;">                 <table style="width:100%;font-size:13px;border-collapse:collapse;">                   <tr><td style="color:#666;padding:3px 0;">Transactions</td><td style="font-weight:600;text-align:right;">10</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix médian</td><td style="font-weight:600;text-align:right;">518,125 €</td></tr>                   <tr><td style="color:#666;padding:3px 0;">Prix/m² médian</td><td style="font-weight:600;text-align:right;">5,779 €/m²</td></tr>                 </table>               </div>             </div></div>`)[0];
+                popup_ad878cf7f0a347368b8ca40f4f1efbd4.setContent(html_297955cd18968b002b9cb7172edac07c);
+            
+        
+
+        polygon_f9af4327a30e53faf10a1de7f70725df.bindPopup(popup_ad878cf7f0a347368b8ca40f4f1efbd4)
+        ;
+
+        
+    
+    
+            polygon_f9af4327a30e53faf10a1de7f70725df.bindTooltip(
+                `<div>
+                     <b style='color:#cc00ff'>Micro-marché 4</b> · 10 tx · 518,125 €
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            feature_group_f2968f36249bb99e414bdc6a4a38105f.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+            var feature_group_461aa14bd7ba1acf35ab673b8be253af = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var circle_marker_06792513d9a7c93f442db2ff50458683 = L.circleMarker(
+                [48.817042, 2.381022],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff6700ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_5e39b9fe02d3d0081dc5f6716b2bb25c = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_7b370e83587f3b56df26283be015685b = $(`<div id="html_7b370e83587f3b56df26283be015685b" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">6.0 RUE PIERRE MOULIE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">530,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">80 m² bâti · <span style="color:#ff6700ff;font-weight:600;">6,625 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">04/01/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff6700ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.817042,2.381022" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.817042,2.381022" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_5e39b9fe02d3d0081dc5f6716b2bb25c.setContent(html_7b370e83587f3b56df26283be015685b);
+            
+        
+
+        circle_marker_06792513d9a7c93f442db2ff50458683.bindPopup(popup_5e39b9fe02d3d0081dc5f6716b2bb25c)
+        ;
+
+        
+    
+    
+            circle_marker_06792513d9a7c93f442db2ff50458683.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>530,000 €</b> · 6,625 €/m² · 04/01/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_77fa82b364ff3a5dd95c63aa163fb0d8 = L.circleMarker(
+                [48.815443, 2.375202],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8b00ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_b4fc6273525887bb00120d95d6f98b96 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_c4b14a5326cf8ae7349e602a9c1e664d = $(`<div id="html_c4b14a5326cf8ae7349e602a9c1e664d" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">44.0 RUE BAUDIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">483,793 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">78 m² bâti · <span style="color:#ff8b00ff;font-weight:600;">6,202 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">29/01/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff8b00ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.815443,2.375202" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.815443,2.375202" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b4fc6273525887bb00120d95d6f98b96.setContent(html_c4b14a5326cf8ae7349e602a9c1e664d);
+            
+        
+
+        circle_marker_77fa82b364ff3a5dd95c63aa163fb0d8.bindPopup(popup_b4fc6273525887bb00120d95d6f98b96)
+        ;
+
+        
+    
+    
+            circle_marker_77fa82b364ff3a5dd95c63aa163fb0d8.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>483,793 €</b> · 6,202 €/m² · 29/01/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_257b831572ab2c1812256d7a6eb727eb = L.circleMarker(
+                [48.81503, 2.372434],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff5012ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_4f2f1e43db8194713c17437f45fc7479 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_4a366caf8efc0016c3646fbe6c66becc = $(`<div id="html_4a366caf8efc0016c3646fbe6c66becc" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">17.0 IMP CHANVIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 6 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">971,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">140 m² bâti · <span style="color:#ff5012ff;font-weight:600;">6,936 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">09/02/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff5012ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.81503,2.372434" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.81503,2.372434" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_4f2f1e43db8194713c17437f45fc7479.setContent(html_4a366caf8efc0016c3646fbe6c66becc);
+            
+        
+
+        circle_marker_257b831572ab2c1812256d7a6eb727eb.bindPopup(popup_4f2f1e43db8194713c17437f45fc7479)
+        ;
+
+        
+    
+    
+            circle_marker_257b831572ab2c1812256d7a6eb727eb.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>971,000 €</b> · 6,936 €/m² · 09/02/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_17bb46a29ce2c44149efbd449e99c377 = L.circleMarker(
+                [48.816369, 2.366867],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffad00ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_b7bf64de6b8461af7228654dfae31d01 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_0feb7438ba783ef5d5988df1398eba31 = $(`<div id="html_0feb7438ba783ef5d5988df1398eba31" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">7.0 RUE MAURICE BERTEAUX</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">435,850 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">75 m² bâti · <span style="color:#ffad00ff;font-weight:600;">5,811 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">28/02/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ffad00ff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816369,2.366867" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816369,2.366867" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b7bf64de6b8461af7228654dfae31d01.setContent(html_0feb7438ba783ef5d5988df1398eba31);
+            
+        
+
+        circle_marker_17bb46a29ce2c44149efbd449e99c377.bindPopup(popup_b7bf64de6b8461af7228654dfae31d01)
+        ;
+
+        
+    
+    
+            circle_marker_17bb46a29ce2c44149efbd449e99c377.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>435,850 €</b> · 5,811 €/m² · 28/02/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_17a3fde88cd87adc3d9bc94f60b320cd = L.circleMarker(
+                [48.806326, 2.373163],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8000ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_d0465b7e61120dfd629b8371443c0b76 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_d12d952f71922b5a543c0353ec21a84e = $(`<div id="html_d12d952f71922b5a543c0353ec21a84e" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">18.0 RUE HENRI MARTIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">506,940 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">80 m² bâti · <span style="color:#ff8000ff;font-weight:600;">6,337 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">05/03/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff8000ff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.806326,2.373163" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.806326,2.373163" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_d0465b7e61120dfd629b8371443c0b76.setContent(html_d12d952f71922b5a543c0353ec21a84e);
+            
+        
+
+        circle_marker_17a3fde88cd87adc3d9bc94f60b320cd.bindPopup(popup_d0465b7e61120dfd629b8371443c0b76)
+        ;
+
+        
+    
+    
+            circle_marker_17a3fde88cd87adc3d9bc94f60b320cd.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>506,940 €</b> · 6,337 €/m² · 05/03/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c75d74b31189034fb900adba1147cf8f = L.circleMarker(
+                [48.805919, 2.38732],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff6600ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_1bc1bfc3d3daa3d44198f77110f92d28 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_da6081cb1a8493f06719055937ca2502 = $(`<div id="html_da6081cb1a8493f06719055937ca2502" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">185.0 RUE MARCEL HARTMANN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">537,150 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">81 m² bâti · <span style="color:#ff6600ff;font-weight:600;">6,631 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">19/03/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff6600ff;">Micro-marché 1</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.805919,2.38732" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.805919,2.38732" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_1bc1bfc3d3daa3d44198f77110f92d28.setContent(html_da6081cb1a8493f06719055937ca2502);
+            
+        
+
+        circle_marker_c75d74b31189034fb900adba1147cf8f.bindPopup(popup_1bc1bfc3d3daa3d44198f77110f92d28)
+        ;
+
+        
+    
+    
+            circle_marker_c75d74b31189034fb900adba1147cf8f.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>537,150 €</b> · 6,631 €/m² · 19/03/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3dcc177e13b803ef3990778768242380 = L.circleMarker(
+                [48.816517, 2.366131],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#a3ea31ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_fde5c965047634758051b6df8f18c472 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_1a0a2900d7baad2137d9ec6e849f042e = $(`<div id="html_1a0a2900d7baad2137d9ec6e849f042e" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">9.0 RUE ALBERT MEUNIER</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">380,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">80 m² bâti · <span style="color:#a3ea31ff;font-weight:600;">4,750 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">15/03/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#a3ea31ff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816517,2.366131" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816517,2.366131" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_fde5c965047634758051b6df8f18c472.setContent(html_1a0a2900d7baad2137d9ec6e849f042e);
+            
+        
+
+        circle_marker_3dcc177e13b803ef3990778768242380.bindPopup(popup_fde5c965047634758051b6df8f18c472)
+        ;
+
+        
+    
+    
+            circle_marker_3dcc177e13b803ef3990778768242380.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>380,000 €</b> · 4,750 €/m² · 15/03/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_25fcb8cc6bd2c72ef87a7a5ee0686474 = L.circleMarker(
+                [48.808, 2.376983],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff1047ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_b69d6f17a84afb25c106d03fdd50fa4d = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_0c14074196da5cafdb106241d4a7e917 = $(`<div id="html_0c14074196da5cafdb106241d4a7e917" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">4.0 IMP MICHELET</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">576,360 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">74 m² bâti · <span style="color:#ff1047ff;font-weight:600;">7,789 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">05/04/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff1047ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.808,2.376983" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.808,2.376983" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b69d6f17a84afb25c106d03fdd50fa4d.setContent(html_0c14074196da5cafdb106241d4a7e917);
+            
+        
+
+        circle_marker_25fcb8cc6bd2c72ef87a7a5ee0686474.bindPopup(popup_b69d6f17a84afb25c106d03fdd50fa4d)
+        ;
+
+        
+    
+    
+            circle_marker_25fcb8cc6bd2c72ef87a7a5ee0686474.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>576,360 €</b> · 7,789 €/m² · 05/04/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_9f26820df65755ce27e4b2bc4ad519f9 = L.circleMarker(
+                [48.811686, 2.372296],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00dee3ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_e0edccdea1fd6e06f28eb84f7c154436 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_f01d353c374026c71c8efb3bb1dab978 = $(`<div id="html_f01d353c374026c71c8efb3bb1dab978" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">18.0 PASS HOCHE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">180,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">64 m² bâti · <span style="color:#00dee3ff;font-weight:600;">2,812 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">14/05/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#00dee3ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.811686,2.372296" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.811686,2.372296" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_e0edccdea1fd6e06f28eb84f7c154436.setContent(html_f01d353c374026c71c8efb3bb1dab978);
+            
+        
+
+        circle_marker_9f26820df65755ce27e4b2bc4ad519f9.bindPopup(popup_e0edccdea1fd6e06f28eb84f7c154436)
+        ;
+
+        
+    
+    
+            circle_marker_9f26820df65755ce27e4b2bc4ad519f9.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>180,000 €</b> · 2,812 €/m² · 14/05/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_26e72682ea9367e47bb7ae43649e7e2f = L.circleMarker(
+                [48.816268, 2.371661],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff9d00ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_aa70055133cf3a16501afda9d7237186 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_ae206acc2e7f4d29d018161c9a6d2304 = $(`<div id="html_ae206acc2e7f4d29d018161c9a6d2304" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">12.0 ALL DE LA CHOCOLATERIE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 5 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">600,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">100 m² bâti · <span style="color:#ff9d00ff;font-weight:600;">6,000 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">22/05/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff9d00ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816268,2.371661" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816268,2.371661" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_aa70055133cf3a16501afda9d7237186.setContent(html_ae206acc2e7f4d29d018161c9a6d2304);
+            
+        
+
+        circle_marker_26e72682ea9367e47bb7ae43649e7e2f.bindPopup(popup_aa70055133cf3a16501afda9d7237186)
+        ;
+
+        
+    
+    
+            circle_marker_26e72682ea9367e47bb7ae43649e7e2f.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>600,000 €</b> · 6,000 €/m² · 22/05/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0191a474a458fd7ae0c3247d1b4a43a1 = L.circleMarker(
+                [48.813486, 2.394274],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00d4ffff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_1fb11967bc327366238f83987a168229 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_b59692100146ff195186f0eb09db1298 = $(`<div id="html_b59692100146ff195186f0eb09db1298" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">38.0 RUE DENIS PAPIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">124,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">60 m² bâti · <span style="color:#00d4ffff;font-weight:600;">2,067 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">06/05/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#00d4ffff;">Micro-marché 0</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.813486,2.394274" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.813486,2.394274" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_1fb11967bc327366238f83987a168229.setContent(html_b59692100146ff195186f0eb09db1298);
+            
+        
+
+        circle_marker_0191a474a458fd7ae0c3247d1b4a43a1.bindPopup(popup_1fb11967bc327366238f83987a168229)
+        ;
+
+        
+    
+    
+            circle_marker_0191a474a458fd7ae0c3247d1b4a43a1.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>124,000 €</b> · 2,067 €/m² · 06/05/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f6925bb3c0635405fbc4bf8d889560e7 = L.circleMarker(
+                [48.810437, 2.374559],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0055ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_c6e731f37bf71fa27ad26a4cee06f965 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_ae5d643cd7212bfcd2dff9d718801495 = $(`<div id="html_ae5d643cd7212bfcd2dff9d718801495" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">41.0 RUE ROGER BUESSARD</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 5 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">544,229 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">64 m² bâti · <span style="color:#ff0055ff;font-weight:600;">8,504 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">02/07/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff0055ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.810437,2.374559" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.810437,2.374559" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_c6e731f37bf71fa27ad26a4cee06f965.setContent(html_ae5d643cd7212bfcd2dff9d718801495);
+            
+        
+
+        circle_marker_f6925bb3c0635405fbc4bf8d889560e7.bindPopup(popup_c6e731f37bf71fa27ad26a4cee06f965)
+        ;
+
+        
+    
+    
+            circle_marker_f6925bb3c0635405fbc4bf8d889560e7.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>544,229 €</b> · 8,504 €/m² · 02/07/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fe7b0ea15333c930dc7ea6d64248e366 = L.circleMarker(
+                [48.817823, 2.377658],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#42f764ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_0e145eab22886c658a23872ae83d0d08 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_4dfd0eb1df3fed76db3d883ae0ba0bef = $(`<div id="html_4dfd0eb1df3fed76db3d883ae0ba0bef" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">21.0 RUE ANTOINE THOMAS</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 7 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">550,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">130 m² bâti · <span style="color:#42f764ff;font-weight:600;">4,231 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">04/09/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#42f764ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.817823,2.377658" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.817823,2.377658" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_0e145eab22886c658a23872ae83d0d08.setContent(html_4dfd0eb1df3fed76db3d883ae0ba0bef);
+            
+        
+
+        circle_marker_fe7b0ea15333c930dc7ea6d64248e366.bindPopup(popup_0e145eab22886c658a23872ae83d0d08)
+        ;
+
+        
+    
+    
+            circle_marker_fe7b0ea15333c930dc7ea6d64248e366.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>550,000 €</b> · 4,231 €/m² · 04/09/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b8a71c239539fbd774978e630ee72340 = L.circleMarker(
+                [48.81083, 2.375291],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00d4ffff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_8b3bff0b6e53f1bb92cf00564a98d9b7 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_222faad1684118a3dad9dafa214f0205 = $(`<div id="html_222faad1684118a3dad9dafa214f0205" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">25.0 RUE ROGER BUESSARD</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">140,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">130 m² bâti · <span style="color:#00d4ffff;font-weight:600;">1,077 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">25/11/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#00d4ffff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.81083,2.375291" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.81083,2.375291" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_8b3bff0b6e53f1bb92cf00564a98d9b7.setContent(html_222faad1684118a3dad9dafa214f0205);
+            
+        
+
+        circle_marker_b8a71c239539fbd774978e630ee72340.bindPopup(popup_8b3bff0b6e53f1bb92cf00564a98d9b7)
+        ;
+
+        
+    
+    
+            circle_marker_b8a71c239539fbd774978e630ee72340.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>140,000 €</b> · 1,077 €/m² · 25/11/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_97528b7cbc1cf49d0972bb5cc444ea04 = L.circleMarker(
+                [48.807148, 2.369602],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff6104ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_9f0e452dd814178e911928b9246f9c70 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_19178bb22839f2c881d56ba9ce08b683 = $(`<div id="html_19178bb22839f2c881d56ba9ce08b683" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">18.0 RUE DE LA PAIX</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">543,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">81 m² bâti · <span style="color:#ff6104ff;font-weight:600;">6,704 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">19/11/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff6104ff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.807148,2.369602" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.807148,2.369602" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_9f0e452dd814178e911928b9246f9c70.setContent(html_19178bb22839f2c881d56ba9ce08b683);
+            
+        
+
+        circle_marker_97528b7cbc1cf49d0972bb5cc444ea04.bindPopup(popup_9f0e452dd814178e911928b9246f9c70)
+        ;
+
+        
+    
+    
+            circle_marker_97528b7cbc1cf49d0972bb5cc444ea04.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>543,000 €</b> · 6,704 €/m² · 19/11/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1e2a21efe5f9fbb1549c27afd688af1b = L.circleMarker(
+                [48.807378, 2.384169],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffd400ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_3a8fd3a684713a9fc3a87f5ce550c48b = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_faa4f21aadc33702030736039da71b3c = $(`<div id="html_faa4f21aadc33702030736039da71b3c" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">3.0 RUE DES FRERES BLAIS</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">295,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">55 m² bâti · <span style="color:#ffd400ff;font-weight:600;">5,364 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">03/12/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ffd400ff;">Micro-marché 1</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.807378,2.384169" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.807378,2.384169" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_3a8fd3a684713a9fc3a87f5ce550c48b.setContent(html_faa4f21aadc33702030736039da71b3c);
+            
+        
+
+        circle_marker_1e2a21efe5f9fbb1549c27afd688af1b.bindPopup(popup_3a8fd3a684713a9fc3a87f5ce550c48b)
+        ;
+
+        
+    
+    
+            circle_marker_1e2a21efe5f9fbb1549c27afd688af1b.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>295,000 €</b> · 5,364 €/m² · 03/12/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0ddcefabfd3fe6629430476fcb2a9ccf = L.circleMarker(
+                [48.807501, 2.369309],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff1a3fff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_ed63dfa8b26d6d968c7558d9679b54ba = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_c54f9c4b6a3ab5654d2d7c4888af0190 = $(`<div id="html_c54f9c4b6a3ab5654d2d7c4888af0190" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">8.0 RUE DE LA PAIX</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">536,560 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">70 m² bâti · <span style="color:#ff1a3fff;font-weight:600;">7,665 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">11/12/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff1a3fff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.807501,2.369309" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.807501,2.369309" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_ed63dfa8b26d6d968c7558d9679b54ba.setContent(html_c54f9c4b6a3ab5654d2d7c4888af0190);
+            
+        
+
+        circle_marker_0ddcefabfd3fe6629430476fcb2a9ccf.bindPopup(popup_ed63dfa8b26d6d968c7558d9679b54ba)
+        ;
+
+        
+    
+    
+            circle_marker_0ddcefabfd3fe6629430476fcb2a9ccf.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>536,560 €</b> · 7,665 €/m² · 11/12/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_a84bdd3a8c87ea8c75f60179f22c6931 = L.circleMarker(
+                [48.812542, 2.394396],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#d6e316ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_a990f49c31375d99f3aef95ae7262bfb = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_789151abd265d3ab38c14e11c283e218 = $(`<div id="html_789151abd265d3ab38c14e11c283e218" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">30.0 RUE GUSTAVE SIMONET</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 8 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">870,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">173 m² bâti · <span style="color:#d6e316ff;font-weight:600;">5,029 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">06/12/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#d6e316ff;">Micro-marché 0</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.812542,2.394396" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.812542,2.394396" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_a990f49c31375d99f3aef95ae7262bfb.setContent(html_789151abd265d3ab38c14e11c283e218);
+            
+        
+
+        circle_marker_a84bdd3a8c87ea8c75f60179f22c6931.bindPopup(popup_a990f49c31375d99f3aef95ae7262bfb)
+        ;
+
+        
+    
+    
+            circle_marker_a84bdd3a8c87ea8c75f60179f22c6931.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>870,000 €</b> · 5,029 €/m² · 06/12/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_6c75ce23a4c6afdbc398e702a5979089 = L.circleMarker(
+                [48.816543, 2.37477],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffc300ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_461aa14bd7ba1acf35ab673b8be253af);
+        
+    
+        var popup_e7f416afcf2ae2c21e19f7e492c8b069 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_35c86d72d4c27f1804201d9ebcb6e820 = $(`<div id="html_35c86d72d4c27f1804201d9ebcb6e820" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">23.0 RUE BAUDIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">372,344 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">67 m² bâti · <span style="color:#ffc300ff;font-weight:600;">5,557 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">22/07/2024</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ffc300ff;">Micro-marché 4</td></tr>                 </table>                 <div style='font-size:10px;color:#ff9900;margin-top:6px;background:rgba(255,153,0,0.08);padding:6px 8px;border-radius:4px;border-left:3px solid #ff9900;line-height:1.6;'><b>⚖️ Vente mixte</b> — Prix total DVF&nbsp;: <b>1,000,000 €</b><br><span style='color:#aaa;font-style:italic;'>Réf.&nbsp;: médiane globale commune (fallback)</span><table style='width:100%;border-collapse:collapse;margin-top:5px;font-size:9.5px;color:#bbb;'><tr style='border-bottom:1px solid rgba(255,153,0,0.3);'><th style='text-align:left;padding:2px 4px;font-weight:600;'>Type</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Surface</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>€/m² réf.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Valeur théor.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Part ventilée</th></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Local industriel. co…</td><td style='padding:2px 4px;text-align:right;'>212 m²</td><td style='padding:2px 4px;text-align:right;'>3,139 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>665,558 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>627,656 €</td></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Maison</td><td style='padding:2px 4px;text-align:right;'>67 m²</td><td style='padding:2px 4px;text-align:right;'>5,893 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>394,828 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>372,344 €</td></tr><tr style='border-top:1px solid rgba(255,153,0,0.3);color:#aaa;'><td colspan='3' style='padding:2px 4px;'>Total théorique</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>1,060,386 €</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>1,000,000 €</td></tr></table></div>                                  <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816543,2.37477" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816543,2.37477" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_e7f416afcf2ae2c21e19f7e492c8b069.setContent(html_35c86d72d4c27f1804201d9ebcb6e820);
+            
+        
+
+        circle_marker_6c75ce23a4c6afdbc398e702a5979089.bindPopup(popup_e7f416afcf2ae2c21e19f7e492c8b069)
+        ;
+
+        
+    
+    
+            circle_marker_6c75ce23a4c6afdbc398e702a5979089.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>372,344 €</b> · 5,557 €/m² · 22/07/2024</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            feature_group_461aa14bd7ba1acf35ab673b8be253af.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+            var feature_group_0fc602cd37ae80733a4e6dbb2636fd60 = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var circle_marker_c11b694d56a16a51190330b81f4ce506 = L.circleMarker(
+                [48.812546, 2.395971],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff2139ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_b088c91ca3abe9a988597e78e1dc4794 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_a0e139f48fd235623bdbccbe0f637a1a = $(`<div id="html_a0e139f48fd235623bdbccbe0f637a1a" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">5.0 RUE GUSTAVE SIMONET</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">295,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">39 m² bâti · <span style="color:#ff2139ff;font-weight:600;">7,564 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">17/01/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff2139ff;">Micro-marché 0</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.812546,2.395971" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.812546,2.395971" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b088c91ca3abe9a988597e78e1dc4794.setContent(html_a0e139f48fd235623bdbccbe0f637a1a);
+            
+        
+
+        circle_marker_c11b694d56a16a51190330b81f4ce506.bindPopup(popup_b088c91ca3abe9a988597e78e1dc4794)
+        ;
+
+        
+    
+    
+            circle_marker_c11b694d56a16a51190330b81f4ce506.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>295,000 €</b> · 7,564 €/m² · 17/01/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_5c6bc28387dc983017cdc1327c01c9b0 = L.circleMarker(
+                [48.813311, 2.379318],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff9700ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_3dc143482ea51fe3c828568d1081b04e = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_b4520eb215f2602dbc635692ca070ac5 = $(`<div id="html_b4520eb215f2602dbc635692ca070ac5" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">10.0 RUE BERTHELOT</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">394,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">65 m² bâti · <span style="color:#ff9700ff;font-weight:600;">6,062 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">21/01/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff9700ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.813311,2.379318" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.813311,2.379318" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_3dc143482ea51fe3c828568d1081b04e.setContent(html_b4520eb215f2602dbc635692ca070ac5);
+            
+        
+
+        circle_marker_5c6bc28387dc983017cdc1327c01c9b0.bindPopup(popup_3dc143482ea51fe3c828568d1081b04e)
+        ;
+
+        
+    
+    
+            circle_marker_5c6bc28387dc983017cdc1327c01c9b0.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>394,000 €</b> · 6,062 €/m² · 21/01/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_48271feeeb7cc183a866afd507aa1427 = L.circleMarker(
+                [48.813526, 2.395448],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#37f86bff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_c121b65d44683abf740002c89bee2f76 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_f4ea09342ac3bfb4d16a6ab836fe7e0a = $(`<div id="html_f4ea09342ac3bfb4d16a6ab836fe7e0a" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">25.0 RUE MOLIERE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 6 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">500,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">120 m² bâti · <span style="color:#37f86bff;font-weight:600;">4,167 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">23/01/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#37f86bff;">Micro-marché 0</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.813526,2.395448" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.813526,2.395448" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_c121b65d44683abf740002c89bee2f76.setContent(html_f4ea09342ac3bfb4d16a6ab836fe7e0a);
+            
+        
+
+        circle_marker_48271feeeb7cc183a866afd507aa1427.bindPopup(popup_c121b65d44683abf740002c89bee2f76)
+        ;
+
+        
+    
+    
+            circle_marker_48271feeeb7cc183a866afd507aa1427.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>500,000 €</b> · 4,167 €/m² · 23/01/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_536caead472488269a385afc5555ff45 = L.circleMarker(
+                [48.810751, 2.379114],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00d8f6ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_20d560116e25142e5f1d33e9102ed666 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_49a6c397f2b92a342f4e832f5b281e0b = $(`<div id="html_49a6c397f2b92a342f4e832f5b281e0b" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">9.0 RUE HOCHE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">350,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">135 m² bâti · <span style="color:#00d8f6ff;font-weight:600;">2,593 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">27/01/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#00d8f6ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.810751,2.379114" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.810751,2.379114" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_20d560116e25142e5f1d33e9102ed666.setContent(html_49a6c397f2b92a342f4e832f5b281e0b);
+            
+        
+
+        circle_marker_536caead472488269a385afc5555ff45.bindPopup(popup_20d560116e25142e5f1d33e9102ed666)
+        ;
+
+        
+    
+    
+            circle_marker_536caead472488269a385afc5555ff45.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>350,000 €</b> · 2,593 €/m² · 27/01/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_7c28dabe0b8e2de4be5242cc593e1f22 = L.circleMarker(
+                [48.807383, 2.370633],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0055ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_d105fe3f0b5dac917fbeb28ec846cc1d = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_c0cba95ac023e5547af082fb18a9a6ce = $(`<div id="html_c0cba95ac023e5547af082fb18a9a6ce" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">11.0 SEN DES HERBEUSES</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">398,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">45 m² bâti · <span style="color:#ff0055ff;font-weight:600;">8,844 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">06/02/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff0055ff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.807383,2.370633" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.807383,2.370633" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_d105fe3f0b5dac917fbeb28ec846cc1d.setContent(html_c0cba95ac023e5547af082fb18a9a6ce);
+            
+        
+
+        circle_marker_7c28dabe0b8e2de4be5242cc593e1f22.bindPopup(popup_d105fe3f0b5dac917fbeb28ec846cc1d)
+        ;
+
+        
+    
+    
+            circle_marker_7c28dabe0b8e2de4be5242cc593e1f22.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>398,000 €</b> · 8,844 €/m² · 06/02/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_721a80de6e96e870be1cac4136bf73d0 = L.circleMarker(
+                [48.806577, 2.388619],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#efe008ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_e9e3fc2c7878bc8b0409a5f2ad3250c5 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_27948d61bdb293cdda2e63ec1030525d = $(`<div id="html_27948d61bdb293cdda2e63ec1030525d" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">21.0 RUE LOUIS FABLET</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">320,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">62 m² bâti · <span style="color:#efe008ff;font-weight:600;">5,161 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">19/02/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#efe008ff;">Micro-marché 1</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.806577,2.388619" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.806577,2.388619" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_e9e3fc2c7878bc8b0409a5f2ad3250c5.setContent(html_27948d61bdb293cdda2e63ec1030525d);
+            
+        
+
+        circle_marker_721a80de6e96e870be1cac4136bf73d0.bindPopup(popup_e9e3fc2c7878bc8b0409a5f2ad3250c5)
+        ;
+
+        
+    
+    
+            circle_marker_721a80de6e96e870be1cac4136bf73d0.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>320,000 €</b> · 5,161 €/m² · 19/02/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c97998f4e6c3b837fd34bd6517e6c29d = L.circleMarker(
+                [48.816639, 2.380934],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#2cfa70ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_28b8efeee0ef0ea32ed434b250247fd4 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_fcc9ab77b65f70fe6b592dc29a249d01 = $(`<div id="html_fcc9ab77b65f70fe6b592dc29a249d01" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">7.0 RUE PIERRE MOULIE</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 5 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">600,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">146 m² bâti · <span style="color:#2cfa70ff;font-weight:600;">4,110 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">03/03/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#2cfa70ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816639,2.380934" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816639,2.380934" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_28b8efeee0ef0ea32ed434b250247fd4.setContent(html_fcc9ab77b65f70fe6b592dc29a249d01);
+            
+        
+
+        circle_marker_c97998f4e6c3b837fd34bd6517e6c29d.bindPopup(popup_28b8efeee0ef0ea32ed434b250247fd4)
+        ;
+
+        
+    
+    
+            circle_marker_c97998f4e6c3b837fd34bd6517e6c29d.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>600,000 €</b> · 4,110 €/m² · 03/03/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fff0002ae7fc18ebf3eff852b8d5ff94 = L.circleMarker(
+                [48.810208, 2.399604],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff094dff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_1024b44c45f27de7a256fb6593c7b048 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_42173753cabaacc396996826f57e0378 = $(`<div id="html_42173753cabaacc396996826f57e0378" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">6.0 PAS VOLTA</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">450,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">57 m² bâti · <span style="color:#ff094dff;font-weight:600;">7,895 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">21/03/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff094dff;">Micro-marché 0</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.810208,2.399604" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.810208,2.399604" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_1024b44c45f27de7a256fb6593c7b048.setContent(html_42173753cabaacc396996826f57e0378);
+            
+        
+
+        circle_marker_fff0002ae7fc18ebf3eff852b8d5ff94.bindPopup(popup_1024b44c45f27de7a256fb6593c7b048)
+        ;
+
+        
+    
+    
+            circle_marker_fff0002ae7fc18ebf3eff852b8d5ff94.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>450,000 €</b> · 7,895 €/m² · 21/03/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c6d34d998dc7996fc010fe212539bd3b = L.circleMarker(
+                [48.816043, 2.364698],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff9f00ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_fa100bf8901cde26e1fc13fdd9432730 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_dea84185d17d56e71abff5686a45a333 = $(`<div id="html_dea84185d17d56e71abff5686a45a333" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">11.0 RUE DES CHALETS</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 5 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">705,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">118 m² bâti · <span style="color:#ff9f00ff;font-weight:600;">5,975 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">01/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff9f00ff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816043,2.364698" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816043,2.364698" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_fa100bf8901cde26e1fc13fdd9432730.setContent(html_dea84185d17d56e71abff5686a45a333);
+            
+        
+
+        circle_marker_c6d34d998dc7996fc010fe212539bd3b.bindPopup(popup_fa100bf8901cde26e1fc13fdd9432730)
+        ;
+
+        
+    
+    
+            circle_marker_c6d34d998dc7996fc010fe212539bd3b.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>705,000 €</b> · 5,975 €/m² · 01/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e95b9a9090d0b310ca5d309fdaa448b4 = L.circleMarker(
+                [48.804744, 2.393002],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffba00ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_ea2ed39584905188e0812610f0b511e2 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_c09ac89ccd63b97b4970227748b49869 = $(`<div id="html_c09ac89ccd63b97b4970227748b49869" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">30.0 RUE JEAN TREMOULET</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 1 pce</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">215,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">38 m² bâti · <span style="color:#ffba00ff;font-weight:600;">5,658 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">10/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ffba00ff;">Isolé</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.804744,2.393002" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.804744,2.393002" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_ea2ed39584905188e0812610f0b511e2.setContent(html_c09ac89ccd63b97b4970227748b49869);
+            
+        
+
+        circle_marker_e95b9a9090d0b310ca5d309fdaa448b4.bindPopup(popup_ea2ed39584905188e0812610f0b511e2)
+        ;
+
+        
+    
+    
+            circle_marker_e95b9a9090d0b310ca5d309fdaa448b4.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>215,000 €</b> · 5,658 €/m² · 10/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_78e4ddf6af3ffa3159b66612e34da604 = L.circleMarker(
+                [48.812976, 2.378546],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8000ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_9c2de742cc2ed78eb3516962236fac8f = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_f1249d39354ac18e7d6b4c554472fc4d = $(`<div id="html_f1249d39354ac18e7d6b4c554472fc4d" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">26.0 RUE BERTHELOT</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">506,250 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">80 m² bâti · <span style="color:#ff8000ff;font-weight:600;">6,328 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">04/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff8000ff;">Micro-marché 4</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.812976,2.378546" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.812976,2.378546" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_9c2de742cc2ed78eb3516962236fac8f.setContent(html_f1249d39354ac18e7d6b4c554472fc4d);
+            
+        
+
+        circle_marker_78e4ddf6af3ffa3159b66612e34da604.bindPopup(popup_9c2de742cc2ed78eb3516962236fac8f)
+        ;
+
+        
+    
+    
+            circle_marker_78e4ddf6af3ffa3159b66612e34da604.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>506,250 €</b> · 6,328 €/m² · 04/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3e0f510c8aada4a8d8365a32b4c43443 = L.circleMarker(
+                [48.807238, 2.370884],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#0afe83ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_0b38fd08fe7753121050db9d0d28df38 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_1d6b363910b97dec500b476a3ca59035 = $(`<div id="html_1d6b363910b97dec500b476a3ca59035" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">16.0 SEN DES HERBEUSES</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">431,670 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">110 m² bâti · <span style="color:#0afe83ff;font-weight:600;">3,924 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">18/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#0afe83ff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.807238,2.370884" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.807238,2.370884" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_0b38fd08fe7753121050db9d0d28df38.setContent(html_1d6b363910b97dec500b476a3ca59035);
+            
+        
+
+        circle_marker_3e0f510c8aada4a8d8365a32b4c43443.bindPopup(popup_0b38fd08fe7753121050db9d0d28df38)
+        ;
+
+        
+    
+    
+            circle_marker_3e0f510c8aada4a8d8365a32b4c43443.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>431,670 €</b> · 3,924 €/m² · 18/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fbaf8869a5e74d2eda28db3960c775c1 = L.circleMarker(
+                [48.815534, 2.366665],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0e621ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_7feb04d6ab34347a114e164f982c155e = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_6b1a4503480c3080c9228e18f0cf2244 = $(`<div id="html_6b1a4503480c3080c9228e18f0cf2244" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">13.0 RUE DE CHATEAUDUN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 5 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">427,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">87 m² bâti · <span style="color:#c0e621ff;font-weight:600;">4,908 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">30/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#c0e621ff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.815534,2.366665" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.815534,2.366665" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_7feb04d6ab34347a114e164f982c155e.setContent(html_6b1a4503480c3080c9228e18f0cf2244);
+            
+        
+
+        circle_marker_fbaf8869a5e74d2eda28db3960c775c1.bindPopup(popup_7feb04d6ab34347a114e164f982c155e)
+        ;
+
+        
+    
+    
+            circle_marker_fbaf8869a5e74d2eda28db3960c775c1.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>427,000 €</b> · 4,908 €/m² · 30/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_68e409deb1d2422d23f85142c3af41e3 = L.circleMarker(
+                [48.817879, 2.369397],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0d4aff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_b7c93421c1bdbfa635e53f0e41237ff5 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_2f4bb7da2fb0e872f2f1fa7ebd5ff3a4 = $(`<div id="html_2f4bb7da2fb0e872f2f1fa7ebd5ff3a4" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">55.0 BD HIPPOLYTE MARQUES</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">470,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">60 m² bâti · <span style="color:#ff0d4aff;font-weight:600;">7,833 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">13/05/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ff0d4aff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.817879,2.369397" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.817879,2.369397" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b7c93421c1bdbfa635e53f0e41237ff5.setContent(html_2f4bb7da2fb0e872f2f1fa7ebd5ff3a4);
+            
+        
+
+        circle_marker_68e409deb1d2422d23f85142c3af41e3.bindPopup(popup_b7c93421c1bdbfa635e53f0e41237ff5)
+        ;
+
+        
+    
+    
+            circle_marker_68e409deb1d2422d23f85142c3af41e3.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>470,000 €</b> · 7,833 €/m² · 13/05/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_93cfb61b013a7c914a99de02dd1c4af5 = L.circleMarker(
+                [48.816212, 2.365201],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00fa96ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_6a3ad179132c4c003ba5a42bfb945e59 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_f910d10c693e751c84b2b5e04b552b9f = $(`<div id="html_f910d10c693e751c84b2b5e04b552b9f" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">11.0 RUE LOUIS MARCHAL</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 6 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">315,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">85 m² bâti · <span style="color:#00fa96ff;font-weight:600;">3,706 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">02/06/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#00fa96ff;">Micro-marché 3</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.816212,2.365201" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.816212,2.365201" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_6a3ad179132c4c003ba5a42bfb945e59.setContent(html_f910d10c693e751c84b2b5e04b552b9f);
+            
+        
+
+        circle_marker_93cfb61b013a7c914a99de02dd1c4af5.bindPopup(popup_6a3ad179132c4c003ba5a42bfb945e59)
+        ;
+
+        
+    
+    
+            circle_marker_93cfb61b013a7c914a99de02dd1c4af5.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>315,000 €</b> · 3,706 €/m² · 02/06/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_04fc94c867efe2e669a6ea80a75adfb5 = L.circleMarker(
+                [48.806597, 2.374688],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#97eb37ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_d1732fc3f9f73c15131f77b98c68f618 = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_41e4d383c7cec00479269f85a032dcdd = $(`<div id="html_41e4d383c7cec00479269f85a032dcdd" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">1.0 RUE HENRI MARTIN</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 6 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">600,000 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">128 m² bâti · <span style="color:#97eb37ff;font-weight:600;">4,688 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">15/05/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#97eb37ff;">Micro-marché 2</td></tr>                 </table>                                                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.806597,2.374688" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.806597,2.374688" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_d1732fc3f9f73c15131f77b98c68f618.setContent(html_41e4d383c7cec00479269f85a032dcdd);
+            
+        
+
+        circle_marker_04fc94c867efe2e669a6ea80a75adfb5.bindPopup(popup_d1732fc3f9f73c15131f77b98c68f618)
+        ;
+
+        
+    
+    
+            circle_marker_04fc94c867efe2e669a6ea80a75adfb5.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>600,000 €</b> · 4,688 €/m² · 15/05/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0e8c7564882a3ccbcd96ee1cd19f2849 = L.circleMarker(
+                [48.813231, 2.376814],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffd800ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_b902f914ab47b09d41257ab5714abe4b = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_9ff2b7e7ff883bafcfce51da48c7ec4e = $(`<div id="html_9ff2b7e7ff883bafcfce51da48c7ec4e" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">32.0 RUE JEAN LE GALLEU</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 3 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">430,529 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">81 m² bâti · <span style="color:#ffd800ff;font-weight:600;">5,315 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">06/02/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#ffd800ff;">Micro-marché 4</td></tr>                 </table>                 <div style='font-size:10px;color:#ff9900;margin-top:6px;background:rgba(255,153,0,0.08);padding:6px 8px;border-radius:4px;border-left:3px solid #ff9900;line-height:1.6;'><b>⚖️ Vente mixte</b> — Prix total DVF&nbsp;: <b>3,500,000 €</b><br><span style='color:#aaa;font-style:italic;'>Réf.&nbsp;: médiane globale commune (fallback)</span><table style='width:100%;border-collapse:collapse;margin-top:5px;font-size:9.5px;color:#bbb;'><tr style='border-bottom:1px solid rgba(255,153,0,0.3);'><th style='text-align:left;padding:2px 4px;font-weight:600;'>Type</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Surface</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>€/m² réf.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Valeur théor.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Part ventilée</th></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Local industriel. co…</td><td style='padding:2px 4px;text-align:right;'>1084 m²</td><td style='padding:2px 4px;text-align:right;'>3,139 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>3,403,135 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>3,069,471 €</td></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Maison</td><td style='padding:2px 4px;text-align:right;'>81 m²</td><td style='padding:2px 4px;text-align:right;'>5,893 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>477,329 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>430,529 €</td></tr><tr style='border-top:1px solid rgba(255,153,0,0.3);color:#aaa;'><td colspan='3' style='padding:2px 4px;'>Total théorique</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>3,880,464 €</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>3,500,000 €</td></tr></table></div>                                  <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.813231,2.376814" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.813231,2.376814" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_b902f914ab47b09d41257ab5714abe4b.setContent(html_9ff2b7e7ff883bafcfce51da48c7ec4e);
+            
+        
+
+        circle_marker_0e8c7564882a3ccbcd96ee1cd19f2849.bindPopup(popup_b902f914ab47b09d41257ab5714abe4b)
+        ;
+
+        
+    
+    
+            circle_marker_0e8c7564882a3ccbcd96ee1cd19f2849.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>430,529 €</b> · 5,315 €/m² · 06/02/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3595b1f93bbf671a00bae5c3a51d8b28 = L.circleMarker(
+                [48.817659, 2.379249],
+                {"bubblingMouseEvents": true, "color": "#ffffff22", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#03ff86ff", "fillOpacity": 0.85, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 0.5}
+            ).addTo(feature_group_0fc602cd37ae80733a4e6dbb2636fd60);
+        
+    
+        var popup_f55a2cc73de4adac46d1234199f1475d = L.popup({
+  "maxWidth": 270,
+});
+
+        
+            
+                var html_0445340fc1e83ac11422363070891962 = $(`<div id="html_0445340fc1e83ac11422363070891962" style="width: 100.0%; height: 100.0%;">             <div style="font-family:'Segoe UI',Arial,sans-serif; min-width:220px; color:#222;">               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:10px 14px;border-radius:6px 6px 0 0;">                 <div style="font-size:13px;font-weight:700;">13.0 RUE JEAN DORMOY</div>                 <div style="font-size:11px;opacity:.75;margin-top:2px;">Maison · 4 pces</div>               </div>               <div style="padding:12px 14px;background:#fdfdfd;border-radius:0 0 6px 6px;">                 <div style="font-size:22px;font-weight:800;color:#1a1a2e;">310,958 <span style="font-size:14px;color:#555;">€</span></div>                 <div style="font-size:12px;color:#666;margin-bottom:8px;">80 m² bâti · <span style="color:#03ff86ff;font-weight:600;">3,887 €/m²</span></div>                 <hr style="margin:8px 0;border:none;border-top:1px solid #eee;">                 <table style="width:100%;font-size:12px;color:#555;">                   <tr><td>Date</td><td style="text-align:right;font-weight:600;color:#333;">29/04/2025</td></tr>                   <tr><td>Micro-marché</td><td style="text-align:right;font-weight:600;color:#03ff86ff;">Micro-marché 4</td></tr>                 </table>                 <div style='font-size:10px;color:#ff9900;margin-top:6px;background:rgba(255,153,0,0.08);padding:6px 8px;border-radius:4px;border-left:3px solid #ff9900;line-height:1.6;'><b>⚖️ Vente mixte</b> — Prix total DVF&nbsp;: <b>400,000 €</b><br><span style='color:#aaa;font-style:italic;'>Réf.&nbsp;: médiane globale commune (fallback)</span><table style='width:100%;border-collapse:collapse;margin-top:5px;font-size:9.5px;color:#bbb;'><tr style='border-bottom:1px solid rgba(255,153,0,0.3);'><th style='text-align:left;padding:2px 4px;font-weight:600;'>Type</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Surface</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>€/m² réf.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Valeur théor.</th><th style='text-align:right;padding:2px 4px;font-weight:600;'>Part ventilée</th></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Local industriel. co…</td><td style='padding:2px 4px;text-align:right;'>43 m²</td><td style='padding:2px 4px;text-align:right;'>3,139 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>134,995 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>89,042 €</td></tr><tr><td style='padding:2px 4px;color:#ddd;white-space:nowrap;'>Maison</td><td style='padding:2px 4px;text-align:right;'>80 m²</td><td style='padding:2px 4px;text-align:right;'>5,893 €/m²</td><td style='padding:2px 4px;text-align:right;color:#bbb;'>471,436 €</td><td style='padding:2px 4px;text-align:right;font-weight:700;color:#ff9900;'>310,958 €</td></tr><tr style='border-top:1px solid rgba(255,153,0,0.3);color:#aaa;'><td colspan='3' style='padding:2px 4px;'>Total théorique</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>606,432 €</td><td style='padding:2px 4px;text-align:right;color:#ddd;font-weight:600;'>400,000 €</td></tr></table></div>                                  <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">                   <a href="https://www.google.com/maps?q=&layer=c&cbll=48.817659,2.379249" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#1a1a2e;color:#00d4ff;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #00d4ff44;">Street View</a>                   <a href="https://www.google.com/maps/search/?api=1&query=48.817659,2.379249" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;border-radius:6px;background:#f5f5f5;color:#555;font-size:11px;font-weight:600;text-decoration:none;border:1px solid #ddd;">Google Maps</a>                 </div>               </div>             </div></div>`)[0];
+                popup_f55a2cc73de4adac46d1234199f1475d.setContent(html_0445340fc1e83ac11422363070891962);
+            
+        
+
+        circle_marker_3595b1f93bbf671a00bae5c3a51d8b28.bindPopup(popup_f55a2cc73de4adac46d1234199f1475d)
+        ;
+
+        
+    
+    
+            circle_marker_3595b1f93bbf671a00bae5c3a51d8b28.bindTooltip(
+                `<div>
+                     <span style='font-size:12px;'><b>310,958 €</b> · 3,887 €/m² · 29/04/2025</span>
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            feature_group_0fc602cd37ae80733a4e6dbb2636fd60.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+        
+    
+    var color_map_94ee13bb3ef53fbb54e4400acd80ae11 = {};
+
+    
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.color = d3.scale.threshold()
+              .domain([2487.4074074074074, 2498.4877635021503, 2509.5681195968937, 2520.6484756916366, 2531.72883178638, 2542.809187881123, 2553.8895439758658, 2564.969900070609, 2576.050256165352, 2587.1306122600954, 2598.2109683548383, 2609.291324449581, 2620.3716805443246, 2631.4520366390675, 2642.5323927338104, 2653.612748828554, 2664.6931049232967, 2675.77346101804, 2686.853817112783, 2697.934173207526, 2709.0145293022692, 2720.094885397012, 2731.1752414917555, 2742.2555975864984, 2753.3359536812413, 2764.4163097759847, 2775.4966658707276, 2786.5770219654705, 2797.657378060214, 2808.737734154957, 2819.8180902497, 2830.898446344443, 2841.978802439186, 2853.0591585339293, 2864.1395146286723, 2875.2198707234156, 2886.3002268181585, 2897.3805829129014, 2908.460939007645, 2919.5412951023877, 2930.6216511971306, 2941.702007291874, 2952.782363386617, 2963.8627194813603, 2974.943075576103, 2986.023431670846, 2997.1037877655895, 3008.1841438603324, 3019.2644999550757, 3030.3448560498186, 3041.4252121445616, 3052.505568239305, 3063.585924334048, 3074.6662804287907, 3085.746636523534, 3096.826992618277, 3107.90734871302, 3118.9877048077633, 3130.0680609025067, 3141.1484169972496, 3152.2287730919925, 3163.309129186736, 3174.3894852814788, 3185.4698413762217, 3196.550197470965, 3207.630553565708, 3218.710909660451, 3229.791265755194, 3240.871621849937, 3251.9519779446805, 3263.0323340394234, 3274.1126901341668, 3285.1930462289097, 3296.2734023236526, 3307.353758418396, 3318.434114513139, 3329.514470607882, 3340.594826702625, 3351.675182797368, 3362.7555388921114, 3373.8358949868543, 3384.9162510815972, 3395.9966071763406, 3407.0769632710835, 3418.157319365827, 3429.23767546057, 3440.3180315553127, 3451.398387650056, 3462.478743744799, 3473.559099839542, 3484.6394559342853, 3495.719812029028, 3506.8001681237715, 3517.8805242185144, 3528.960880313258, 3540.0412364080007, 3551.1215925027436, 3562.201948597487, 3573.2823046922294, 3584.362660786973, 3595.443016881716, 3606.523372976459, 3617.603729071202, 3628.6840851659454, 3639.7644412606887, 3650.844797355431, 3661.9251534501745, 3673.005509544918, 3684.085865639661, 3695.1662217344037, 3706.246577829147, 3717.32693392389, 3728.407290018633, 3739.4876461133763, 3750.568002208119, 3761.648358302862, 3772.7287143976055, 3783.809070492349, 3794.8894265870917, 3805.9697826818347, 3817.050138776578, 3828.130494871321, 3839.210850966064, 3850.291207060807, 3861.37156315555, 3872.451919250293, 3883.5322753450364, 3894.6126314397793, 3905.692987534522, 3916.7733436292656, 3927.853699724009, 3938.934055818752, 3950.0144119134948, 3961.094768008238, 3972.175124102981, 3983.255480197724, 3994.3358362924673, 4005.4161923872102, 4016.496548481953, 4027.5769045766965, 4038.6572606714394, 4049.7376167661823, 4060.8179728609257, 4071.898328955669, 4082.978685050412, 4094.059041145155, 4105.139397239898, 4116.219753334641, 4127.300109429384, 4138.380465524127, 4149.46082161887, 4160.541177713613, 4171.621533808357, 4182.701889903099, 4193.782245997842, 4204.862602092586, 4215.942958187329, 4227.0233142820725, 4238.103670376815, 4249.184026471558, 4260.264382566302, 4271.344738661044, 4282.4250947557875, 4293.505450850531, 4304.585806945273, 4315.666163040017, 4326.74651913476, 4337.826875229503, 4348.907231324246, 4359.987587418989, 4371.067943513732, 4382.148299608475, 4393.2286557032185, 4404.309011797961, 4415.389367892704, 4426.469723987448, 4437.55008008219, 4448.6304361769335, 4459.710792271677, 4470.791148366419, 4481.871504461163, 4492.951860555906, 4504.032216650649, 4515.112572745393, 4526.192928840135, 4537.273284934879, 4548.353641029622, 4559.433997124364, 4570.514353219108, 4581.594709313851, 4592.675065408594, 4603.755421503337, 4614.83577759808, 4625.916133692823, 4636.996489787566, 4648.0768458823095, 4659.157201977052, 4670.237558071795, 4681.317914166539, 4692.398270261281, 4703.4786263560245, 4714.558982450768, 4725.63933854551, 4736.719694640254, 4747.800050734997, 4758.8804068297395, 4769.960762924484, 4781.041119019226, 4792.12147511397, 4803.201831208713, 4814.282187303455, 4825.362543398199, 4836.442899492942, 4847.523255587685, 4858.603611682428, 4869.683967777171, 4880.764323871914, 4891.844679966657, 4902.9250360614005, 4914.005392156143, 4925.085748250886, 4936.16610434563, 4947.246460440372, 4958.3268165351155, 4969.407172629859, 4980.487528724601, 4991.567884819345, 5002.648240914088, 5013.728597008831, 5024.808953103575, 5035.889309198317, 5046.96966529306, 5058.050021387804, 5069.1303774825465, 5080.21073357729, 5091.291089672033, 5102.371445766776, 5113.451801861519, 5124.532157956262, 5135.612514051005, 5146.692870145748, 5157.773226240492, 5168.853582335234, 5179.933938429977, 5191.014294524721, 5202.094650619463, 5213.175006714207, 5224.25536280895, 5235.335718903692, 5246.416074998436, 5257.496431093179, 5268.576787187922, 5279.657143282665, 5290.737499377408, 5301.817855472151, 5312.898211566895, 5323.9785676616375, 5335.05892375638, 5346.139279851124, 5357.219635945867, 5368.29999204061, 5379.380348135353, 5390.460704230096, 5401.541060324839, 5412.621416419583, 5423.701772514325, 5434.782128609068, 5445.862484703812, 5456.942840798554, 5468.023196893298, 5479.103552988041, 5490.183909082783, 5501.264265177527, 5512.34462127227, 5523.424977367013, 5534.505333461756, 5545.585689556499, 5556.666045651242, 5567.746401745985, 5578.8267578407285, 5589.907113935471, 5600.987470030215, 5612.067826124958, 5623.148182219701, 5634.228538314444, 5645.308894409187, 5656.38925050393, 5667.469606598674, 5678.549962693416, 5689.6303187881595, 5700.710674882903, 5711.791030977645, 5722.871387072389, 5733.951743167132, 5745.0320992618745, 5756.112455356618, 5767.192811451361, 5778.273167546104, 5789.353523640847, 5800.43387973559, 5811.514235830333, 5822.594591925076, 5833.67494801982, 5844.755304114562, 5855.835660209305, 5866.916016304049, 5877.996372398791, 5889.0767284935355, 5900.157084588278, 5911.237440683021, 5922.317796777765, 5933.398152872507, 5944.4785089672505, 5955.558865061994, 5966.639221156736, 5977.71957725148, 5988.799933346223, 5999.8802894409655, 6010.960645535709, 6022.041001630452, 6033.121357725195, 6044.201713819938, 6055.282069914681, 6066.362426009424, 6077.442782104167, 6088.523138198911, 6099.603494293653, 6110.683850388396, 6121.76420648314, 6132.844562577882, 6143.9249186726265, 6155.005274767369, 6166.085630862111, 6177.165986956856, 6188.246343051598, 6199.3266991463415, 6210.407055241085, 6221.487411335827, 6232.567767430571, 6243.648123525314, 6254.7284796200565, 6265.8088357148, 6276.889191809543, 6287.969547904286, 6299.049903999029, 6310.130260093772, 6321.210616188515, 6332.290972283258, 6343.371328378002, 6354.451684472744, 6365.5320405674875, 6376.612396662231, 6387.692752756973, 6398.773108851717, 6409.85346494646, 6420.9338210412025, 6432.014177135947, 6443.094533230689, 6454.174889325432, 6465.255245420176, 6476.335601514918, 6487.415957609662, 6498.496313704405, 6509.576669799148, 6520.657025893891, 6531.737381988634, 6542.817738083377, 6553.89809417812, 6564.9784502728635, 6576.058806367606, 6587.13916246235, 6598.219518557093, 6609.299874651835, 6620.380230746578, 6631.460586841322, 6642.540942936064, 6653.621299030809, 6664.701655125551, 6675.7820112202935, 6686.862367315038, 6697.94272340978, 6709.023079504523, 6720.103435599267, 6731.183791694009, 6742.264147788752, 6753.344503883496, 6764.424859978239, 6775.505216072981, 6786.585572167725, 6797.665928262468, 6808.74628435721, 6819.8266404519545, 6830.906996546697, 6841.987352641441, 6853.067708736184, 6864.148064830926, 6875.228420925669, 6886.308777020413, 6897.389133115155, 6908.4694892099, 6919.549845304642, 6930.6302013993845, 6941.710557494129, 6952.790913588871, 6963.871269683614, 6974.951625778358, 6986.0319818731, 6997.112337967845, 7008.192694062587, 7019.27305015733, 7030.353406252072, 7041.433762346815, 7052.514118441559, 7063.594474536301, 7074.674830631046, 7085.755186725788, 7096.835542820532, 7107.915898915275, 7118.996255010017, 7130.07661110476, 7141.156967199504, 7152.237323294246, 7163.317679388991, 7174.398035483733, 7185.478391578476, 7196.558747673218, 7207.639103767962, 7218.719459862705, 7229.799815957449, 7240.8801720521915, 7251.960528146936, 7263.040884241678, 7274.121240336421, 7285.201596431163, 7296.281952525907, 7307.36230862065, 7318.442664715392, 7329.523020810137, 7340.603376904879, 7351.6837329996215, 7362.764089094366, 7373.844445189108, 7384.924801283851, 7396.005157378595, 7407.085513473337, 7418.165869568082, 7429.246225662824, 7440.326581757567, 7451.406937852309, 7462.487293947053, 7473.567650041796, 7484.64800613654, 7495.7283622312825, 7506.808718326025, 7517.889074420769, 7528.969430515512, 7540.049786610254, 7551.130142704998, 7562.210498799741, 7573.290854894485, 7584.371210989228, 7595.45156708397, 7606.5319231787125, 7617.612279273457, 7628.692635368199, 7639.772991462942, 7650.853347557686, 7661.933703652428, 7673.014059747173, 7684.094415841915, 7695.174771936658, 7706.2551280314, 7717.335484126144, 7728.415840220887, 7739.496196315631, 7750.576552410374, 7761.656908505116, 7772.73726459986, 7783.817620694603, 7794.897976789345, 7805.9783328840895, 7817.058688978832, 7828.139045073576, 7839.219401168319, 7850.299757263061, 7861.380113357804, 7872.460469452548, 7883.54082554729, 7894.621181642033, 7905.701537736777, 7916.7818938315195, 7927.862249926264, 7938.942606021006, 7950.022962115749, 7961.103318210491, 7972.183674305235, 7983.264030399978, 7994.344386494722, 8005.424742589465, 8016.505098684207])
+              .range(['#00d4ffff', '#00d5ffff', '#00d5feff', '#00d5fdff', '#00d6fcff', '#00d6fbff', '#00d6faff', '#00d7f9ff', '#00d7f8ff', '#00d7f7ff', '#00d8f6ff', '#00d8f5ff', '#00d8f4ff', '#00d9f3ff', '#00d9f2ff', '#00daf1ff', '#00daf0ff', '#00daefff', '#00dbeeff', '#00dbedff', '#00dbecff', '#00dcebff', '#00dceaff', '#00dce9ff', '#00dde9ff', '#00dde8ff', '#00dde7ff', '#00dee6ff', '#00dee5ff', '#00dee4ff', '#00dfe3ff', '#00dfe2ff', '#00dfe1ff', '#00e0e0ff', '#00e0dfff', '#00e0deff', '#00e1ddff', '#00e1dcff', '#00e1dbff', '#00e2daff', '#00e2d9ff', '#00e3d8ff', '#00e3d7ff', '#00e3d6ff', '#00e4d5ff', '#00e4d4ff', '#00e4d3ff', '#00e5d2ff', '#00e5d2ff', '#00e5d1ff', '#00e6d0ff', '#00e6cfff', '#00e6ceff', '#00e7cdff', '#00e7ccff', '#00e7cbff', '#00e8caff', '#00e8c9ff', '#00e8c8ff', '#00e9c7ff', '#00e9c6ff', '#00e9c5ff', '#00eac4ff', '#00eac3ff', '#00eac2ff', '#00ebc1ff', '#00ebc0ff', '#00ecbfff', '#00ecbeff', '#00ecbdff', '#00edbcff', '#00edbcff', '#00edbbff', '#00eebaff', '#00eeb9ff', '#00eeb8ff', '#00efb7ff', '#00efb6ff', '#00efb5ff', '#00f0b4ff', '#00f0b3ff', '#00f0b2ff', '#00f1b1ff', '#00f1b0ff', '#00f1afff', '#00f2aeff', '#00f2adff', '#00f2acff', '#00f3abff', '#00f3aaff', '#00f3a9ff', '#00f4a8ff', '#00f4a7ff', '#00f5a6ff', '#00f5a5ff', '#00f5a5ff', '#00f6a4ff', '#00f6a3ff', '#00f6a2ff', '#00f7a1ff', '#00f7a0ff', '#00f79fff', '#00f89eff', '#00f89dff', '#00f89cff', '#00f99bff', '#00f99aff', '#00f999ff', '#00fa98ff', '#00fa97ff', '#00fa96ff', '#00fb95ff', '#00fb94ff', '#00fb93ff', '#00fc92ff', '#00fc91ff', '#00fc90ff', '#00fd8fff', '#00fd8eff', '#00fe8eff', '#00fe8dff', '#00fe8cff', '#00ff8bff', '#00ff8aff', '#00ff89ff', '#00ff88ff', '#02ff87ff', '#04ff86ff', '#06ff84ff', '#08fe83ff', '#0afe82ff', '#0cfe81ff', '#0efe80ff', '#10fd7fff', '#12fd7eff', '#15fd7dff', '#17fc7cff', '#19fc7bff', '#1bfc7aff', '#1dfc78ff', '#1ffb77ff', '#21fb76ff', '#23fb75ff', '#25fb74ff', '#27fa73ff', '#29fa72ff', '#2bfa71ff', '#2df970ff', '#2ff96fff', '#31f96dff', '#33f96cff', '#35f86bff', '#37f86aff', '#39f869ff', '#3cf768ff', '#3ef767ff', '#40f766ff', '#42f765ff', '#44f664ff', '#46f663ff', '#48f661ff', '#4af660ff', '#4cf55fff', '#4ef55eff', '#50f55dff', '#52f45cff', '#54f45bff', '#56f45aff', '#58f459ff', '#5af358ff', '#5cf357ff', '#5ef355ff', '#60f354ff', '#63f253ff', '#65f252ff', '#67f251ff', '#69f150ff', '#6bf14fff', '#6df14eff', '#6ff14dff', '#71f04cff', '#73f04aff', '#75f049ff', '#77f048ff', '#79ef47ff', '#7bef46ff', '#7def45ff', '#7fee44ff', '#81ee43ff', '#83ee42ff', '#85ee41ff', '#87ed40ff', '#8aed3eff', '#8ced3dff', '#8eed3cff', '#90ec3bff', '#92ec3aff', '#94ec39ff', '#96eb38ff', '#98eb37ff', '#9aeb36ff', '#9ceb35ff', '#9eea33ff', '#a0ea32ff', '#a2ea31ff', '#a4ea30ff', '#a6e92fff', '#a8e92eff', '#aae92dff', '#ace82cff', '#aee82bff', '#b0e82aff', '#b3e829ff', '#b5e727ff', '#b7e726ff', '#b9e725ff', '#bbe724ff', '#bde623ff', '#bfe622ff', '#c1e621ff', '#c3e520ff', '#c5e51fff', '#c7e51eff', '#c9e51dff', '#cbe41bff', '#cde41aff', '#cfe419ff', '#d1e418ff', '#d3e317ff', '#d5e316ff', '#d7e315ff', '#dae214ff', '#dce213ff', '#dee212ff', '#e0e210ff', '#e2e10fff', '#e4e10eff', '#e6e10dff', '#e8e10cff', '#eae00bff', '#ece00aff', '#eee009ff', '#f0df08ff', '#f2df07ff', '#f4df06ff', '#f6df04ff', '#f8de03ff', '#fade02ff', '#fcde01ff', '#fede00ff', '#ffdd00ff', '#ffdc00ff', '#ffdb00ff', '#ffda00ff', '#ffd900ff', '#ffd800ff', '#ffd700ff', '#ffd600ff', '#ffd500ff', '#ffd400ff', '#ffd300ff', '#ffd200ff', '#ffd100ff', '#ffd000ff', '#ffcf00ff', '#ffcf00ff', '#ffce00ff', '#ffcd00ff', '#ffcc00ff', '#ffcb00ff', '#ffca00ff', '#ffc900ff', '#ffc800ff', '#ffc700ff', '#ffc600ff', '#ffc500ff', '#ffc400ff', '#ffc300ff', '#ffc200ff', '#ffc100ff', '#ffc000ff', '#ffbf00ff', '#ffbe00ff', '#ffbd00ff', '#ffbc00ff', '#ffbb00ff', '#ffba00ff', '#ffb900ff', '#ffb800ff', '#ffb800ff', '#ffb700ff', '#ffb600ff', '#ffb500ff', '#ffb400ff', '#ffb300ff', '#ffb200ff', '#ffb100ff', '#ffb000ff', '#ffaf00ff', '#ffae00ff', '#ffad00ff', '#ffac00ff', '#ffab00ff', '#ffaa00ff', '#ffa900ff', '#ffa800ff', '#ffa700ff', '#ffa600ff', '#ffa500ff', '#ffa400ff', '#ffa300ff', '#ffa200ff', '#ffa200ff', '#ffa100ff', '#ffa000ff', '#ff9f00ff', '#ff9e00ff', '#ff9d00ff', '#ff9c00ff', '#ff9b00ff', '#ff9a00ff', '#ff9900ff', '#ff9800ff', '#ff9700ff', '#ff9600ff', '#ff9500ff', '#ff9400ff', '#ff9300ff', '#ff9200ff', '#ff9100ff', '#ff9000ff', '#ff8f00ff', '#ff8e00ff', '#ff8d00ff', '#ff8c00ff', '#ff8b00ff', '#ff8b00ff', '#ff8a00ff', '#ff8900ff', '#ff8800ff', '#ff8700ff', '#ff8600ff', '#ff8500ff', '#ff8400ff', '#ff8300ff', '#ff8200ff', '#ff8100ff', '#ff8000ff', '#ff7f00ff', '#ff7e00ff', '#ff7d00ff', '#ff7c00ff', '#ff7b00ff', '#ff7a00ff', '#ff7900ff', '#ff7800ff', '#ff7700ff', '#ff7600ff', '#ff7500ff', '#ff7500ff', '#ff7400ff', '#ff7300ff', '#ff7200ff', '#ff7100ff', '#ff7000ff', '#ff6f00ff', '#ff6e00ff', '#ff6d00ff', '#ff6c00ff', '#ff6b00ff', '#ff6a00ff', '#ff6900ff', '#ff6800ff', '#ff6700ff', '#ff6600ff', '#ff6500ff', '#ff6401ff', '#ff6401ff', '#ff6302ff', '#ff6203ff', '#ff6103ff', '#ff6004ff', '#ff6005ff', '#ff5f05ff', '#ff5e06ff', '#ff5d07ff', '#ff5c08ff', '#ff5b08ff', '#ff5b09ff', '#ff5a0aff', '#ff590aff', '#ff580bff', '#ff570cff', '#ff570cff', '#ff560dff', '#ff550eff', '#ff540eff', '#ff530fff', '#ff5210ff', '#ff5210ff', '#ff5111ff', '#ff5012ff', '#ff4f12ff', '#ff4e13ff', '#ff4d14ff', '#ff4d15ff', '#ff4c15ff', '#ff4b16ff', '#ff4a17ff', '#ff4917ff', '#ff4918ff', '#ff4819ff', '#ff4719ff', '#ff461aff', '#ff451bff', '#ff441bff', '#ff441cff', '#ff431dff', '#ff421dff', '#ff411eff', '#ff401fff', '#ff401fff', '#ff3f20ff', '#ff3e21ff', '#ff3d22ff', '#ff3c22ff', '#ff3b23ff', '#ff3b24ff', '#ff3a24ff', '#ff3925ff', '#ff3826ff', '#ff3726ff', '#ff3627ff', '#ff3628ff', '#ff3528ff', '#ff3429ff', '#ff332aff', '#ff322aff', '#ff322bff', '#ff312cff', '#ff302cff', '#ff2f2dff', '#ff2e2eff', '#ff2d2fff', '#ff2d2fff', '#ff2c30ff', '#ff2b31ff', '#ff2a31ff', '#ff2932ff', '#ff2933ff', '#ff2833ff', '#ff2734ff', '#ff2635ff', '#ff2535ff', '#ff2436ff', '#ff2437ff', '#ff2337ff', '#ff2238ff', '#ff2139ff', '#ff2039ff', '#ff203aff', '#ff1f3bff', '#ff1e3cff', '#ff1d3cff', '#ff1c3dff', '#ff1b3eff', '#ff1b3eff', '#ff1a3fff', '#ff1940ff', '#ff1840ff', '#ff1741ff', '#ff1642ff', '#ff1642ff', '#ff1543ff', '#ff1444ff', '#ff1344ff', '#ff1245ff', '#ff1246ff', '#ff1146ff', '#ff1047ff', '#ff0f48ff', '#ff0e49ff', '#ff0d49ff', '#ff0d4aff', '#ff0c4bff', '#ff0b4bff', '#ff0a4cff', '#ff094dff', '#ff094dff', '#ff084eff', '#ff074fff', '#ff064fff', '#ff0550ff', '#ff0451ff', '#ff0451ff', '#ff0352ff', '#ff0253ff', '#ff0153ff', '#ff0054ff', '#ff0055ff']);
+    
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.x = d3.scale.linear()
+              .domain([2487.4074074074074, 8016.505098684207])
+              .range([0, 450 - 50]);
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.legend = L.control({position: 'topright'});
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.legend.onAdd = function (map) {var div = L.DomUtil.create('div', 'legend'); return div};
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.legend.addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.xAxis = d3.svg.axis()
+        .scale(color_map_94ee13bb3ef53fbb54e4400acd80ae11.x)
+        .orient("top")
+        .tickSize(1)
+        .tickValues([2487.4074074074074, 3869.6818302266074, 5251.956253045808, 6634.230675865007, 8016.505098684207]);
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.svg = d3.select(".legend.leaflet-control").append("svg")
+        .attr("id", 'legend')
+        .attr("width", 450)
+        .attr("height", 40);
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.g = color_map_94ee13bb3ef53fbb54e4400acd80ae11.svg.append("g")
+        .attr("class", "key")
+        .attr("fill", "black")
+        .attr("transform", "translate(25,16)");
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.g.selectAll("rect")
+        .data(color_map_94ee13bb3ef53fbb54e4400acd80ae11.color.range().map(function(d, i) {
+          return {
+            x0: i ? color_map_94ee13bb3ef53fbb54e4400acd80ae11.x(color_map_94ee13bb3ef53fbb54e4400acd80ae11.color.domain()[i - 1]) : color_map_94ee13bb3ef53fbb54e4400acd80ae11.x.range()[0],
+            x1: i < color_map_94ee13bb3ef53fbb54e4400acd80ae11.color.domain().length ? color_map_94ee13bb3ef53fbb54e4400acd80ae11.x(color_map_94ee13bb3ef53fbb54e4400acd80ae11.color.domain()[i]) : color_map_94ee13bb3ef53fbb54e4400acd80ae11.x.range()[1],
+            z: d
+          };
+        }))
+      .enter().append("rect")
+        .attr("height", 40 - 30)
+        .attr("x", function(d) { return d.x0; })
+        .attr("width", function(d) { return d.x1 - d.x0; })
+        .style("fill", function(d) { return d.z; });
+
+    color_map_94ee13bb3ef53fbb54e4400acd80ae11.g.call(color_map_94ee13bb3ef53fbb54e4400acd80ae11.xAxis).append("text")
+        .attr("class", "caption")
+        .attr("y", 21)
+        .attr("fill", "black")
+        .text("Prix au m\u00b2 (\u20ac)");
+    
+            var layer_control_a1e441d6ec710696b0d907a77371d364_layers = {
+                base_layers : {
+                    "Dark (d\u00e9faut)" : tile_layer_b298f5dd41cb693e4e02803d33d8265f,
+                    "Light" : tile_layer_d3f006427e933568a61cd01c641c8dc4,
+                },
+                overlays :  {
+                    "\ud83c\udf21\ufe0f Pression fonci\u00e8re: intensit\u00e9 prix/m\u00b2" : feature_group_f44a7c257258557407bf0c864cb2f605,
+                    "\ud83d\uddfa\ufe0f Micro-march\u00e9s" : feature_group_f2968f36249bb99e414bdc6a4a38105f,
+                    "\u26ab 2024" : feature_group_461aa14bd7ba1acf35ab673b8be253af,
+                    "\u26ab 2025" : feature_group_0fc602cd37ae80733a4e6dbb2636fd60,
+                },
+            };
+            let layer_control_a1e441d6ec710696b0d907a77371d364 = L.control.layers(
+                layer_control_a1e441d6ec710696b0d907a77371d364_layers.base_layers,
+                layer_control_a1e441d6ec710696b0d907a77371d364_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": false,
+  "autoZIndex": true,
+}
+            ).addTo(map_b66603da1b29b49ff6702d8e1adc9177);
+
+        
+</script>
+</html>

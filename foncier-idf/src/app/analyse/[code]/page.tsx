@@ -5,6 +5,10 @@ import AnalyseLeadSection from "@/components/AnalyseLeadSection";
 import WaitlistBox from "@/components/WaitlistBox";
 import InvestmentScore from "@/components/InvestmentScore";
 import InsightsSummary from "@/components/InsightsSummary";
+import PriceAnomalies from "@/components/PriceAnomalies";
+import ZoneEvolution from "@/components/ZoneEvolution";
+import ProBadge from "@/components/ProBadge";
+import { isFreeCommune } from "@/lib/communes-top30";
 
 export const dynamicParams = true;
 export const revalidate = 21600;
@@ -52,6 +56,7 @@ interface CommuneStats {
   code: string; nom: string; dept: string; totalCount: number; prix_m2_median: number;
   byType: TypeRow[]; evolution: EvolutionRow[]; zones: Zone[];
   deptMedians: Record<string, number>;
+  zoneEvolution: ZoneEvolutionData[];
 }
 
 function median(arr: number[]): number {
@@ -61,14 +66,16 @@ function median(arr: number[]): number {
   return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
 }
 
+interface PointRow { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null; lat: number | null; lon: number | null }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAllPoints(supabase: any, code: string, anneeMin: number) {
   const PAGE_SIZE = 1000;
-  const allRows: { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null }[] = [];
+  const allRows: PointRow[] = [];
   let offset = 0;
   while (true) {
     const { data } = await supabase.from("dvf_points")
-      .select("annee,prix_m2,type_local,valeur_fonciere")
+      .select("annee,prix_m2,type_local,valeur_fonciere,lat,lon")
       .eq("code_commune", code).gte("annee", anneeMin)
       .range(offset, offset + PAGE_SIZE - 1);
     if (!data || data.length === 0) break;
@@ -77,6 +84,65 @@ async function fetchAllPoints(supabase: any, code: string, anneeMin: number) {
     offset += PAGE_SIZE;
   }
   return allRows;
+}
+
+/** Distance approximative en km entre deux coordonnées */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+interface ZoneYearStat { annee: number; prix_m2_median: number; count: number }
+interface ZoneEvolutionData {
+  zone_id: string; type_local: string; cluster_id: number;
+  prix_m2_median: number | null;
+  evolution: ZoneYearStat[];
+}
+
+/** Match DVF points to HDBSCAN zones by proximity to centroid, compute yearly stats */
+function computeZoneEvolution(points: PointRow[], zones: Zone[]): ZoneEvolutionData[] {
+  const RADIUS_KM = 0.5; // 500m radius around zone centroid
+  const results: ZoneEvolutionData[] = [];
+
+  for (const zone of zones) {
+    if (!zone.centroid_lat || !zone.centroid_lon || !zone.prix_m2_median) continue;
+
+    // Find points near this zone's centroid with matching type
+    const nearby = points.filter((p) =>
+      p.lat != null && p.lon != null && p.prix_m2 != null && p.annee != null
+      && p.type_local === zone.type_local
+      && haversineKm(zone.centroid_lat!, zone.centroid_lon!, p.lat, p.lon) <= RADIUS_KM
+    );
+
+    if (nearby.length < 6) continue;
+
+    // Group by year
+    const byYear = new Map<number, number[]>();
+    for (const p of nearby) {
+      const arr = byYear.get(p.annee!) ?? [];
+      arr.push(p.prix_m2!);
+      byYear.set(p.annee!, arr);
+    }
+
+    const evolution: ZoneYearStat[] = [];
+    for (const [annee, prices] of [...byYear.entries()].sort((a, b) => a[0] - b[0])) {
+      if (prices.length < 2) continue;
+      evolution.push({ annee, prix_m2_median: median(prices), count: prices.length });
+    }
+
+    if (evolution.length >= 2) {
+      results.push({
+        zone_id: zone.id, type_local: zone.type_local, cluster_id: zone.cluster_id,
+        prix_m2_median: zone.prix_m2_median,
+        evolution,
+      });
+    }
+  }
+
+  return results;
 }
 
 const DISPLAYED_TYPES = new Set(["Appartement", "Maison", "Local industriel. commercial ou assimilé"]);
@@ -155,7 +221,12 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     if (dc.type_local && dc.prix_m2_median) deptMedians[dc.type_local] = dc.prix_m2_median;
   }
 
-  return { code, nom, dept, totalCount, prix_m2_median: prixM2Median, byType: byTypeResult, evolution, zones: (zones ?? []) as Zone[], deptMedians };
+  // Compute zone evolution (match points to zones by proximity)
+  const zoneEvolution = hasPoints
+    ? computeZoneEvolution(points as PointRow[], (zones ?? []) as Zone[])
+    : [];
+
+  return { code, nom, dept, totalCount, prix_m2_median: prixM2Median, byType: byTypeResult, evolution, zones: (zones ?? []) as Zone[], deptMedians, zoneEvolution };
 }
 
 function pctVsDept(communePrix: number | null, deptPrix: number | undefined): number | null {
@@ -278,6 +349,12 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
   const { score, label: scoreLabel, pointsForts, pointsVigilance } = computeInvestmentScore(
     globalDelta, stats.evolution, stats.totalCount, stats.zones.length
   );
+
+  // Free tier: top 30 communes get basic view, evolution is Pro-only
+  // TODO: check auth when implemented
+  const isPro = false;
+  const communeIsFree = isFreeCommune(code);
+  const showEvolution = isPro; // Evolution 2020-2025 is always Pro
 
   return (
     <div style={{ minHeight: "100vh", background: "#070714", color: "#e8e8f0", fontFamily: "Segoe UI, Arial, sans-serif", padding: "0 0 60px", paddingTop: 52 }}>
@@ -403,32 +480,69 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
           </div>
         )}
 
-        {/* Évolution annuelle */}
+        {/* Évolution annuelle — Pro only */}
         {stats.evolution.length > 0 && (
-          <div style={{ marginBottom: 36 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>
-              Évolution annuelle
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden", minWidth: 420 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 0.5, textTransform: "uppercase", gap: 12 }}>
-                  <span>Année</span><span>Prix médian €/m²</span><span style={{ textAlign: "right" }}>Transactions</span>
-                </div>
-                {stats.evolution.map((row, i) => (
-                  <div key={row.annee} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "12px 20px", borderBottom: i < stats.evolution.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontWeight: 700, color: "#fff" }}>{row.annee}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ height: 6, borderRadius: 3, width: `${Math.round((row.prix_m2_median / maxPrix) * 100)}%`, minWidth: 4, background: "linear-gradient(90deg, #00d4ff, #a855f7)" }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#ffdd00", whiteSpace: "nowrap" }}>{row.prix_m2_median.toLocaleString("fr-FR")} €/m²</span>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-block", height: 4, borderRadius: 2, width: `${Math.round((row.count / maxCount) * 60)}px`, background: "rgba(0,212,255,0.4)", verticalAlign: "middle", marginRight: 8 }} />
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{row.count.toLocaleString("fr-FR")}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div style={{ marginBottom: 36, position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>
+                Évolution annuelle
+              </h2>
+              {!showEvolution && <ProBadge label="Historique 2020-2025" />}
             </div>
+            {showEvolution ? (
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden", minWidth: 420 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 0.5, textTransform: "uppercase", gap: 12 }}>
+                    <span>Année</span><span>Prix médian €/m²</span><span style={{ textAlign: "right" }}>Transactions</span>
+                  </div>
+                  {stats.evolution.map((row, i) => (
+                    <div key={row.annee} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "12px 20px", borderBottom: i < stats.evolution.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontWeight: 700, color: "#fff" }}>{row.annee}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ height: 6, borderRadius: 3, width: `${Math.round((row.prix_m2_median / maxPrix) * 100)}%`, minWidth: 4, background: "linear-gradient(90deg, #00d4ff, #a855f7)" }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#ffdd00", whiteSpace: "nowrap" }}>{row.prix_m2_median.toLocaleString("fr-FR")} €/m²</span>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ display: "inline-block", height: 4, borderRadius: 2, width: `${Math.round((row.count / maxCount) * 60)}px`, background: "rgba(0,212,255,0.4)", verticalAlign: "middle", marginRight: 8 }} />
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{row.count.toLocaleString("fr-FR")}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* Blurred preview + Pro upsell */
+              <div style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ filter: "blur(6px)", opacity: 0.4, pointerEvents: "none" }}>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden", minWidth: 420 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", fontSize: 11, color: "rgba(255,255,255,0.3)", gap: 12 }}>
+                      <span>Année</span><span>Prix médian €/m²</span><span style={{ textAlign: "right" }}>Transactions</span>
+                    </div>
+                    {[2020, 2021, 2022, 2023, 2024].map((yr) => (
+                      <div key={yr} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontWeight: 700, color: "#fff" }}>{yr}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ height: 6, borderRadius: 3, width: `${50 + yr % 5 * 10}%`, background: "linear-gradient(90deg, #00d4ff, #a855f7)" }} />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "#ffdd00" }}>●●●● €/m²</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "right" }}>●●●</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{
+                  position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(7,7,20,0.5)",
+                }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+                      Évolution des prix 2020 → 2025
+                    </div>
+                    <ProBadge label="Débloquer l'historique complet" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -486,6 +600,14 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
             </div>
           );
         })()}
+
+        {/* ═══ ÉVOLUTION PAR MICRO-ZONE — Pro feature ═══ */}
+        {stats.zoneEvolution.length > 0 && (
+          <ZoneEvolution zones={stats.zoneEvolution} isPro={isPro} />
+        )}
+
+        {/* ═══ ANOMALIES DE PRIX INTER-ZONES ═══ */}
+        <PriceAnomalies zones={stats.zones} commune={stats.nom} communeCode={stats.code} />
 
         {/* ═══ REDESIGNED CTAs — result-oriented ═══ */}
         <AnalyseLeadSection commune={{ code: stats.code, nom: stats.nom }} />

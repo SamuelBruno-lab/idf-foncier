@@ -9,12 +9,12 @@ interface ProModalProps {
 }
 
 const PRO_FEATURES = [
-  { icon: "📊", label: "Historique 5 ans", desc: "Évolution des prix sur 5 ans pour chaque micro-zone" },
+  { icon: "🏙️", label: "Top 100 communes", desc: "Accès aux 100 plus grandes communes IDF + Oise" },
+  { icon: "📊", label: "Historique 2020-2025", desc: "Évolution des prix sur 5 ans pour chaque commune" },
+  { icon: "📈", label: "Évolution annuelle", desc: "Tendances prix et volume, année par année" },
   { icon: "🔍", label: "Comparables détaillés", desc: "Transactions similaires dans un rayon personnalisable" },
   { icon: "📄", label: "Export PDF investisseur", desc: "Rapports professionnels prêts pour vos investissements" },
   { icon: "🔔", label: "Alertes nouvelles ventes", desc: "Notification dès qu'un bien sous-coté apparaît" },
-  { icon: "🗺️", label: "Carte multicouche", desc: "Transports, projets urbains et prix superposés" },
-  { icon: "📈", label: "Score investissement avancé", desc: "Algorithme croisant 12 indicateurs de marché" },
 ];
 
 export default function ProModal({ open, onClose, feature }: ProModalProps) {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import Header from "@/components/Header";
 import ShareButton from "@/components/ShareButton";
+import AuthProvider from "@/components/AuthProvider";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -54,9 +55,11 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
-        <Header />
-        {children}
-        <ShareButton />
+        <AuthProvider>
+          <Header />
+          {children}
+          <ShareButton />
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

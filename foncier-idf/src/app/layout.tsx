@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import Header from "@/components/Header";
 import ShareButton from "@/components/ShareButton";
 import "./globals.css";
 
@@ -11,14 +12,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
+  title: "datamerry — Micro-marchés immobiliers Île-de-France · Données DVF",
   description:
-    "Carte interactive de toutes les ventes immobilières IDF + Oise 2025. Micro-marchés identifiés par IA. Données DVF open data. 100% gratuit.",
+    "Carte interactive des micro-marchés immobiliers IDF + Oise. Zones sous-cotées, tendances locales, score d'investissement. Données DVF open data. 100% gratuit.",
   metadataBase: new URL("https://datamerry.com"),
   openGraph: {
-    title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
+    title: "datamerry — Micro-marchés immobiliers Île-de-France",
     description:
-      "Carte interactive de toutes les ventes immobilières IDF + Oise 2025. Micro-marchés identifiés par IA. Données DVF open data. 100% gratuit.",
+      "Trouvez les zones sous-cotées en Île-de-France. Analyse DVF de 1,2M transactions par IA.",
     url: "https://datamerry.com",
     siteName: "datamerry",
     locale: "fr_FR",
@@ -34,14 +35,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "datamerry — 1,2M de transactions immobilières cartographiées par IA",
-    description: "Carte interactive IDF + Oise 2025 · Machine learning · DVF open data",
+    title: "datamerry — Micro-marchés immobiliers Île-de-France",
+    description: "Zones sous-cotées · Score investissement · DVF open data",
     images: ["/og-image.png"],
   },
   keywords: [
     "immobilier", "Île-de-France", "DVF", "prix immobilier", "carte immobilière",
-    "transactions immobilières", "datamerry", "micro-marchés immobiliers", "analyse foncière IA",
-    "foncier", "Villeneuve-la-Garenne", "Oise",
+    "transactions immobilières", "datamerry", "micro-marchés immobiliers",
+    "zones sous-cotées", "investissement immobilier", "foncier",
   ],
 };
 
@@ -53,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
+        <Header />
         {children}
         <ShareButton />
         <Analytics />

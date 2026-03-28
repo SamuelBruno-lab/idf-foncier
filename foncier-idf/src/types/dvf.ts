@@ -23,7 +23,6 @@ export interface DvfPoint {
   date_mutation: string;
   adresse: string | null;
   commune: string | null;
-  code_commune: string | null;
   dept: string;
   annee: number;
 }

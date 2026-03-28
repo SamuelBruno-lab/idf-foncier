@@ -9,7 +9,7 @@ export async function generateMetadata(
   const nom = commune?.nom ?? `Commune ${code}`;
   const dept = commune?.deptNom ?? "";
   const description = commune
-    ? `Carte interactive des micromarchés immobiliers de ${nom} (${dept}) · Points DVF + zones HDBSCAN · datamerry`
+    ? `Carte interactive des micro-marchés immobiliers de ${nom} (${dept}) · Points DVF + micro-zones · datamerry`
     : `Analyse foncière DVF 2025`;
 
   return {

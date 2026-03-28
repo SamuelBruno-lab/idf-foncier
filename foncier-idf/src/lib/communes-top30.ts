@@ -1,6 +1,6 @@
 /**
  * Top 100 communes d'Île-de-France + Oise par population.
- * - Top 30 : accès gratuit (points DVF + HDBSCAN, 2024-2025)
+ * - Top 30 : accès gratuit (points DVF + micro-zones, 2024-2025)
  * - Top 100 : accès Pro (historique 2020-2025, évolution prix)
  */
 

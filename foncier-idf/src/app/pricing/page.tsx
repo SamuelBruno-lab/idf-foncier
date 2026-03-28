@@ -15,7 +15,7 @@ const PLANS = [
     features: [
       { text: "Top 30 communes IDF + Oise", included: true },
       { text: "Points DVF 2024-2025", included: true },
-      { text: "Micro-marchés HDBSCAN", included: true },
+      { text: "Micro-marchés", included: true },
       { text: "Prix médian + écart département", included: true },
       { text: "Anomalies de prix inter-zones", included: true },
       { text: "Top 100 communes", included: false },

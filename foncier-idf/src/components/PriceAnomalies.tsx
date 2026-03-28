@@ -86,7 +86,7 @@ export default function PriceAnomalies({ zones, commune }: { zones: Zone[]; comm
         Anomalies de prix inter-zones
       </h2>
       <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
-        Ecarts de prix entre micro-marches HDBSCAN au sein de {commune}
+        Ecarts de prix entre micro-marches au sein de {commune}
       </p>
 
       {/* Alert banner for biggest anomaly */}

@@ -75,7 +75,7 @@ export default function ZoneEvolution({ zones, isPro }: { zones: ZoneEvolutionDa
         {!isPro && <ProBadge label="Historique micro-zones" />}
       </div>
       <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>
-        Tendance des prix/m² par zone HDBSCAN au fil des annees
+        Tendance des prix/m² par micro-zone au fil des annees
       </p>
 
       {isPro ? (
@@ -212,7 +212,7 @@ export default function ZoneEvolution({ zones, isPro }: { zones: ZoneEvolutionDa
                 Évolution prix/m² par micro-zone
               </div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>
-                Sparklines + tendances 2020 → 2025 par zone HDBSCAN
+                Sparklines + tendances 2020 → 2025 par micro-zone
               </div>
               <ProBadge label="Debloquer l'historique micro-zones" />
             </div>

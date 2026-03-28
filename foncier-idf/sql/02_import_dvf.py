@@ -47,12 +47,12 @@ COLS_KEEP = [
 
 # Seuils outliers prix/m² par département (cohérent avec route.ts)
 PRIX_M2_MAX_BY_DEPT = {
-    "75": {"Appartement": 20_000, "Maison": 18_000, "Local industriel. commercial ou assimilé": 15_000},
-    "92": {"Appartement": 15_000, "Maison": 12_000, "Local industriel. commercial ou assimilé": 12_000},
-    "93": {"Appartement": 10_000, "Maison": 8_000, "Local industriel. commercial ou assimilé": 10_000},
-    "94": {"Appartement": 12_000, "Maison": 10_000, "Local industriel. commercial ou assimilé": 10_000},
+    "75": {"Appartement": 18_000, "Maison": 15_000, "Local industriel. commercial ou assimilé": 12_000},
+    "92": {"Appartement": 13_000, "Maison": 10_000, "Local industriel. commercial ou assimilé": 10_000},
+    "93": {"Appartement": 8_000, "Maison": 6_500, "Local industriel. commercial ou assimilé": 8_000},
+    "94": {"Appartement": 10_000, "Maison": 8_000, "Local industriel. commercial ou assimilé": 8_000},
 }
-PRIX_M2_MAX_DEFAULT = {"Appartement": 10_000, "Maison": 8_000, "Local industriel. commercial ou assimilé": 10_000}
+PRIX_M2_MAX_DEFAULT = {"Appartement": 8_000, "Maison": 6_000, "Local industriel. commercial ou assimilé": 8_000}
 PRIX_M2_MIN = 500
 SURFACE_MIN = 9  # m² — minimum légal d'habitation en France
 
@@ -77,23 +77,15 @@ def load_dept(dept: str, csv_path: str) -> list:
     df["annee"] = df["date_mutation"].dt.year.astype("Int64")
 
     # Correction DVF multi-lots : valeur_fonciere est la valeur totale de la mutation,
-    # répétée sur chaque lot. On calcule prix/m² = prix_total / surface_totale_mutation
-    # plutôt que de diviser le prix par le nombre de lots (qui fausse le prix/m²
-    # quand la mutation inclut parking/cave avec des surfaces différentes).
+    # répétée sur chaque lot. On divise par le nombre de lots par id_mutation.
     lots_par_mutation = df.groupby("id_mutation")["id_mutation"].transform("count")
     df["valeur_fonciere"] = (df["valeur_fonciere"].astype(float) / lots_par_mutation).round().astype("Int64")
 
-    # Prix/m² : utiliser la surface TOTALE de la mutation comme dénominateur
-    # (valeur_fonciere originale / somme des surfaces de tous les lots)
-    vf_originale = df["valeur_fonciere"].astype(float) * lots_par_mutation  # recompose le prix total
-    surface_totale_mutation = df.groupby("id_mutation")["surface_reelle_bati"].transform(
-        lambda s: s.fillna(0).sum()
-    ).astype(float)
-
+    # Prix/m² : surface_reelle_bati = surface habitable du local (hors parking/cave)
     surf = df["surface_reelle_bati"].fillna(0).astype(float)
     df["prix_m2"] = np.where(
-        (surf > 0) & (surface_totale_mutation > 0),
-        (vf_originale / surface_totale_mutation).round(),
+        surf > 0,
+        (df["valeur_fonciere"].astype(float) / surf).round(),
         np.nan,
     )
     df["prix_m2"] = pd.to_numeric(df["prix_m2"], errors="coerce").round().astype("Int64")

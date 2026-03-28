@@ -8,35 +8,68 @@ const supabase = createClient(
 
 const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
 
-// Seuils outliers prix/m² — par département pour éviter les faux positifs
+// Seuils outliers prix/m² — par département (garde-fou absolu)
 // Paris/petite couronne tolère plus que grande couronne
 const PRIX_M2_MAX_BY_DEPT: Record<string, Record<string, number>> = {
-  "75": { Appartement: 20_000, Maison: 18_000, "Local industriel. commercial ou assimilé": 15_000 },
-  "92": { Appartement: 15_000, Maison: 12_000, "Local industriel. commercial ou assimilé": 12_000 },
-  "93": { Appartement: 10_000, Maison: 8_000, "Local industriel. commercial ou assimilé": 10_000 },
-  "94": { Appartement: 12_000, Maison: 10_000, "Local industriel. commercial ou assimilé": 10_000 },
+  "75": { Appartement: 18_000, Maison: 15_000, "Local industriel. commercial ou assimilé": 12_000 },
+  "92": { Appartement: 13_000, Maison: 10_000, "Local industriel. commercial ou assimilé": 10_000 },
+  "93": { Appartement: 8_000, Maison: 6_500, "Local industriel. commercial ou assimilé": 8_000 },
+  "94": { Appartement: 10_000, Maison: 8_000, "Local industriel. commercial ou assimilé": 8_000 },
 };
 const PRIX_M2_MAX_DEFAULT: Record<string, number> = {
-  Appartement: 10_000,
-  Maison: 8_000,
-  "Local industriel. commercial ou assimilé": 10_000,
+  Appartement: 8_000,
+  Maison: 6_000,
+  "Local industriel. commercial ou assimilé": 8_000,
 };
 const PRIX_M2_MIN = 500;
 const SURFACE_MIN = 9; // m² — minimum légal d'habitation en France
 
-/** Filtre les points dont le prix/m² est aberrant ou la surface suspecte */
+/**
+ * Filtre les outliers en deux passes :
+ * 1. Seuils fixes par département (garde-fou)
+ * 2. Filtre IQR statistique par commune × type (élimine les valeurs aberrantes locales)
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function filterOutliers(rows: any[]): any[] {
-  return rows.filter((r) => {
-    // Exclure les surfaces trop petites (erreurs de saisie DVF fréquentes)
+  // Passe 1 : seuils fixes (surface min + prix/m² max par dept)
+  const pass1 = rows.filter((r) => {
     if (r.surface != null && r.surface > 0 && r.surface < SURFACE_MIN) return false;
     const pm2 = r.prix_m2;
-    if (pm2 == null) return true; // pas de prix/m² → on garde
+    if (pm2 == null) return true;
     if (pm2 < PRIX_M2_MIN) return false;
     const deptThresholds = PRIX_M2_MAX_BY_DEPT[r.dept] ?? PRIX_M2_MAX_DEFAULT;
     const max = deptThresholds[r.type_local] ?? PRIX_M2_MAX_DEFAULT[r.type_local];
     if (max && pm2 > max) return false;
     return true;
+  });
+
+  // Passe 2 : filtre IQR par (code_commune, type_local)
+  // Regroupe les prix/m², calcule Q1/Q3/IQR, exclut ceux hors [Q1-1.5*IQR, Q3+1.5*IQR]
+  const groups = new Map<string, number[]>();
+  for (const r of pass1) {
+    if (r.prix_m2 == null || !r.code_commune) continue;
+    const key = `${r.code_commune}_${r.type_local ?? ""}`;
+    let arr = groups.get(key);
+    if (!arr) { arr = []; groups.set(key, arr); }
+    arr.push(r.prix_m2);
+  }
+
+  const bounds = new Map<string, { lo: number; hi: number }>();
+  for (const [key, prices] of groups) {
+    if (prices.length < 6) continue; // pas assez pour un IQR fiable
+    prices.sort((a, b) => a - b);
+    const q1 = prices[Math.floor(prices.length * 0.25)];
+    const q3 = prices[Math.floor(prices.length * 0.75)];
+    const iqr = q3 - q1;
+    bounds.set(key, { lo: q1 - 1.5 * iqr, hi: q3 + 1.5 * iqr });
+  }
+
+  return pass1.filter((r) => {
+    if (r.prix_m2 == null || !r.code_commune) return true;
+    const key = `${r.code_commune}_${r.type_local ?? ""}`;
+    const b = bounds.get(key);
+    if (!b) return true; // pas assez de données → pas de filtre IQR
+    return r.prix_m2 >= b.lo && r.prix_m2 <= b.hi;
   });
 }
 

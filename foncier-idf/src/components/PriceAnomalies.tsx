@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 interface Zone {
   id: string;
   type_local: string;
@@ -67,7 +69,7 @@ function computeAnomalies(zones: Zone[]): Anomaly[] {
   return anomalies.sort((a, b) => b.ecart_pct - a.ecart_pct);
 }
 
-export default function PriceAnomalies({ zones, commune }: { zones: Zone[]; commune: string }) {
+export default function PriceAnomalies({ zones, commune, communeCode }: { zones: Zone[]; commune: string; communeCode: string }) {
   const anomalies = computeAnomalies(zones);
 
   if (anomalies.length === 0) return null;
@@ -133,6 +135,12 @@ export default function PriceAnomalies({ zones, commune }: { zones: Zone[]; comm
             {" "}en {TYPE_LABEL[topAnomaly.type_local]?.toLowerCase() ?? topAnomaly.type_local}
             {" "}— soit {Math.round(topAnomaly.ecart_abs).toLocaleString("fr-FR")} €/m² de difference.
           </p>
+          <Link href={`/commune/${communeCode}`} style={{
+            marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6,
+            fontSize: 12, color: severityColor, textDecoration: "none", fontWeight: 700,
+          }}>
+            Localiser les zones sur la carte →
+          </Link>
         </div>
       </div>
 
@@ -207,8 +215,16 @@ export default function PriceAnomalies({ zones, commune }: { zones: Zone[]; comm
                 </div>
               </div>
 
-              <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "right" }}>
-                {a.n_zones} micro-marches analyses
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+                  {a.n_zones} micro-marches analyses
+                </span>
+                <Link href={`/commune/${communeCode}`} style={{
+                  fontSize: 11, color: tc, textDecoration: "none", fontWeight: 600,
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                }}>
+                  Voir sur la carte →
+                </Link>
               </div>
             </div>
           );

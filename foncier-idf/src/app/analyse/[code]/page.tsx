@@ -607,7 +607,7 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
         )}
 
         {/* ═══ ANOMALIES DE PRIX INTER-ZONES ═══ */}
-        <PriceAnomalies zones={stats.zones} commune={stats.nom} />
+        <PriceAnomalies zones={stats.zones} commune={stats.nom} communeCode={stats.code} />
 
         {/* ═══ REDESIGNED CTAs — result-oriented ═══ */}
         <AnalyseLeadSection commune={{ code: stats.code, nom: stats.nom }} />

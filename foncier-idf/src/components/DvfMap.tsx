@@ -156,7 +156,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
           id: "clusters",
           data: clusters,
           getPosition: (d) => [d.lon, d.lat],
-          getRadius: (d) => Math.min(Math.max(Math.sqrt(d.count) * 3, 5), 55),
+          getRadius: (d) => Math.min(Math.max(Math.sqrt(d.count) * 1.2, 4), 22),
           radiusUnits: "pixels",
           getFillColor: (d) => priceColor(d.prix_m2_median, priceRange[0], priceRange[1]),
           getLineColor: [255, 255, 255, 80],

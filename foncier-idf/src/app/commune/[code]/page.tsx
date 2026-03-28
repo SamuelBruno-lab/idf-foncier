@@ -61,6 +61,7 @@ export default function CommunePage() {
   const [showIntentModal, setShowIntentModal] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
   const [pointSelected, setPointSelected] = useState(false);
+  const [showCommuneSheet, setShowCommuneSheet] = useState(false);
 
   // Data
   const [allPoints, setAllPoints] = useState<DvfPoint[]>([]);
@@ -330,8 +331,8 @@ export default function CommunePage() {
         })}
       </div>
 
-      {/* === SIDEBAR NAVIGATION COMMUNES (côté droit) === */}
-      {!isMobile && siblings.length > 0 && (
+      {/* === SIDEBAR / SHEET NAVIGATION COMMUNES === */}
+      {siblings.length > 0 && !isMobile && (
         <div style={{
           position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
           zIndex: 800, display: "flex", flexDirection: "column", alignItems: "flex-end",
@@ -383,6 +384,133 @@ export default function CommunePage() {
             </Link>
           ))}
         </div>
+      )}
+
+      {/* Mobile: communes pill + bottom sheet */}
+      {isMobile && siblings.length > 0 && !pointSelected && (
+        <>
+          {!showCommuneSheet && (
+            <button
+              onClick={() => setShowCommuneSheet(true)}
+              style={{
+                position: "fixed", bottom: 56, right: 8,
+                zIndex: 10001, pointerEvents: "all",
+                background: `${color}20`, border: `1px solid ${color}55`,
+                borderRadius: 99, padding: "7px 12px",
+                color: "#fff", fontSize: 11, fontWeight: 700,
+                fontFamily: "Segoe UI, sans-serif",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 5,
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>📍</span>
+              Communes
+              <span style={{
+                background: color, color: "#000",
+                fontSize: 9, fontWeight: 800, borderRadius: 99,
+                padding: "1px 6px",
+              }}>{siblings.length}</span>
+            </button>
+          )}
+
+          {showCommuneSheet && (
+            <div
+              onClick={() => setShowCommuneSheet(false)}
+              style={{
+                position: "fixed", inset: 0, zIndex: 11000,
+                background: "rgba(0,0,0,0.5)",
+                pointerEvents: "all",
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  background: "#0d0d2b",
+                  borderTop: `2px solid ${color}66`,
+                  borderRadius: "18px 18px 0 0",
+                  padding: "12px 16px 24px",
+                  maxHeight: "55vh",
+                  display: "flex", flexDirection: "column",
+                  animation: "communeSlideUp 0.25s ease-out",
+                }}
+              >
+                {/* Handle bar */}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)" }} />
+                </div>
+
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, padding: "0 2px" }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>
+                      Communes · Dept {dept}
+                    </div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+                      {siblings.length} communes du departement
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowCommuneSheet(false)}
+                    style={{
+                      background: "rgba(255,255,255,0.08)", border: "none",
+                      borderRadius: 8, width: 32, height: 32,
+                      color: "rgba(255,255,255,0.5)", fontSize: 16,
+                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Communes grid */}
+                <div style={{
+                  overflowY: "auto", flex: 1,
+                  display: "grid", gridTemplateColumns: "1fr 1fr",
+                  gap: 8, padding: "0 2px",
+                  scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+                }}>
+                  {siblings.map((c, i) => (
+                    <Link
+                      key={c.code}
+                      href={`/commune/${c.code}`}
+                      onClick={() => setShowCommuneSheet(false)}
+                      style={{ textDecoration: "none" }}
+                    >
+                      <div style={{
+                        padding: "10px 12px", borderRadius: 10,
+                        background: "rgba(255,255,255,0.04)",
+                        border: `1px solid ${c.color}25`,
+                        display: "flex", alignItems: "center", gap: 10,
+                      }}>
+                        <span style={{
+                          fontSize: 9, fontWeight: 800, color,
+                          width: 18, textAlign: "center", flexShrink: 0, opacity: 0.5,
+                        }}>{i + 1}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12, fontWeight: 700, color: "#fff",
+                            fontFamily: "Segoe UI, sans-serif",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            {c.nom}
+                          </div>
+                          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>
+                            {c.population.toLocaleString("fr-FR")} hab.
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>›</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <style>{`@keyframes communeSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+        </>
       )}
 
       {/* === ONGLETS PROFIL (bas centre) — même UX que dept === */}

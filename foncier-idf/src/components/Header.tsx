@@ -113,7 +113,7 @@ export default function Header() {
             <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
 
             <Link
-              href="/pricing"
+              href="/signup"
               style={{
                 color: "rgba(255,255,255,0.4)",
                 textDecoration: "none",
@@ -188,7 +188,7 @@ export default function Header() {
             <Link href="/pricing" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Pricing</Link>
             <Link href="/actualites" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Nouveautés</Link>
             <button onClick={() => { setShowProModal(true); setMobileOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 14, fontFamily: "inherit", textAlign: "left", padding: 0 }}>Pro</button>
-            <Link href="/pricing" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 13 }}>Créer un compte</Link>
+            <Link href="/signup" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 13 }}>Créer un compte</Link>
             <button
               onClick={() => { setShowProModal(true); setMobileOpen(false); }}
               style={{

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ProModal from "@/components/ProModal";
 
 const PLANS = [
@@ -71,6 +72,7 @@ const PLANS = [
 
 export default function PricingPage() {
   const [showProModal, setShowProModal] = useState(false);
+  const router = useRouter();
 
   return (
     <div style={{ minHeight: "100vh", background: "#070714", color: "#e8e8f0", fontFamily: "Segoe UI, Arial, sans-serif", paddingTop: 52 }}>
@@ -153,7 +155,8 @@ export default function PricingPage() {
               {/* CTA */}
               <button
                 onClick={() => {
-                  if (plan.ctaStyle === "primary") setShowProModal(true);
+                  if (plan.name === "Gratuit") router.push("/signup");
+                  else if (plan.ctaStyle === "primary") router.push("/signup");
                 }}
                 style={{
                   width: "100%",

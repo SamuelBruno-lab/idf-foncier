@@ -1,0 +1,71 @@
+name: Generate Top 30 commune maps
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Skip DVF download (use cached data)"
+        type: boolean
+        default: false
+      skip_existing:
+        description: "Skip communes already generated"
+        type: boolean
+        default: false
+  schedule:
+    # Exécution mensuelle le 1er du mois à 3h UTC
+    - cron: "0 3 1 * *"
+
+jobs:
+  generate-hdbscan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm folium branca
+
+      - name: Run HDBSCAN pipeline for Top 30 communes (Supabase upload)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          cd ..
+          DOWNLOAD_FLAG=""
+          if [ "${{ inputs.skip_download }}" != "true" ]; then
+            DOWNLOAD_FLAG="--download"
+          fi
+          python idf-foncier/pipeline_top30_communes.py $DOWNLOAD_FLAG \
+            --csv-dir /tmp/dvf
+
+      - name: Generate static HTML maps for each commune (pipeline_commune.py)
+        working-directory: ${{ github.workspace }}
+        run: |
+          SKIP_FLAG=""
+          if [ "${{ inputs.skip_existing }}" == "true" ]; then
+            SKIP_FLAG="--skip-existing"
+          fi
+          # Télécharger les CSV départementaux si pas déjà fait
+          DOWNLOAD_FLAG=""
+          if [ "${{ inputs.skip_download }}" != "true" ]; then
+            DOWNLOAD_FLAG="--download"
+          fi
+          python pipeline_commune.py --all $DOWNLOAD_FLAG $SKIP_FLAG
+
+      - name: Commit maps
+        run: |
+          git config user.name "datamerry-bot"
+          git config user.email "bot@datamerry.com"
+          git add maps/*/carte_*.html maps/*/index.html
+          git diff --staged --quiet || git commit -m "feat: cartes Top 30 communes IDF (pipeline_commune.py)"
+          git push

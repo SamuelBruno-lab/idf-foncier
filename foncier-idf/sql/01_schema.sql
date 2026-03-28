@@ -29,6 +29,8 @@ CREATE INDEX IF NOT EXISTS idx_dvf_geom  ON dvf_points USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_dvf_dept  ON dvf_points (dept);
 CREATE INDEX IF NOT EXISTS idx_dvf_annee ON dvf_points (annee);
 CREATE INDEX IF NOT EXISTS idx_dvf_type  ON dvf_points (type_local);
+CREATE INDEX IF NOT EXISTS idx_dvf_commune ON dvf_points (code_commune);
+CREATE INDEX IF NOT EXISTS idx_dvf_commune_type ON dvf_points (code_commune, type_local, annee);
 
 -- ── Vue clusters par commune (zoom 10-12) ───────────────────
 -- Pré-calculé en Python puis inséré, ou via vue matérialisée

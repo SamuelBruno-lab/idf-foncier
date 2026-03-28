@@ -90,6 +90,14 @@ DEPT_CONFIG = {
         "csv_global": "/home/user/dvf_95.csv",
         "zoom": 11, "repo": "val-d-oise-foncier",
     },
+    "54": {
+        "nom": "Meurthe-et-Moselle", "code": "54",
+        "gradient": ("90deg", "#00d4ff", "#ffffff", "#e11d48"),
+        "color": "#e11d48",
+        "csv_years": {},
+        "csv_global": "/home/user/dvf_54.csv",
+        "zoom": 10, "repo": "meurthe-et-moselle-foncier",
+    },
 }
 
 TYPE_CONFIG = {

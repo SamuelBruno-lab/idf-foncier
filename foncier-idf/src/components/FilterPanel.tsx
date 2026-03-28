@@ -157,12 +157,33 @@ export default function FilterPanel({ filters, onFiltersChange, mode, onModeChan
           <div style={{ position: "fixed", inset: 0, zIndex: 2000 }}>
             <div onClick={() => setMobileOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(180deg, #0d0d2b, #0a0a1e)", borderRadius: "18px 18px 0 0", maxHeight: "85vh", overflowY: "auto", fontFamily: "Segoe UI, Arial, sans-serif", color: "#e8e8f0" }}>
-              {/* Handle */}
-              <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 0" }}>
-                <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)" }} />
+              {/* Handle - zone cliquable pour replier */}
+              <div
+                onClick={() => setMobileOpen(false)}
+                style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px", cursor: "pointer" }}
+              >
+                <div style={{ width: 48, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.3)" }} />
               </div>
               {panelHeader(() => setMobileOpen(false))}
               {panelBody}
+              {/* Bouton fermer en bas du panneau */}
+              <div style={{ padding: "8px 16px 20px", display: "flex", justifyContent: "center" }}>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: 10, padding: "10px 32px",
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 13, fontWeight: 600,
+                    fontFamily: "Segoe UI, Arial, sans-serif",
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}
+                >
+                  ✕ Fermer les filtres
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -41,6 +41,14 @@ COLS_KEEP = [
     "type_local", "surface_reelle_bati", "nombre_pieces_principales",
 ]
 
+# Seuils outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py)
+PRIX_M2_MAX = {
+    "Appartement": 20_000,
+    "Maison": 15_000,
+    "Local industriel. commercial ou assimilé": 15_000,
+}
+PRIX_M2_MIN = 500
+
 
 def make_id(row):
     key = f"{row.get('id_mutation','')}-{row.get('id_parcelle','')}-{row.get('latitude','')}-{row.get('longitude','')}"
@@ -71,6 +79,12 @@ def load_dept(dept: str, csv_path: str) -> list:
         np.nan,
     )
     df["prix_m2"] = pd.to_numeric(df["prix_m2"], errors="coerce").round().astype("Int64")
+
+    # Filtre outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py)
+    df = df[df["prix_m2"].isna() | (df["prix_m2"] >= PRIX_M2_MIN)]
+    for type_local, max_val in PRIX_M2_MAX.items():
+        mask = (df["type_local"] == type_local) & (df["prix_m2"] > max_val)
+        df = df[~mask]
 
     df["adresse"] = (
         df["adresse_numero"].fillna("").astype(str).str.strip()

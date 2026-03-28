@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import ProBadge from "@/components/ProBadge";
 
 const DEPTS = [
   { code: "75", shortName: "Paris", color: "#ef4444" },
@@ -16,6 +17,7 @@ const DEPTS = [
   { code: "77", shortName: "Seine-et-Marne", color: "#f97316" },
   { code: "60", shortName: "Oise", color: "#ec4899" },
 ];
+
 import FilterPanel from "@/components/FilterPanel";
 import LeadModal from "@/components/LeadModal";
 import CookieBanner from "@/components/CookieBanner";
@@ -23,7 +25,6 @@ import type { DvfFilters, DvfPoint, DvfCluster } from "@/types/dvf";
 
 type CommuneSuggestion = { code: string; nom: string };
 
-// DvfMap importé dynamiquement (WebGL, no SSR)
 const DvfMap = dynamic(() => import("@/components/DvfMap"), {
   ssr: false,
   loading: () => (
@@ -55,10 +56,8 @@ export default function HomePage() {
   const [zoom] = useState(10);
   const [showHero, setShowHero] = useState(true);
   const [showLeadModal, setShowLeadModal] = useState(false);
-  const [activeFooter, setActiveFooter] = useState<"about" | "contact" | null>(null);
   const didCheckModal = useRef(false);
 
-  // Recherche commune
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CommuneSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -78,12 +77,9 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fermer dropdown si clic extérieur
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSuggestions([]);
-      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSuggestions([]);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -101,29 +97,16 @@ export default function HomePage() {
       }
       params.set("zoom", String(zoom));
       params.set("mode", mode);
-
       const res = await fetch(`/api/dvf/clusters?${params}`);
       const json = await res.json();
-
-      if (json.mode === "points") {
-        setPoints(json.data ?? []);
-        setClusters([]);
-      } else {
-        setClusters(json.data ?? []);
-        setPoints([]);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
+      if (json.mode === "points") { setPoints(json.data ?? []); setClusters([]); }
+      else { setClusters(json.data ?? []); setPoints([]); }
+    } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
   }, [filters, zoom, mode]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Ouvre le modal leads si ?modal=leads (ex: depuis page /analyse)
   useEffect(() => {
     if (didCheckModal.current) return;
     didCheckModal.current = true;
@@ -133,14 +116,13 @@ export default function HomePage() {
     }
   }, []);
 
-  const totalTx =
-    mode === "heatmap"
-      ? points.length
-      : clusters.reduce((s, c) => s + c.count, 0);
+  const totalTx = mode === "heatmap"
+    ? points.length
+    : clusters.reduce((s, c) => s + c.count, 0);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", background: "#0a0a1e" }}>
-      {/* Carte toujours en fond */}
+      {/* Map background */}
       <DvfMap
         points={points}
         clusters={clusters}
@@ -150,7 +132,7 @@ export default function HomePage() {
         onCommuneClick={(code) => window.open(`/analyse/${code}`, "_blank")}
       />
 
-      {/* Panneau filtres — visible uniquement si hero fermé */}
+      {/* Filter panel — visible only when hero is dismissed */}
       {!showHero && (
         <FilterPanel
           filters={filters}
@@ -162,7 +144,9 @@ export default function HomePage() {
         />
       )}
 
-      {/* Hero overlay landing page */}
+      {/* ═══════════════════════════════════════ */}
+      {/*  HERO — Redesigned map-first landing   */}
+      {/* ═══════════════════════════════════════ */}
       {showHero && (
         <div
           style={{
@@ -173,51 +157,50 @@ export default function HomePage() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "flex-start",
-            background: "linear-gradient(180deg, rgba(5,5,20,0.92) 0%, rgba(5,5,20,0.75) 60%, rgba(5,5,20,0.55) 100%)",
+            background: "linear-gradient(180deg, rgba(5,5,20,0.94) 0%, rgba(5,5,20,0.78) 55%, rgba(5,5,20,0.5) 100%)",
             backdropFilter: "blur(1px)",
             padding: "24px",
-            paddingTop: "max(24px, env(safe-area-inset-top, 24px))",
+            paddingTop: "max(70px, calc(env(safe-area-inset-top, 24px) + 52px))",
             overflowY: "auto",
             WebkitOverflowScrolling: "touch",
           }}
         >
-          {/* Badge */}
+          {/* Live badge */}
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              background: "rgba(0,212,255,0.12)",
-              border: "1px solid rgba(0,212,255,0.35)",
+              background: "rgba(0,212,255,0.1)",
+              border: "1px solid rgba(0,212,255,0.3)",
               borderRadius: 99,
               padding: "6px 16px",
-              marginTop: 20,
-              marginBottom: 20,
-              fontSize: 12,
+              marginBottom: 24,
+              fontSize: 11,
               color: "#00d4ff",
               letterSpacing: 1.5,
               textTransform: "uppercase",
               fontWeight: 600,
             }}
           >
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#00d4ff", display: "inline-block", animation: "pulse 2s infinite" }} />
-            Île-de-France + Oise · 2025
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#00ff88", display: "inline-block", animation: "pulse 2s infinite" }} />
+            Données DVF mises à jour · Île-de-France + Oise
           </div>
 
-          {/* Titre principal */}
+          {/* Main headline — proposition de valeur claire */}
           <h1
             style={{
               margin: 0,
               fontFamily: "Segoe UI, Arial, sans-serif",
-              fontSize: "clamp(28px, 4.5vw, 56px)",
+              fontSize: "clamp(26px, 4.5vw, 52px)",
               fontWeight: 800,
               color: "#fff",
               textAlign: "center",
-              lineHeight: 1.15,
-              maxWidth: 800,
+              lineHeight: 1.12,
+              maxWidth: 720,
             }}
           >
-            Détectez les{" "}
+            Trouvez les{" "}
             <span
               style={{
                 background: "linear-gradient(90deg, #00ff88, #00d4ff)",
@@ -226,42 +209,42 @@ export default function HomePage() {
                 backgroundClip: "text",
               }}
             >
-              opportunités foncières
+              zones sous-cotées
             </span>
             <br />
-            invisibles en Île-de-France
+            en Île-de-France en quelques secondes
           </h1>
 
-          {/* Sous-titre */}
+          {/* Subheadline — ce que c'est + pourquoi c'est mieux */}
           <p
             style={{
-              margin: "20px 0 12px",
+              margin: "18px 0 8px",
               fontFamily: "Segoe UI, Arial, sans-serif",
-              fontSize: "clamp(15px, 2vw, 20px)",
-              color: "rgba(255,255,255,0.65)",
+              fontSize: "clamp(14px, 1.8vw, 18px)",
+              color: "rgba(255,255,255,0.6)",
               textAlign: "center",
-              maxWidth: 600,
+              maxWidth: 560,
               lineHeight: 1.6,
             }}
           >
-            Analyse automatique de 1,2M transactions DVF + DPE
-            pour identifier les micro-zones à potentiel
+            Analyse automatique de 1,2M transactions DVF pour identifier
+            les micro-zones à potentiel — <span style={{ color: "rgba(255,255,255,0.8)" }}>invisible sur les portails classiques</span>.
           </p>
 
-          {/* Bullets hook */}
+          {/* 3 value pillars — compact */}
           <div
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 8,
+              gap: 6,
               alignItems: "center",
-              marginBottom: 24,
+              margin: "16px 0 24px",
             }}
           >
             {[
-              { icon: "📍", text: "Zones sous-évaluées détectées" },
-              { icon: "🏗️", text: "Opportunités promoteurs & marchands" },
-              { icon: "📊", text: "Données DVF + DPE enrichies" },
+              { icon: "📍", text: "Zones sous-évaluées détectées par quartier" },
+              { icon: "📊", text: "Écart vs médiane départementale en temps réel" },
+              { icon: "⚡", text: "Score investissement & signaux d'opportunité" },
             ].map(({ icon, text }) => (
               <div
                 key={text}
@@ -269,50 +252,69 @@ export default function HomePage() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  fontSize: "clamp(12px, 2vw, 14px)",
-                  color: "rgba(255,255,255,0.75)",
+                  fontSize: "clamp(12px, 1.5vw, 14px)",
+                  color: "rgba(255,255,255,0.65)",
                   fontFamily: "Segoe UI, sans-serif",
                 }}
               >
-                <span style={{ fontSize: 18 }}>{icon}</span>
+                <span style={{ fontSize: 16 }}>{icon}</span>
                 {text}
               </div>
             ))}
           </div>
 
-          {/* Stats */}
+          {/* ═══ Insight example card — le "wow" moment ═══ */}
           <div
             style={{
-              display: "flex",
-              gap: "clamp(20px, 4vw, 48px)",
-              marginBottom: 40,
-              flexWrap: "wrap",
-              justifyContent: "center",
+              width: "100%",
+              maxWidth: 520,
+              background: "linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,212,255,0.06))",
+              border: "1px solid rgba(0,255,136,0.2)",
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 24,
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            {[
-              { val: "9 depts", label: "IDF + Oise" },
-              { val: "2025", label: "Période" },
-              { val: "1 200+", label: "Communes" },
-            ].map(({ val, label }) => (
-              <div key={label} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>
-                  {val}
-                </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: 0.5 }}>
-                  {label}
-                </div>
-              </div>
-            ))}
+            <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(0,255,136,0.06)" }} />
+            <div style={{ fontSize: 10, color: "#00ff88", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
+              Exemple d&apos;insight datamerry
+            </div>
+            <p style={{ margin: 0, fontSize: "clamp(14px, 2vw, 17px)", color: "#fff", fontWeight: 600, lineHeight: 1.45 }}>
+              À <span style={{ color: "#00d4ff" }}>Vitry-sur-Seine</span>, certaines zones sont{" "}
+              <span style={{ color: "#00ff88", fontWeight: 800 }}>−16%</span>{" "}
+              sous la médiane du Val-de-Marne
+            </p>
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>
+              Nos données révèlent des décotes invisibles sur les portails classiques.
+            </p>
+            <button
+              onClick={() => router.push("/analyse/94081")}
+              style={{
+                marginTop: 12,
+                padding: "8px 16px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,212,255,0.3)",
+                background: "rgba(0,212,255,0.1)",
+                color: "#00d4ff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.1)")}
+            >
+              Voir l&apos;analyse de Vitry →
+            </button>
           </div>
 
-          {/* Barre de recherche commune */}
+          {/* ═══ Search bar ═══ */}
           <div ref={searchRef} style={{ position: "relative", width: "100%", maxWidth: 480, marginBottom: 24 }}>
             <div style={{ position: "relative" }}>
-              <span style={{
-                position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-                fontSize: 18, pointerEvents: "none"
-              }}>🔍</span>
+              <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 18, pointerEvents: "none" }}>🔍</span>
               <input
                 type="text"
                 placeholder="Rechercher une commune IDF…"
@@ -333,9 +335,7 @@ export default function HomePage() {
                 }}
               />
               {searchLoading && (
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 13 }}>
-                  …
-                </span>
+                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 13 }}>…</span>
               )}
             </div>
             {suggestions.length > 0 && (
@@ -350,15 +350,10 @@ export default function HomePage() {
                     key={s.code}
                     onClick={() => router.push(`/analyse/${s.code}`)}
                     style={{
-                      padding: "11px 16px",
-                      cursor: "pointer",
-                      color: "#fff",
-                      fontFamily: "Segoe UI, sans-serif",
-                      fontSize: 14,
+                      padding: "11px 16px", cursor: "pointer", color: "#fff",
+                      fontFamily: "Segoe UI, sans-serif", fontSize: 14,
                       borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.1)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -371,9 +366,31 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Navigation départements */}
+          {/* Stats bar */}
+          <div
+            style={{
+              display: "flex",
+              gap: "clamp(20px, 4vw, 48px)",
+              marginBottom: 24,
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
+            {[
+              { val: "9 depts", label: "IDF + Oise" },
+              { val: "1,2M", label: "Transactions DVF" },
+              { val: "1 200+", label: "Communes" },
+            ].map(({ val, label }) => (
+              <div key={label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "clamp(18px, 3vw, 28px)", fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{val}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2, letterSpacing: 0.5 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Department grid */}
           <div style={{ width: "100%", maxWidth: 640, marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: 2, textTransform: "uppercase", textAlign: "center", marginBottom: 12 }}>
               Explorer par département
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -381,24 +398,14 @@ export default function HomePage() {
                 <Link key={d.code} href={`/dept/${d.code}`} style={{ textDecoration: "none" }}>
                   <div
                     style={{
-                      padding: "12px 6px",
-                      borderRadius: 10,
+                      padding: "12px 6px", borderRadius: 10,
                       border: `1px solid ${d.color}44`,
                       background: `${d.color}11`,
-                      textAlign: "center",
-                      cursor: "pointer",
+                      textAlign: "center", cursor: "pointer",
                       transition: "all 0.15s",
                     }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}22`;
-                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}99`;
-                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.background = `${d.color}11`;
-                      (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}44`;
-                      (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
-                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = `${d.color}22`; (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}99`; (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = `${d.color}11`; (e.currentTarget as HTMLDivElement).style.borderColor = `${d.color}44`; (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
                   >
                     <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", fontFamily: "Segoe UI, sans-serif" }}>{d.code}</div>
                     <div style={{ fontSize: 9, color: `${d.color}cc`, marginTop: 2, lineHeight: 1.3 }}>{d.shortName}</div>
@@ -408,240 +415,101 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* CTAs */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            {/* CTA principal — Explorer la carte */}
+          {/* ═══ Action CTAs — résultat-orientés ═══ */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 16 }}>
             <button
               onClick={() => setShowHero(false)}
               style={{
-                padding: "14px 36px",
-                borderRadius: 12,
-                border: "none",
+                padding: "14px 36px", borderRadius: 12, border: "none",
                 background: "linear-gradient(135deg, #00ff88, #00d4ff)",
-                color: "#0a0a1e",
-                fontWeight: 700,
-                fontSize: 16,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
+                color: "#0a0a1e", fontWeight: 700, fontSize: 16, cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif", transition: "transform 0.15s",
                 boxShadow: "0 4px 24px rgba(0,212,255,0.3)",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              Explorer la carte →
+              Détecter des opportunités →
             </button>
             <Link href="/actualites" style={{ textDecoration: "none" }}>
               <div
                 style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
+                  padding: "12px 28px", borderRadius: 10,
                   border: "1px solid rgba(168,85,247,0.4)",
                   background: "rgba(168,85,247,0.1)",
-                  color: "#c084fc",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
+                  color: "#c084fc", fontWeight: 600, fontSize: 14,
+                  cursor: "pointer", fontFamily: "Segoe UI, sans-serif",
                   transition: "transform 0.15s",
                 }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
                 onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
               >
-                Actualités & projets pilotes
-              </div>
-            </Link>
-            <button
-              onClick={() => setActiveFooter(activeFooter === "about" ? null : "about")}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: `1px solid ${activeFooter === "about" ? "rgba(16,185,129,0.7)" : "rgba(16,185,129,0.4)"}`,
-                background: `rgba(16,185,129,${activeFooter === "about" ? "0.2" : "0.1"})`,
-                color: "#34d399",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              À propos
-            </button>
-            <button
-              onClick={() => setActiveFooter(activeFooter === "contact" ? null : "contact")}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 10,
-                border: `1px solid ${activeFooter === "contact" ? "rgba(251,191,36,0.7)" : "rgba(251,191,36,0.4)"}`,
-                background: `rgba(251,191,36,${activeFooter === "contact" ? "0.2" : "0.1"})`,
-                color: "#fbbf24",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif",
-                transition: "transform 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              Contact
-            </button>
-            <Link href="/methodologie" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,255,136,0.4)",
-                  background: "rgba(0,255,136,0.1)",
-                  color: "#00ff88",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
-              >
-                Méthodologie
-              </div>
-            </Link>
-            <Link href="/cgu" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.6)",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "Segoe UI, sans-serif",
-                  transition: "transform 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"}
-              >
-                CGU
+                Nouveautés & projets pilotes
               </div>
             </Link>
           </div>
 
-          {/* Panneau dépliable À propos / Contact */}
-          {activeFooter && (
-            <div
-              style={{
-                maxWidth: 560,
-                width: "100%",
-                marginTop: 20,
-                padding: "20px 24px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 12,
-                color: "rgba(255,255,255,0.6)",
-                fontSize: 14,
-                lineHeight: 1.7,
-                fontFamily: "Segoe UI, Arial, sans-serif",
-              }}
-            >
-              {activeFooter === "about" && (
-                <>
-                  <p>
-                    Datamerry est un prototype d&apos;analyse foncière utilisant les
-                    données ouvertes DVF et DPE pour identifier automatiquement les
-                    micro-marchés immobiliers.
-                  </p>
-                  <p style={{ marginTop: 10 }}>
-                    L&apos;objectif est d&apos;explorer de nouvelles approches de
-                    prospection et d&apos;analyse territoriale pour les
-                    professionnels de l&apos;immobilier, les collectivités et les
-                    investisseurs.
-                  </p>
-                </>
-              )}
-              {activeFooter === "contact" && (
-                <p>
-                  Pour toute question ou retour :{" "}
-                  <a href="mailto:contact@datamerry.com" style={{ color: "#00d4ff", textDecoration: "none" }}>
-                    contact@datamerry.com
-                  </a>
-                </p>
-              )}
-            </div>
-          )}
+          {/* Secondary links */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+            <Link href="/methodologie" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", fontWeight: 500, fontSize: 12, textDecoration: "none", transition: "all 0.15s" }}>
+              Méthodologie
+            </Link>
+            <Link href="/pricing" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(0,255,136,0.2)", background: "rgba(0,255,136,0.06)", color: "#00ff88", fontWeight: 600, fontSize: 12, textDecoration: "none", transition: "all 0.15s" }}>
+              Découvrir l&apos;offre Pro
+            </Link>
+            <Link href="/cgu" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.3)", fontWeight: 500, fontSize: 12, textDecoration: "none" }}>
+              CGU
+            </Link>
+          </div>
 
-          {/* Preuve sociale */}
-          <div
-            style={{
-              marginTop: 32,
-              fontSize: 13,
-              color: "rgba(255,255,255,0.45)",
-              fontFamily: "Segoe UI, sans-serif",
-              textAlign: "center",
-              fontStyle: "italic",
-            }}
-          >
+          {/* Pro teaser */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+            <ProBadge label="Historique 5 ans" />
+            <ProBadge label="Export PDF" />
+            <ProBadge label="Alertes ventes" />
+          </div>
+
+          {/* Social proof */}
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "Segoe UI, sans-serif", textAlign: "center", fontStyle: "italic", marginBottom: 16 }}>
             Déjà utilisé par des professionnels du foncier en Île-de-France
           </div>
 
-          {/* Signature open data */}
-          <div
-            style={{
-              marginTop: 16,
-              marginBottom: 20,
-              fontSize: 11,
-              color: "rgba(255,255,255,0.2)",
-              fontFamily: "Segoe UI, sans-serif",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <Link href="/cgu" style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11 }}>CGU</Link>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.15)", fontFamily: "Segoe UI, sans-serif", textAlign: "center" }}>
+            datamerry.com · contact@datamerry.com · Source DVF data.gouv.fr
           </div>
         </div>
       )}
 
-      {/* Bouton retour hero (quand carte visible) */}
+      {/* Map mode — bottom brand + back */}
       {!showHero && (
         <button
           onClick={() => setShowHero(true)}
           style={{
-            position: "absolute",
-            bottom: 16,
-            right: 16,
-            zIndex: 900,
-            padding: "8px 16px",
-            borderRadius: 8,
+            position: "absolute", bottom: 16, right: 16, zIndex: 900,
+            padding: "8px 16px", borderRadius: 8,
             border: "1px solid rgba(0,212,255,0.3)",
             background: "rgba(10,10,30,0.9)",
-            color: "rgba(0,212,255,0.7)",
-            fontSize: 11,
-            cursor: "pointer",
-            fontFamily: "Segoe UI, sans-serif",
+            color: "rgba(0,212,255,0.7)", fontSize: 11,
+            cursor: "pointer", fontFamily: "Segoe UI, sans-serif",
           }}
         >
           datamerry.com
         </button>
       )}
 
-      {/* Modal lead capture */}
-      {showLeadModal && (
-        <LeadModal onClose={() => setShowLeadModal(false)} />
+      {/* Map mode — floating action CTAs bottom left */}
+      {!showHero && (
+        <div style={{ position: "absolute", bottom: 70, right: 16, zIndex: 900, display: "flex", flexDirection: "column", gap: 8 }}>
+          <ProBadge label="Export PDF investisseur" />
+          <ProBadge label="Alertes nouvelles ventes" />
+        </div>
       )}
 
-      {/* Bandeau cookies */}
+      {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
       <CookieBanner />
 
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
       `}</style>
     </div>
   );

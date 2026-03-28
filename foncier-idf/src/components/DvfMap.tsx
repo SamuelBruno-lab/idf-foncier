@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Map, { NavigationControl, ScaleControl, Marker } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -12,6 +12,7 @@ import {
   buildGoogleMapsUrl,
   buildCadastreUrl,
   openExternalUrl,
+  formatDateFr,
 } from "@/lib/location-links";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -64,6 +65,14 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
   const [searchPin, setSearchPin] = useState<{ lat: number; lon: number; label: string } | null>(null);
   const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "notfound">("idle");
   const searchRef = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -221,7 +230,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
             </div>
             <div style={{ color: "#aaa", marginTop: 6, fontSize: 12 }}>
               {(hovered as DvfPoint).type_local} · {(hovered as DvfPoint).surface} m² ·{" "}
-              {(hovered as DvfPoint).date_mutation?.slice(0, 7)}
+              {formatDateFr((hovered as DvfPoint).date_mutation)}
             </div>
             <div style={{ color: "#666", fontSize: 11, marginTop: 2 }}>
               {(hovered as DvfPoint).commune} ({(hovered as DvfPoint).dept})
@@ -342,68 +351,71 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
         <div
           style={{
             position: "absolute",
-            bottom: 16,
-            left: 16,
-            zIndex: 1001,
-            background: "rgba(10,10,30,0.96)",
+            bottom: isMobile ? 50 : 16,
+            left: isMobile ? 0 : 16,
+            right: isMobile ? 0 : "auto",
+            zIndex: 10001,
+            background: "rgba(10,10,30,0.97)",
             color: "#e8e8f0",
-            borderRadius: 14,
-            padding: "18px 22px",
-            minWidth: 280,
-            maxWidth: 340,
+            borderRadius: isMobile ? "14px 14px 0 0" : 14,
+            padding: isMobile ? "16px 16px 12px" : "18px 22px",
+            minWidth: isMobile ? "auto" : 280,
+            maxWidth: isMobile ? "100%" : 340,
             border: "1px solid rgba(0,212,255,0.25)",
             fontFamily: "Segoe UI, Arial, sans-serif",
             fontSize: 13,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            boxShadow: "0 -4px 40px rgba(0,0,0,0.7)",
+            maxHeight: isMobile ? "50vh" : "auto",
+            overflowY: "auto",
           }}
         >
-          {/* Bouton fermer */}
           <button
             onClick={() => setSelectedPoint(null)}
             style={{
               position: "absolute", top: 10, right: 12,
-              background: "none", border: "none", color: "rgba(255,255,255,0.4)",
-              fontSize: 16, cursor: "pointer", lineHeight: 1,
+              background: "rgba(255,255,255,0.08)", border: "none", color: "rgba(255,255,255,0.6)",
+              fontSize: 18, cursor: "pointer", lineHeight: 1,
+              width: 28, height: 28, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
             ✕
           </button>
 
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: "#00d4ff", paddingRight: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, marginBottom: 4, color: "#00d4ff", paddingRight: 36 }}>
             {selectedPoint.adresse ?? "Adresse inconnue"}
           </div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 12 }}>
-            {selectedPoint.commune} ({selectedPoint.dept}) · {selectedPoint.date_mutation?.slice(0, 10)}
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 10 }}>
+            {selectedPoint.commune} ({selectedPoint.dept}) · {formatDateFr(selectedPoint.date_mutation)}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>
                 {selectedPoint.valeur_fonciere.toLocaleString("fr-FR")} €
               </div>
             </div>
             <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.5 }}>Prix/m²</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#ffdd00", marginTop: 2 }}>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: "#ffdd00", marginTop: 2 }}>
                 {selectedPoint.prix_m2?.toLocaleString("fr-FR") ?? "—"} €
               </div>
             </div>
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
             {selectedPoint.type_local ?? "—"} · {selectedPoint.surface ?? "—"} m²
           </div>
 
-          {/* Boutons d'action */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               onClick={() => openExternalUrl(buildGoogleStreetViewUrl(selectedPoint.lat, selectedPoint.lon))}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)",
-                color: "#00d4ff", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                fontFamily: "Segoe UI, sans-serif", transition: "background 0.15s",
+                color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                fontFamily: "Segoe UI, sans-serif",
               }}
             >
               Voir l&apos;environnement
@@ -413,9 +425,9 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
                 try { openExternalUrl(buildGoogleMapsUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.adresse)); } catch { /* noop */ }
               }}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 500, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >
@@ -424,18 +436,14 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
             <button
               onClick={() => openExternalUrl(buildCadastreUrl(selectedPoint.lat, selectedPoint.lon, selectedPoint.commune))}
               style={{
-                padding: "7px 14px", borderRadius: 8,
+                padding: "7px 12px", borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 500, cursor: "pointer",
                 fontFamily: "Segoe UI, sans-serif",
               }}
             >
               Cadastre
             </button>
-          </div>
-
-          <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
-            Vues fournies par Google Maps et le Geoportail
           </div>
         </div>
       )}

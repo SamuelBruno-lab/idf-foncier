@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a1e" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#0d1033" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#111840" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f1535"/>
+      <stop offset="100%" stop-color="#0a0a1e"/>
+    </linearGradient>
+    <linearGradient id="towerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="buildGrad1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00ff88" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00ff88" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="buildGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0.5" y1="0" x2="0.5" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#skyGrad)"/>
+
+  <!-- Stars -->
+  <g opacity="0.4">
+    <circle cx="150" cy="80" r="1" fill="#fff"/>
+    <circle cx="320" cy="150" r="0.8" fill="#fff"/>
+    <circle cx="500" cy="60" r="1.2" fill="#fff"/>
+    <circle cx="680" cy="200" r="0.6" fill="#fff"/>
+    <circle cx="850" cy="100" r="1" fill="#fff"/>
+    <circle cx="1050" cy="180" r="0.8" fill="#fff"/>
+    <circle cx="1200" cy="50" r="1.1" fill="#fff"/>
+    <circle cx="1380" cy="130" r="0.7" fill="#fff"/>
+    <circle cx="1550" cy="90" r="1" fill="#fff"/>
+    <circle cx="1720" cy="160" r="0.9" fill="#fff"/>
+    <circle cx="250" cy="250" r="0.5" fill="#fff"/>
+    <circle cx="750" cy="300" r="0.7" fill="#fff"/>
+    <circle cx="1100" cy="280" r="0.6" fill="#fff"/>
+    <circle cx="1600" cy="250" r="0.8" fill="#fff"/>
+    <circle cx="400" cy="350" r="0.4" fill="#fff"/>
+    <circle cx="960" cy="50" r="1.3" fill="#00d4ff" opacity="0.6"/>
+    <circle cx="1400" cy="220" r="1" fill="#a855f7" opacity="0.5"/>
+  </g>
+
+  <!-- Distant glow on horizon -->
+  <ellipse cx="960" cy="850" rx="800" ry="200" fill="url(#glowGrad)" opacity="0.5"/>
+
+  <!-- Far background buildings (silhouettes) -->
+  <g opacity="0.15">
+    <rect x="80" y="680" width="40" height="200" rx="2" fill="#00d4ff"/>
+    <rect x="130" y="720" width="55" height="160" rx="2" fill="#00ff88"/>
+    <rect x="200" y="700" width="35" height="180" rx="2" fill="#a855f7"/>
+    <rect x="250" y="740" width="60" height="140" rx="2" fill="#00d4ff"/>
+    <rect x="330" y="690" width="45" height="190" rx="2" fill="#00ff88"/>
+    <rect x="390" y="730" width="50" height="150" rx="2" fill="#a855f7"/>
+    <rect x="460" y="710" width="35" height="170" rx="2" fill="#00d4ff"/>
+
+    <rect x="1380" y="700" width="50" height="180" rx="2" fill="#00d4ff"/>
+    <rect x="1450" y="730" width="40" height="150" rx="2" fill="#a855f7"/>
+    <rect x="1500" y="690" width="55" height="190" rx="2" fill="#00ff88"/>
+    <rect x="1570" y="720" width="45" height="160" rx="2" fill="#00d4ff"/>
+    <rect x="1630" y="710" width="60" height="170" rx="2" fill="#a855f7"/>
+    <rect x="1710" y="740" width="40" height="140" rx="2" fill="#00ff88"/>
+    <rect x="1770" y="700" width="50" height="180" rx="2" fill="#00d4ff"/>
+  </g>
+
+  <!-- Mid buildings left -->
+  <g opacity="0.2">
+    <rect x="100" y="720" width="65" height="200" rx="3" fill="#00d4ff"/>
+    <!-- Windows -->
+    <g fill="#00d4ff" opacity="0.5">
+      <rect x="110" y="740" width="8" height="6" rx="1"/>
+      <rect x="125" y="740" width="8" height="6" rx="1"/>
+      <rect x="140" y="740" width="8" height="6" rx="1"/>
+      <rect x="110" y="760" width="8" height="6" rx="1"/>
+      <rect x="125" y="760" width="8" height="6" rx="1"/>
+      <rect x="140" y="760" width="8" height="6" rx="1"/>
+      <rect x="110" y="780" width="8" height="6" rx="1"/>
+      <rect x="125" y="780" width="8" height="6" rx="1"/>
+      <rect x="140" y="780" width="8" height="6" rx="1"/>
+    </g>
+
+    <rect x="180" y="680" width="50" height="240" rx="3" fill="#a855f7"/>
+    <rect x="245" y="750" width="70" height="170" rx="3" fill="#00ff88"/>
+    <rect x="330" y="700" width="55" height="220" rx="3" fill="#00d4ff"/>
+  </g>
+
+  <!-- Mid buildings right -->
+  <g opacity="0.2">
+    <rect x="1450" y="710" width="60" height="210" rx="3" fill="#a855f7"/>
+    <rect x="1530" y="740" width="55" height="180" rx="3" fill="#00d4ff"/>
+    <rect x="1600" y="690" width="65" height="230" rx="3" fill="#00ff88"/>
+    <rect x="1680" y="730" width="50" height="190" rx="3" fill="#a855f7"/>
+    <rect x="1750" y="710" width="60" height="210" rx="3" fill="#00d4ff"/>
+  </g>
+
+  <!-- Eiffel Tower (center piece) -->
+  <g transform="translate(960, 880)" filter="url(#glow)">
+    <!-- Tower structure -->
+    <polygon points="0,-480 -8,-480 -70,0 -60,0" fill="url(#towerGrad)" stroke="#00d4ff" stroke-width="0.5" stroke-opacity="0.4"/>
+    <polygon points="0,-480 8,-480 70,0 60,0" fill="url(#towerGrad)" stroke="#00d4ff" stroke-width="0.5" stroke-opacity="0.4"/>
+
+    <!-- Antenna -->
+    <line x1="0" y1="-480" x2="0" y2="-530" stroke="#00d4ff" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="0" cy="-530" r="3" fill="#00d4ff" opacity="0.6"/>
+
+    <!-- Platforms -->
+    <rect x="-15" y="-450" width="30" height="4" rx="1" fill="#00d4ff" opacity="0.3"/>
+    <rect x="-30" y="-350" width="60" height="5" rx="1" fill="#00d4ff" opacity="0.25"/>
+    <rect x="-50" y="-200" width="100" height="6" rx="1" fill="#00d4ff" opacity="0.2"/>
+
+    <!-- Cross beams -->
+    <line x1="-20" y1="-400" x2="20" y2="-400" stroke="#00d4ff" stroke-width="0.5" opacity="0.2"/>
+    <line x1="-35" y1="-300" x2="35" y2="-300" stroke="#00d4ff" stroke-width="0.5" opacity="0.2"/>
+    <line x1="-55" y1="-150" x2="55" y2="-150" stroke="#00d4ff" stroke-width="0.5" opacity="0.2"/>
+    <line x1="-62" y1="-100" x2="62" y2="-100" stroke="#00d4ff" stroke-width="0.5" opacity="0.15"/>
+
+    <!-- Arch at base -->
+    <path d="M-45,-50 Q0,-100 45,-50" fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.2"/>
+  </g>
+
+  <!-- La Défense towers (left of center) -->
+  <g opacity="0.25">
+    <!-- Grande Arche shape -->
+    <g transform="translate(700, 880)">
+      <rect x="-50" y="-300" width="20" height="300" rx="2" fill="#00ff88"/>
+      <rect x="30" y="-300" width="20" height="300" rx="2" fill="#00ff88"/>
+      <rect x="-50" y="-300" width="100" height="25" rx="2" fill="#00ff88"/>
+      <!-- Windows -->
+      <g fill="#00ff88" opacity="0.4">
+        <rect x="-45" y="-260" width="10" height="8" rx="1"/>
+        <rect x="-45" y="-240" width="10" height="8" rx="1"/>
+        <rect x="-45" y="-220" width="10" height="8" rx="1"/>
+        <rect x="35" y="-260" width="10" height="8" rx="1"/>
+        <rect x="35" y="-240" width="10" height="8" rx="1"/>
+        <rect x="35" y="-220" width="10" height="8" rx="1"/>
+      </g>
+    </g>
+
+    <!-- Skyscrapers around La Défense -->
+    <rect x="590" y="560" width="35" height="320" rx="2" fill="#00d4ff" opacity="0.7"/>
+    <rect x="635" y="600" width="30" height="280" rx="2" fill="#a855f7" opacity="0.6"/>
+    <rect x="770" y="580" width="40" height="300" rx="2" fill="#00d4ff" opacity="0.6"/>
+    <rect x="820" y="620" width="28" height="260" rx="2" fill="#00ff88" opacity="0.5"/>
+  </g>
+
+  <!-- Sacré-Cœur (right of center) -->
+  <g transform="translate(1200, 880)" opacity="0.2">
+    <!-- Main dome -->
+    <ellipse cx="0" cy="-280" rx="35" ry="45" fill="#a855f7"/>
+    <!-- Side domes -->
+    <ellipse cx="-30" cy="-260" rx="20" ry="30" fill="#a855f7"/>
+    <ellipse cx="30" cy="-260" rx="20" ry="30" fill="#a855f7"/>
+    <!-- Base -->
+    <rect x="-45" y="-240" width="90" height="240" rx="3" fill="#a855f7"/>
+    <!-- Cross -->
+    <line x1="0" y1="-330" x2="0" y2="-310" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+    <line x1="-8" y1="-322" x2="8" y2="-322" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+  </g>
+
+  <!-- Ground / horizon line -->
+  <rect x="0" y="870" width="1920" height="210" fill="url(#groundGrad)"/>
+
+  <!-- Horizon glow line -->
+  <line x1="0" y1="880" x2="1920" y2="880" stroke="#00d4ff" stroke-width="1" opacity="0.1"/>
+
+  <!-- Subtle grid on ground (map-like) -->
+  <g opacity="0.04" stroke="#00d4ff" stroke-width="0.5">
+    <line x1="0" y1="900" x2="1920" y2="900"/>
+    <line x1="0" y1="930" x2="1920" y2="930"/>
+    <line x1="0" y1="960" x2="1920" y2="960"/>
+    <line x1="200" y1="880" x2="200" y2="1080"/>
+    <line x1="400" y1="880" x2="400" y2="1080"/>
+    <line x1="600" y1="880" x2="600" y2="1080"/>
+    <line x1="800" y1="880" x2="800" y2="1080"/>
+    <line x1="1000" y1="880" x2="1000" y2="1080"/>
+    <line x1="1200" y1="880" x2="1200" y2="1080"/>
+    <line x1="1400" y1="880" x2="1400" y2="1080"/>
+    <line x1="1600" y1="880" x2="1600" y2="1080"/>
+    <line x1="1800" y1="880" x2="1800" y2="1080"/>
+  </g>
+
+  <!-- Floating data particles -->
+  <g opacity="0.3">
+    <circle cx="300" cy="500" r="2" fill="#00d4ff">
+      <animate attributeName="cy" values="500;480;500" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.3;0.8;0.3" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="600" cy="450" r="1.5" fill="#00ff88">
+      <animate attributeName="cy" values="450;430;450" dur="3.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.2;0.7;0.2" dur="3.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="1300" cy="480" r="2" fill="#a855f7">
+      <animate attributeName="cy" values="480;460;480" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="1600" cy="520" r="1.5" fill="#00d4ff">
+      <animate attributeName="cy" values="520;500;520" dur="4.2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.2;0.5;0.2" dur="4.2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="450" cy="600" r="1" fill="#ff8844">
+      <animate attributeName="cy" values="600;585;600" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="1100" cy="550" r="1.8" fill="#00d4ff">
+      <animate attributeName="cy" values="550;535;550" dur="4.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Connecting lines (data network feel) -->
+  <g stroke="#00d4ff" stroke-width="0.3" opacity="0.08">
+    <line x1="300" y1="500" x2="600" y2="450"/>
+    <line x1="600" y1="450" x2="960" y2="400"/>
+    <line x1="960" y1="400" x2="1300" y2="480"/>
+    <line x1="1300" y1="480" x2="1600" y2="520"/>
+    <line x1="450" y1="600" x2="700" y2="580"/>
+    <line x1="1100" y1="550" x2="1300" y2="480"/>
+  </g>
+</svg>

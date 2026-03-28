@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ProModal from "./ProModal";
+import { useAuth } from "./AuthProvider";
 
 export default function Header() {
   const [showProModal, setShowProModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
+  const isLoggedIn = !loading && !!user;
 
   return (
     <>
@@ -112,33 +117,44 @@ export default function Header() {
 
             <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
 
-            <Link
-              href="/login"
-              style={{
-                color: "rgba(255,255,255,0.4)",
-                textDecoration: "none",
-                fontSize: 12,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-            >
-              Connexion
-            </Link>
-
-            <Link
-              href="/signup"
-              style={{
-                color: "rgba(255,255,255,0.4)",
-                textDecoration: "none",
-                fontSize: 12,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-            >
-              Créer un compte
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
+                  {user?.user_metadata?.prenom ?? user?.email?.split("@")[0] ?? ""}
+                </span>
+                <button
+                  onClick={async () => { await signOut(); router.push("/"); }}
+                  style={{
+                    background: "none", border: "none", padding: 0,
+                    color: "rgba(255,255,255,0.35)", cursor: "pointer",
+                    fontSize: 12, fontFamily: "inherit", transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ff6b6b")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+                >
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 12, transition: "color 0.15s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                >
+                  Connexion
+                </Link>
+                <Link
+                  href="/signup"
+                  style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 12, transition: "color 0.15s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                >
+                  Créer un compte
+                </Link>
+              </>
+            )}
 
             <button
               onClick={() => setShowProModal(true)}
@@ -202,8 +218,17 @@ export default function Header() {
             <Link href="/pricing" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Pricing</Link>
             <Link href="/actualites" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Nouveautés</Link>
             <button onClick={() => { setShowProModal(true); setMobileOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 14, fontFamily: "inherit", textAlign: "left", padding: 0 }}>Pro</button>
-            <Link href="/login" style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none", fontSize: 14 }}>Connexion</Link>
-            <Link href="/signup" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 13 }}>Créer un compte</Link>
+            {isLoggedIn ? (
+              <>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{user?.user_metadata?.prenom ?? user?.email?.split("@")[0] ?? ""}</span>
+                <button onClick={async () => { await signOut(); setMobileOpen(false); router.push("/"); }} style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", fontSize: 13, fontFamily: "inherit", textAlign: "left", padding: 0 }}>Déconnexion</button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" onClick={() => setMobileOpen(false)} style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none", fontSize: 14 }}>Connexion</Link>
+                <Link href="/signup" onClick={() => setMobileOpen(false)} style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 13 }}>Créer un compte</Link>
+              </>
+            )}
             <button
               onClick={() => { setShowProModal(true); setMobileOpen(false); }}
               style={{

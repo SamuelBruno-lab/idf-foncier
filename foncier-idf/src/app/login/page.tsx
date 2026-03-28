@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Already logged in → redirect home
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14,27 +24,19 @@ export default function LoginPage() {
     setStatus("loading");
     setErrorMsg("");
 
-    // For now: magic link flow — store the login attempt and show confirmation
-    // TODO: wire to Supabase Auth magic link when auth is configured
-    try {
-      const res = await fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          consentement: true,
-          source: "login",
-        }),
-      });
-      if (res.ok) {
-        setStatus("sent");
-      } else {
-        setErrorMsg("Email non reconnu. Avez-vous un compte ?");
-        setStatus("error");
-      }
-    } catch {
-      setErrorMsg("Erreur de connexion");
+    const supabase = getSupabaseBrowser();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
       setStatus("error");
+    } else {
+      setStatus("sent");
     }
   };
 
@@ -51,15 +53,15 @@ export default function LoginPage() {
         <div style={{ maxWidth: 440, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
-            Lien de connexion envoye
+            Lien de connexion envoyé
           </h1>
           <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, marginBottom: 28 }}>
-            Consultez votre boite mail <strong style={{ color: "#00d4ff" }}>{email}</strong> et cliquez sur le lien pour vous connecter. Le lien expire dans 15 minutes.
+            Consultez votre boîte mail <strong style={{ color: "#00d4ff" }}>{email}</strong> et cliquez sur le lien pour vous connecter.
           </p>
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
-            Pas de mail recu ? Verifiez vos spams ou{" "}
+            Pas de mail reçu ? Vérifiez vos spams ou{" "}
             <button onClick={() => setStatus("idle")} style={{ background: "none", border: "none", color: "#00d4ff", cursor: "pointer", fontSize: 12, fontFamily: "inherit", padding: 0 }}>
-              reessayez
+              réessayez
             </button>
           </p>
         </div>
@@ -69,13 +71,11 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#070714", color: "#e8e8f0", fontFamily: "Segoe UI, Arial, sans-serif", paddingTop: 52 }}>
-      {/* Header */}
       <div style={{ background: "linear-gradient(135deg, rgba(0,212,255,0.06), rgba(0,255,136,0.04))", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "16px 32px" }}>
         <Link href="/" style={{ color: "rgba(0,212,255,0.7)", textDecoration: "none", fontSize: 13 }}>← Retour</Link>
       </div>
 
       <div style={{ maxWidth: 400, margin: "0 auto", padding: "60px 24px" }}>
-        {/* Title */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>
             Connexion
@@ -85,7 +85,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 6, letterSpacing: 0.5 }}>
@@ -128,7 +127,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "28px 0" }}>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>pas encore de compte ?</span>
@@ -140,7 +138,7 @@ export default function LoginPage() {
           border: "1px solid rgba(0,255,136,0.2)", background: "rgba(0,255,136,0.04)",
           color: "#00ff88", fontSize: 13, fontWeight: 700, textDecoration: "none",
         }}>
-          Creer un compte gratuit
+          Créer un compte gratuit
         </Link>
       </div>
     </div>

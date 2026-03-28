@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import AnalyseLeadModal from "@/components/AnalyseLeadModal";
 import type { Intent } from "@/components/AnalyseLeadModal";
 import type { DvfPoint } from "@/types/dvf";
-import { COMMUNES_MAP, communesByDept } from "@/lib/communes-top30";
+import { COMMUNES_MAP, communesByDept, isFreeCommune, FREE_ANNEE_MIN, FREE_ANNEE_MAX } from "@/lib/communes-top30";
 
 const CommuneMap = dynamic(() => import("@/components/CommuneMap"), {
   ssr: false,
@@ -112,8 +112,12 @@ export default function CommunePage() {
       params.set("zoom", "15");
       params.set("mode", "heatmap");
       params.set("code_commune", code);
-      params.set("annee_min", "2020");
-      params.set("annee_max", "2025");
+      // Free tier: 2024-2025 only for top 30 communes
+      // TODO: Pro users get 2020-2025 (check auth when implemented)
+      const isPro = false;
+      const isFree = isFreeCommune(code);
+      params.set("annee_min", String((!isPro && isFree) ? FREE_ANNEE_MIN : 2020));
+      params.set("annee_max", String(FREE_ANNEE_MAX));
       // Pass commune coordinates for geographic fallback if code_commune match fails
       if (commune) {
         params.set("lat", String(commune.lat));

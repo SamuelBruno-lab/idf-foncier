@@ -8,22 +8,33 @@ const supabase = createClient(
 
 const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
 
-// Seuils outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py / 02_import_dvf.py)
-const PRIX_M2_MAX: Record<string, number> = {
-  Appartement: 20_000,
-  Maison: 15_000,
-  "Local industriel. commercial ou assimilé": 15_000,
+// Seuils outliers prix/m² — par département pour éviter les faux positifs
+// Paris/petite couronne tolère plus que grande couronne
+const PRIX_M2_MAX_BY_DEPT: Record<string, Record<string, number>> = {
+  "75": { Appartement: 20_000, Maison: 18_000, "Local industriel. commercial ou assimilé": 15_000 },
+  "92": { Appartement: 15_000, Maison: 12_000, "Local industriel. commercial ou assimilé": 12_000 },
+  "93": { Appartement: 10_000, Maison: 8_000, "Local industriel. commercial ou assimilé": 10_000 },
+  "94": { Appartement: 12_000, Maison: 10_000, "Local industriel. commercial ou assimilé": 10_000 },
+};
+const PRIX_M2_MAX_DEFAULT: Record<string, number> = {
+  Appartement: 10_000,
+  Maison: 8_000,
+  "Local industriel. commercial ou assimilé": 10_000,
 };
 const PRIX_M2_MIN = 500;
+const SURFACE_MIN = 9; // m² — minimum légal d'habitation en France
 
-/** Filtre les points dont le prix/m² est aberrant */
+/** Filtre les points dont le prix/m² est aberrant ou la surface suspecte */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function filterOutliers(rows: any[]): any[] {
   return rows.filter((r) => {
+    // Exclure les surfaces trop petites (erreurs de saisie DVF fréquentes)
+    if (r.surface != null && r.surface > 0 && r.surface < SURFACE_MIN) return false;
     const pm2 = r.prix_m2;
     if (pm2 == null) return true; // pas de prix/m² → on garde
     if (pm2 < PRIX_M2_MIN) return false;
-    const max = PRIX_M2_MAX[r.type_local];
+    const deptThresholds = PRIX_M2_MAX_BY_DEPT[r.dept] ?? PRIX_M2_MAX_DEFAULT;
+    const max = deptThresholds[r.type_local] ?? PRIX_M2_MAX_DEFAULT[r.type_local];
     if (max && pm2 > max) return false;
     return true;
   });

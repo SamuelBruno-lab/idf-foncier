@@ -1,6 +1,8 @@
 """
 datamerry — Import CSV DVF → Supabase
-Usage: python sql/02_import_dvf.py --dept 75 93 94 95 77 92
+Usage:
+  python sql/02_import_dvf.py --dept 75 93 94 95 77 92
+  python sql/02_import_dvf.py --download --dept 95        # télécharge toutes les années puis importe
 
 Prérequis:
   pip install pandas python-dotenv httpx
@@ -11,6 +13,8 @@ import argparse
 import os
 import hashlib
 import json
+import gzip
+import io
 import pandas as pd
 import numpy as np
 import httpx
@@ -41,13 +45,18 @@ COLS_KEEP = [
     "type_local", "surface_reelle_bati", "nombre_pieces_principales",
 ]
 
-# Seuils outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py)
-PRIX_M2_MAX = {
-    "Appartement": 20_000,
-    "Maison": 15_000,
-    "Local industriel. commercial ou assimilé": 15_000,
+# Seuils outliers prix/m² par département (cohérent avec route.ts)
+PRIX_M2_MAX_BY_DEPT = {
+    "75": {"Appartement": 20_000, "Maison": 18_000, "Local industriel. commercial ou assimilé": 15_000},
+    "92": {"Appartement": 15_000, "Maison": 12_000, "Local industriel. commercial ou assimilé": 12_000},
+    "93": {"Appartement": 10_000, "Maison": 8_000, "Local industriel. commercial ou assimilé": 10_000},
+    "94": {"Appartement": 12_000, "Maison": 10_000, "Local industriel. commercial ou assimilé": 10_000},
 }
+PRIX_M2_MAX_DEFAULT = {"Appartement": 10_000, "Maison": 8_000, "Local industriel. commercial ou assimilé": 10_000}
 PRIX_M2_MIN = 500
+SURFACE_MIN = 9  # m² — minimum légal d'habitation en France
+
+DOWNLOAD_YEARS = [2020, 2021, 2022, 2023, 2024, 2025]
 
 
 def make_id(row):
@@ -80,9 +89,14 @@ def load_dept(dept: str, csv_path: str) -> list:
     )
     df["prix_m2"] = pd.to_numeric(df["prix_m2"], errors="coerce").round().astype("Int64")
 
-    # Filtre outliers prix/m² (cohérent avec pipeline_hdbscan_idf.py)
+    # Filtre surface minimum (9m² = minimum légal habitation France)
+    valid_surface = df["surface_reelle_bati"].isna() | (df["surface_reelle_bati"] >= SURFACE_MIN)
+    df = df[valid_surface]
+
+    # Filtre outliers prix/m² — seuils par département
+    dept_thresholds = PRIX_M2_MAX_BY_DEPT.get(dept, PRIX_M2_MAX_DEFAULT)
     df = df[df["prix_m2"].isna() | (df["prix_m2"] >= PRIX_M2_MIN)]
-    for type_local, max_val in PRIX_M2_MAX.items():
+    for type_local, max_val in dept_thresholds.items():
         mask = (df["type_local"] == type_local) & (df["prix_m2"] > max_val)
         df = df[~mask]
 
@@ -221,11 +235,48 @@ def upsert_batch(table: str, records: list, on_conflict: str, batch_size=500):
     print()
 
 
+def download_dvf(dept: str, csv_dir: str) -> str:
+    """Télécharge toutes les années DVF depuis data.gouv.fr et fusionne en un seul CSV."""
+    out_path = os.path.join(csv_dir, f"dvf_{dept}.csv")
+    frames = []
+    for year in DOWNLOAD_YEARS:
+        url = f"https://files.data.gouv.fr/geo-dvf/latest/csv/{year}/departements/{dept}.csv.gz"
+        print(f"  Téléchargement {dept}/{year}...", end=" ", flush=True)
+        try:
+            with httpx.Client(timeout=60, verify=False) as client:
+                r = client.get(url)
+            if r.status_code == 200:
+                content = gzip.decompress(r.content)
+                df = pd.read_csv(io.BytesIO(content), low_memory=False)
+                frames.append(df)
+                print(f"✓ {len(df):,} lignes")
+            else:
+                print(f"✗ HTTP {r.status_code}")
+        except Exception as e:
+            print(f"✗ {e}")
+
+    if frames:
+        merged = pd.concat(frames, ignore_index=True)
+        merged.to_csv(out_path, index=False)
+        print(f"  → {out_path} ({len(merged):,} lignes, {len(frames)} années)")
+    else:
+        print(f"  ⚠ Aucune donnée téléchargée pour le département {dept}")
+
+    return out_path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dept", nargs="+", default=["60", "75", "77", "78", "91", "92", "93", "94", "95"], help="Départements à importer")
     parser.add_argument("--csv-dir", default="/home/user", help="Dossier des CSV DVF")
+    parser.add_argument("--download", action="store_true", help="Télécharger les DVF depuis data.gouv.fr avant import")
     args = parser.parse_args()
+
+    if args.download:
+        print("📥 Téléchargement des DVF depuis data.gouv.fr...")
+        for dept in args.dept:
+            download_dvf(dept, args.csv_dir)
+        print()
 
     all_records = []
     for dept in args.dept:

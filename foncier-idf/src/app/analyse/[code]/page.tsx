@@ -6,6 +6,7 @@ import WaitlistBox from "@/components/WaitlistBox";
 import InvestmentScore from "@/components/InvestmentScore";
 import InsightsSummary from "@/components/InsightsSummary";
 import PriceAnomalies from "@/components/PriceAnomalies";
+import ZoneEvolution from "@/components/ZoneEvolution";
 import ProBadge from "@/components/ProBadge";
 import { isFreeCommune } from "@/lib/communes-top30";
 
@@ -55,6 +56,7 @@ interface CommuneStats {
   code: string; nom: string; dept: string; totalCount: number; prix_m2_median: number;
   byType: TypeRow[]; evolution: EvolutionRow[]; zones: Zone[];
   deptMedians: Record<string, number>;
+  zoneEvolution: ZoneEvolutionData[];
 }
 
 function median(arr: number[]): number {
@@ -64,14 +66,16 @@ function median(arr: number[]): number {
   return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
 }
 
+interface PointRow { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null; lat: number | null; lon: number | null }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAllPoints(supabase: any, code: string, anneeMin: number) {
   const PAGE_SIZE = 1000;
-  const allRows: { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null }[] = [];
+  const allRows: PointRow[] = [];
   let offset = 0;
   while (true) {
     const { data } = await supabase.from("dvf_points")
-      .select("annee,prix_m2,type_local,valeur_fonciere")
+      .select("annee,prix_m2,type_local,valeur_fonciere,lat,lon")
       .eq("code_commune", code).gte("annee", anneeMin)
       .range(offset, offset + PAGE_SIZE - 1);
     if (!data || data.length === 0) break;
@@ -80,6 +84,65 @@ async function fetchAllPoints(supabase: any, code: string, anneeMin: number) {
     offset += PAGE_SIZE;
   }
   return allRows;
+}
+
+/** Distance approximative en km entre deux coordonnées */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+interface ZoneYearStat { annee: number; prix_m2_median: number; count: number }
+interface ZoneEvolutionData {
+  zone_id: string; type_local: string; cluster_id: number;
+  prix_m2_median: number | null;
+  evolution: ZoneYearStat[];
+}
+
+/** Match DVF points to HDBSCAN zones by proximity to centroid, compute yearly stats */
+function computeZoneEvolution(points: PointRow[], zones: Zone[]): ZoneEvolutionData[] {
+  const RADIUS_KM = 0.5; // 500m radius around zone centroid
+  const results: ZoneEvolutionData[] = [];
+
+  for (const zone of zones) {
+    if (!zone.centroid_lat || !zone.centroid_lon || !zone.prix_m2_median) continue;
+
+    // Find points near this zone's centroid with matching type
+    const nearby = points.filter((p) =>
+      p.lat != null && p.lon != null && p.prix_m2 != null && p.annee != null
+      && p.type_local === zone.type_local
+      && haversineKm(zone.centroid_lat!, zone.centroid_lon!, p.lat, p.lon) <= RADIUS_KM
+    );
+
+    if (nearby.length < 6) continue;
+
+    // Group by year
+    const byYear = new Map<number, number[]>();
+    for (const p of nearby) {
+      const arr = byYear.get(p.annee!) ?? [];
+      arr.push(p.prix_m2!);
+      byYear.set(p.annee!, arr);
+    }
+
+    const evolution: ZoneYearStat[] = [];
+    for (const [annee, prices] of [...byYear.entries()].sort((a, b) => a[0] - b[0])) {
+      if (prices.length < 2) continue;
+      evolution.push({ annee, prix_m2_median: median(prices), count: prices.length });
+    }
+
+    if (evolution.length >= 2) {
+      results.push({
+        zone_id: zone.id, type_local: zone.type_local, cluster_id: zone.cluster_id,
+        prix_m2_median: zone.prix_m2_median,
+        evolution,
+      });
+    }
+  }
+
+  return results;
 }
 
 const DISPLAYED_TYPES = new Set(["Appartement", "Maison", "Local industriel. commercial ou assimilé"]);
@@ -158,7 +221,12 @@ async function getCommuneStats(code: string): Promise<CommuneStats | null> {
     if (dc.type_local && dc.prix_m2_median) deptMedians[dc.type_local] = dc.prix_m2_median;
   }
 
-  return { code, nom, dept, totalCount, prix_m2_median: prixM2Median, byType: byTypeResult, evolution, zones: (zones ?? []) as Zone[], deptMedians };
+  // Compute zone evolution (match points to zones by proximity)
+  const zoneEvolution = hasPoints
+    ? computeZoneEvolution(points as PointRow[], (zones ?? []) as Zone[])
+    : [];
+
+  return { code, nom, dept, totalCount, prix_m2_median: prixM2Median, byType: byTypeResult, evolution, zones: (zones ?? []) as Zone[], deptMedians, zoneEvolution };
 }
 
 function pctVsDept(communePrix: number | null, deptPrix: number | undefined): number | null {
@@ -532,6 +600,11 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
             </div>
           );
         })()}
+
+        {/* ═══ ÉVOLUTION PAR MICRO-ZONE — Pro feature ═══ */}
+        {stats.zoneEvolution.length > 0 && (
+          <ZoneEvolution zones={stats.zoneEvolution} isPro={isPro} />
+        )}
 
         {/* ═══ ANOMALIES DE PRIX INTER-ZONES ═══ */}
         <PriceAnomalies zones={stats.zones} commune={stats.nom} />

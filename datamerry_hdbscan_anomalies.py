@@ -146,12 +146,19 @@ def clean_dvf(data):
     data["valeur_fonciere"] = pd.to_numeric(data["valeur_fonciere"], errors="coerce")
     data["surface_reelle_bati"] = pd.to_numeric(data["surface_reelle_bati"], errors="coerce")
 
-    # Prix/m²
+    # Prix/m² : utiliser prix_total_mutation / surface_totale_mutation
+    # pour éviter les prix/m² gonflés sur les multi-lots (appart + parking + cave)
+    surface_totale_mutation = data.groupby("id_mutation")["surface_reelle_bati"].transform(
+        lambda s: s.fillna(0).sum()
+    )
     data["prix_m2"] = np.where(
-        data["surface_reelle_bati"] > 0,
-        data["valeur_fonciere"] / data["surface_reelle_bati"],
+        (data["surface_reelle_bati"] > 0) & (surface_totale_mutation > 0),
+        data["valeur_fonciere"] / surface_totale_mutation,
         np.nan,
     )
+
+    # Filtre surface minimum (9m² = minimum légal habitation)
+    data = data[data["surface_reelle_bati"].isna() | (data["surface_reelle_bati"] >= 9)]
 
     # Filtrer types de biens
     data = data[data["type_local"].isin(TYPES_BIENS)]

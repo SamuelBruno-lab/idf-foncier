@@ -1,0 +1,10 @@
+pandas
+numpy
+hdbscan
+scipy
+httpx
+python-dotenv
+requests
+tqdm
+folium
+branca

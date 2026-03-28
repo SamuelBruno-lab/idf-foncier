@@ -7,3 +7,5 @@ vlg-foncier/
 # Generated HTML maps (large files - published directly to GitHub Pages repos)
 maps_*/
 maps_*/
+datamerry_output/
+*.parquet

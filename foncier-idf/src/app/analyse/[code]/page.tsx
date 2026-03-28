@@ -5,6 +5,7 @@ import AnalyseLeadSection from "@/components/AnalyseLeadSection";
 import WaitlistBox from "@/components/WaitlistBox";
 import InvestmentScore from "@/components/InvestmentScore";
 import InsightsSummary from "@/components/InsightsSummary";
+import PriceAnomalies from "@/components/PriceAnomalies";
 
 export const dynamicParams = true;
 export const revalidate = 21600;
@@ -486,6 +487,9 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
             </div>
           );
         })()}
+
+        {/* ═══ ANOMALIES DE PRIX INTER-ZONES ═══ */}
+        <PriceAnomalies zones={stats.zones} commune={stats.nom} />
 
         {/* ═══ REDESIGNED CTAs — result-oriented ═══ */}
         <AnalyseLeadSection commune={{ code: stats.code, nom: stats.nom }} />

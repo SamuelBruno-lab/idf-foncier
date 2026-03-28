@@ -261,9 +261,18 @@ export default function CommunePage() {
           )}
         </div>
 
-        {/* Droite : lien vers analyse détaillée */}
+        {/* Droite : liens vers analyse détaillée + anomalies */}
         {!isMobile && (
-          <div style={{ pointerEvents: "all" }}>
+          <div style={{ pointerEvents: "all", display: "flex", gap: 8 }}>
+            <Link href={`/analyse/${code}#anomalies`} style={{
+              background: "rgba(255,0,85,0.1)", border: "1px solid rgba(255,0,85,0.35)",
+              borderRadius: 8, padding: "7px 14px",
+              color: "#ff0055", fontSize: 12, fontWeight: 600,
+              fontFamily: "Segoe UI, sans-serif", textDecoration: "none",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}>
+              Anomalies de prix
+            </Link>
             <Link href={`/analyse/${code}`} style={{
               background: `${color}15`, border: `1px solid ${color}44`,
               borderRadius: 8, padding: "7px 14px",

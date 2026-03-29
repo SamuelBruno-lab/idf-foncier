@@ -74,7 +74,7 @@ export default function CommunePage() {
 
   // Filter points by active type (client-side, instant switch)
   const points = useMemo(
-    () => activeType === "all" ? allPoints : allPoints.filter((p) => p.type_local === activeType),
+    () => activeType === "all" ? allPoints : allPoints.filter((p: DvfPoint) => p.type_local === activeType),
     [allPoints, activeType],
   );
 
@@ -276,7 +276,7 @@ export default function CommunePage() {
         {!isMobile && (
           <div style={{ pointerEvents: "all", display: "flex", gap: 8 }}>
             <button
-              onClick={() => setShowAnalysePanel((v) => !v)}
+              onClick={() => setShowAnalysePanel((v: boolean) => !v)}
               style={{
                 background: showAnalysePanel ? `${color}30` : `${color}15`,
                 border: `1px solid ${showAnalysePanel ? color : `${color}44`}`,
@@ -317,10 +317,10 @@ export default function CommunePage() {
         {LAYER_TOGGLES.map((tab) => {
           const isActive = tab.key === "zones" ? showZones : tab.key === "heatmap" ? showHeatmap : showPoints;
           const toggleFn = tab.key === "zones"
-            ? () => setShowZones((v) => !v)
+            ? () => setShowZones((v: boolean) => !v)
             : tab.key === "heatmap"
-              ? () => setShowHeatmap((v) => !v)
-              : () => setShowPoints((v) => !v);
+              ? () => setShowHeatmap((v: boolean) => !v)
+              : () => setShowPoints((v: boolean) => !v);
           return (
             <button
               key={tab.key}
@@ -370,7 +370,7 @@ export default function CommunePage() {
               {dept}
             </div>
           </Link>
-          {siblings.slice(0, 12).map((c) => (
+          {siblings.slice(0, 12).map((c: { code: string; nom: string; color: string; population: number }) => (
             <Link key={c.code} href={`/commune/${c.code}`} title={c.nom} style={{ textDecoration: "none" }}>
               <div style={{
                 minWidth: 36, height: 28, borderRadius: 6,
@@ -382,14 +382,14 @@ export default function CommunePage() {
                 cursor: "pointer", transition: "all 0.15s",
                 padding: "0 4px",
               }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = `${c.color}20`;
-                  (e.currentTarget as HTMLDivElement).style.borderColor = `${c.color}88`;
-                  (e.currentTarget as HTMLDivElement).style.color = c.color;
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                  (e.currentTarget).style.background = `${c.color}20`;
+                  (e.currentTarget).style.borderColor = `${c.color}88`;
+                  (e.currentTarget).style.color = c.color;
                 }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = "transparent";
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.06)";
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                  (e.currentTarget).style.background = "transparent";
+                  (e.currentTarget).style.borderColor = "rgba(255,255,255,0.06)";
                   (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.4)";
                 }}
               >
@@ -439,7 +439,7 @@ export default function CommunePage() {
               }}
             >
               <div
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 style={{
                   position: "absolute", bottom: 0, left: 0, right: 0,
                   background: "#0d0d2b",
@@ -486,7 +486,7 @@ export default function CommunePage() {
                   gap: 8, padding: "0 2px",
                   scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
                 }}>
-                  {siblings.map((c, i) => (
+                  {siblings.map((c: { code: string; nom: string; color: string; population: number }, i: number) => (
                     <Link
                       key={c.code}
                       href={`/commune/${c.code}`}
@@ -565,14 +565,14 @@ export default function CommunePage() {
               display: "flex", alignItems: "center", gap: isMobile ? 3 : 6,
               whiteSpace: "nowrap", flexShrink: 0,
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = `${tab.color}20`;
-              (e.currentTarget as HTMLButtonElement).style.borderColor = `${tab.color}88`;
-              (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.currentTarget.style.background = `${tab.color}20`;
+              e.currentTarget.style.borderColor = `${tab.color}88`;
+              e.currentTarget.style.color = "#fff";
             }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = `${tab.color}33`;
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+              e.currentTarget.style.borderColor = `${tab.color}33`;
               (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.7)";
             }}
           >

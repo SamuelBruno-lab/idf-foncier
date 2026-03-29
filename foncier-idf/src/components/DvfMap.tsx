@@ -110,10 +110,14 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
 
   const layers = useMemo(() => {
     if (mode === "heatmap") {
+      // Limiter à 5000 points pour éviter le gel du navigateur
+      const cappedPoints = points.length > 5000
+        ? points.filter((_, i) => i % Math.ceil(points.length / 5000) === 0)
+        : points;
       return [
         new HeatmapLayer<DvfPoint>({
           id: "heatmap",
-          data: points,
+          data: cappedPoints,
           getPosition: (d) => [d.lon, d.lat],
           getWeight: (d) => d.prix_m2 ?? 1,
           radiusPixels: 40,
@@ -131,7 +135,7 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
         // Couche de points cliquables par-dessus la heatmap
         new ScatterplotLayer<DvfPoint>({
           id: "points-pickable",
-          data: points,
+          data: cappedPoints,
           getPosition: (d) => [d.lon, d.lat],
           getRadius: 6,
           radiusUnits: "pixels",
@@ -151,10 +155,14 @@ export default function DvfMap({ points, clusters, mode, filters, isLoading, onC
     }
 
     if (mode === "clusters") {
+      // Limiter à 500 clusters (top par nombre de transactions) pour éviter le gel
+      const cappedClusters = clusters.length > 500
+        ? [...clusters].sort((a, b) => b.count - a.count).slice(0, 500)
+        : clusters;
       return [
         new ScatterplotLayer<DvfCluster>({
           id: "clusters",
-          data: clusters,
+          data: cappedClusters,
           getPosition: (d) => [d.lon, d.lat],
           getRadius: (d) => Math.min(Math.max(Math.sqrt(d.count) * 1.2, 4), 22),
           radiusUnits: "pixels",

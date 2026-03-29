@@ -369,7 +369,12 @@ export default async function AnalysePage({ params }: { params: Promise<{ code: 
           ← Carte
         </Link>
         <span style={{ color: "rgba(255,255,255,0.15)" }}>|</span>
-        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>datamerry.com</span>
+        <Link href={`/commune/${code}`} style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none", fontSize: 13, transition: "color 0.15s" }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = "#00d4ff")}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+        >
+          Carte interactive →
+        </Link>
       </div>
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 24px 0" }}>

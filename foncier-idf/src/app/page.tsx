@@ -284,6 +284,20 @@ export default function HomePage() {
                 ))}
               </div>
             )}
+            {suggestions.length === 0 && searchQuery.length >= 3 && !searchLoading && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+                background: "#0d0d2b", border: "1px solid rgba(0,212,255,0.15)",
+                borderRadius: 10, zIndex: 2000,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                padding: "14px 16px",
+                color: "rgba(255,255,255,0.5)",
+                fontFamily: "Segoe UI, sans-serif", fontSize: 13,
+                textAlign: "center",
+              }}>
+                Commune non trouvée — datamerry couvre l&apos;Île-de-France + Oise (9 départements)
+              </div>
+            )}
           </div>
 
           {/* 3 value pillars — compact */}

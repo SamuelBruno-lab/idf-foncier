@@ -281,7 +281,6 @@ export default function MethodologiePage() {
               <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Valorisation actif par actif :</strong> chaque bien est rattaché à sa micro-zone avec un prix/m² réel, au lieu d&apos;un prix communal appliqué à l&apos;aveugle</li>
               <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Repérage d&apos;opportunités :</strong> une zone à 3 200 €/m² juste à côté d&apos;une zone à 5 500 €/m², c&apos;est un signal — potentiel de rattrapage ou décalage à arbitrer</li>
               <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Scoring automatique :</strong> chaque parcelle reçoit une note de marché de 0 à 10 selon le prix de sa micro-zone, intégrée dans un score global (mutabilité, sous-exploitation, PLU, surface)</li>
-              <li><strong style={{ color: "rgba(255,255,255,0.7)" }}>Chiffrage de faisabilité :</strong> surface de plancher × 0.75 × prix/m² de la zone − coûts de construction → estimation rapide de la valeur d&apos;un programme</li>
             </ul>
 
             <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "#fbbf24" }}>

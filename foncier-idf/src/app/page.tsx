@@ -231,6 +231,61 @@ export default function HomePage() {
             les micro-zones à potentiel — <span style={{ color: "rgba(255,255,255,0.8)" }}>invisible sur les portails classiques</span>.
           </p>
 
+          {/* ═══ Search bar — AU-DESSUS DU FOLD ═══ */}
+          <div ref={searchRef} style={{ position: "relative", width: "100%", maxWidth: 480, marginBottom: 24 }}>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 18, pointerEvents: "none" }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Rechercher une commune IDF…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "14px 16px 14px 46px",
+                  borderRadius: 12,
+                  border: "1.5px solid rgba(0,212,255,0.4)",
+                  background: "rgba(10,10,30,0.85)",
+                  color: "#fff",
+                  fontSize: 16,
+                  fontFamily: "Segoe UI, sans-serif",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  boxShadow: "0 0 20px rgba(0,212,255,0.15)",
+                }}
+              />
+              {searchLoading && (
+                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 13 }}>…</span>
+              )}
+            </div>
+            {suggestions.length > 0 && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+                background: "#0d0d2b", border: "1px solid rgba(0,212,255,0.3)",
+                borderRadius: 10, overflow: "hidden", zIndex: 2000,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              }}>
+                {suggestions.map((s) => (
+                  <div
+                    key={s.code}
+                    onClick={() => router.push(`/analyse/${s.code}`)}
+                    style={{
+                      padding: "11px 16px", cursor: "pointer", color: "#fff",
+                      fontFamily: "Segoe UI, sans-serif", fontSize: 14,
+                      borderBottom: "1px solid rgba(255,255,255,0.06)",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span>{s.nom}</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{s.code}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 3 value pillars — compact */}
           <div
             style={{
@@ -309,61 +364,6 @@ export default function HomePage() {
             >
               Voir l&apos;analyse de Vitry →
             </button>
-          </div>
-
-          {/* ═══ Search bar ═══ */}
-          <div ref={searchRef} style={{ position: "relative", width: "100%", maxWidth: 480, marginBottom: 24 }}>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 18, pointerEvents: "none" }}>🔍</span>
-              <input
-                type="text"
-                placeholder="Rechercher une commune IDF…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "14px 16px 14px 46px",
-                  borderRadius: 12,
-                  border: "1.5px solid rgba(0,212,255,0.4)",
-                  background: "rgba(10,10,30,0.85)",
-                  color: "#fff",
-                  fontSize: 16,
-                  fontFamily: "Segoe UI, sans-serif",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  boxShadow: "0 0 20px rgba(0,212,255,0.15)",
-                }}
-              />
-              {searchLoading && (
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#00d4ff", fontSize: 13 }}>…</span>
-              )}
-            </div>
-            {suggestions.length > 0 && (
-              <div style={{
-                position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
-                background: "#0d0d2b", border: "1px solid rgba(0,212,255,0.3)",
-                borderRadius: 10, overflow: "hidden", zIndex: 2000,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-              }}>
-                {suggestions.map((s) => (
-                  <div
-                    key={s.code}
-                    onClick={() => router.push(`/analyse/${s.code}`)}
-                    style={{
-                      padding: "11px 16px", cursor: "pointer", color: "#fff",
-                      fontFamily: "Segoe UI, sans-serif", fontSize: 14,
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,212,255,0.1)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <span>{s.nom}</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{s.code}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Stats bar */}

@@ -81,40 +81,6 @@ export default function Header() {
             >
               Nouveautés
             </Link>
-            <button
-              onClick={() => setShowProModal(true)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "rgba(255,255,255,0.55)",
-                cursor: "pointer",
-                fontSize: 13,
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: 0,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-            >
-              Pro
-              <span
-                style={{
-                  fontSize: 9,
-                  padding: "2px 6px",
-                  background: "rgba(0,255,136,0.15)",
-                  color: "#00ff88",
-                  borderRadius: 99,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                }}
-              >
-                NEW
-              </span>
-            </button>
-
             <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
 
             {isLoggedIn ? (
@@ -217,7 +183,6 @@ export default function Header() {
           >
             <Link href="/pricing" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Pricing</Link>
             <Link href="/actualites" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Nouveautés</Link>
-            <button onClick={() => { setShowProModal(true); setMobileOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 14, fontFamily: "inherit", textAlign: "left", padding: 0 }}>Pro</button>
             {isLoggedIn ? (
               <>
                 <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{user?.user_metadata?.prenom ?? user?.email?.split("@")[0] ?? ""}</span>

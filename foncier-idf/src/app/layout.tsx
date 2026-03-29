@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import Header from "@/components/Header";
-import ShareButton from "@/components/ShareButton";
 import AuthProvider from "@/components/AuthProvider";
 import "./globals.css";
 
@@ -58,7 +57,6 @@ export default function RootLayout({
         <AuthProvider>
           <Header />
           {children}
-          <ShareButton />
         </AuthProvider>
         <Analytics />
       </body>

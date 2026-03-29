@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface ProModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ const PRO_FEATURES = [
 ];
 
 export default function ProModal({ open, onClose, feature }: ProModalProps) {
+  const router = useRouter();
   useEffect(() => {
     if (open) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
@@ -131,8 +133,9 @@ export default function ProModal({ open, onClose, feature }: ProModalProps) {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* CTA — redirige vers signup */}
         <button
+          onClick={() => { onClose(); router.push("/signup"); }}
           style={{
             width: "100%",
             padding: 14,
@@ -150,10 +153,10 @@ export default function ProModal({ open, onClose, feature }: ProModalProps) {
           onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
           onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          Essai gratuit 14 jours — sans engagement
+          Démarrer l&apos;essai gratuit →
         </button>
         <p style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-          Pas de carte bancaire requise · Annulable à tout moment
+          14 jours gratuits · Pas de carte bancaire · Annulable à tout moment
         </p>
       </div>
     </div>

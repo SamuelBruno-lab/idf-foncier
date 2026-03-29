@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 function median(arr: number[]): number {
   if (arr.length === 0) return 0;
@@ -21,7 +23,7 @@ async function fetchAllPoints(code: string, anneeMin: number) {
   const allRows: { annee: number | null; prix_m2: number | null; type_local: string | null; valeur_fonciere: number | null }[] = [];
   let offset = 0;
   while (true) {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from("dvf_points")
       .select("annee,prix_m2,type_local,valeur_fonciere")
       .eq("code_commune", code)
@@ -42,7 +44,7 @@ export async function GET(
   const { code } = await params;
 
   // Clusters pré-calculés
-  const { data: clusters, error: err1 } = await supabase
+  const { data: clusters, error: err1 } = await getSupabase()
     .from("dvf_clusters_commune")
     .select("cluster_id,nom,dept,type_local,count,prix_median,prix_m2_median,lat,lon")
     .like("cluster_id", `${code}_%`);
@@ -59,7 +61,7 @@ export async function GET(
     return NextResponse.json({ error: "Commune introuvable" }, { status: 404 });
 
   // Micro-marchés pré-calculés (zones géospatiales)
-  const { data: microMarches } = await supabase
+  const { data: microMarches } = await getSupabase()
     .from("dvf_hdbscan_zones")
     .select(
       "id,type_local,cluster_id,count,prix_m2_median,prix_m2_p25,prix_m2_p75,prix_median,hull_coords,centroid_lat,centroid_lon,annee_min,annee_max"

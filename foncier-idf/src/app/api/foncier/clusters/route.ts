@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 /**
  * Returns HDBSCAN commune-level clusters for the foncier map overlay.
@@ -14,7 +16,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const dept = searchParams.get("dept")?.split(",").filter(Boolean) ?? [];
 
-  let q = supabase
+  let q = getSupabase()
     .from("dvf_clusters_commune")
     .select(
       "cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom,loyer_median_m2,rendement_brut"

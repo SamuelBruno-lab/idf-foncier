@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 /**
  * Returns HDBSCAN micro-market zones for a given commune (or dept).
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  let q = supabase
+  let q = getSupabase()
     .from("dvf_hdbscan_zones")
     .select(
       "id,code_commune,nom_commune,dept,type_local,cluster_id,count,prix_m2_median,prix_m2_p25,prix_m2_p75,prix_median,hull_coords,centroid_lat,centroid_lon"

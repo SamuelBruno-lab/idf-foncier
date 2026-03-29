@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export async function POST(req: NextRequest) {
   const { email, commune_code, commune_nom, type } = await req.json();
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
   const entryType = type ?? "notify";
 
   // Upsert pour éviter les doublons
-  const { error } = await supabase.from("waitlist").upsert(
+  const { error } = await getSupabase().from("waitlist").upsert(
     { email, commune_code, commune_nom, type: entryType },
     { onConflict: "email,commune_code", ignoreDuplicates: true }
   );
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
   const commune_code = req.nextUrl.searchParams.get("commune_code");
   if (!commune_code) return NextResponse.json({ count: 0 });
 
-  const { count } = await supabase
+  const { count } = await getSupabase()
     .from("waitlist")
     .select("*", { count: "exact", head: true })
     .eq("commune_code", commune_code);

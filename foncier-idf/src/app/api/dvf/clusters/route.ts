@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 const COLUMNS = "id,lat,lon,valeur_fonciere,prix_m2,surface,type_local,date_mutation,adresse,commune,code_commune,dept,annee";
 
@@ -115,7 +117,7 @@ async function fetchAllCommunePoints(
   // dept filter first so Postgres uses the dept index to narrow the scan.
   if (dept) {
     const rows = await paginateQuery((offset, pageSize) =>
-      supabase
+      getSupabase()
         .from("dvf_points")
         .select(COLUMNS)
         .eq("dept", dept)
@@ -131,7 +133,7 @@ async function fetchAllCommunePoints(
 
   // Strategy 2: exact code_commune match without dept
   const rows = await paginateQuery((offset, pageSize) =>
-    supabase
+    getSupabase()
       .from("dvf_points")
       .select(COLUMNS)
       .eq("code_commune", code_commune)
@@ -149,7 +151,7 @@ async function fetchAllCommunePoints(
     const DELTA_LAT = 0.02; // ~2.2km
     const DELTA_LON = 0.03; // ~2.1km at 48°N
     const bboxRows = await paginateQuery((offset, pageSize) =>
-      supabase
+      getSupabase()
         .from("dvf_points")
         .select(COLUMNS)
         .eq("dept", dept)
@@ -198,7 +200,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Pas de commune → requête classique avec limit
-    let q = supabase
+    let q = getSupabase()
       .from("dvf_points")
       .select(COLUMNS)
       .gte("annee", annee_min)
@@ -219,7 +221,7 @@ export async function GET(req: NextRequest) {
   const cluster_level = zoom >= 10 ? "commune" : zoom >= 7 ? "dept" : "region";
 
   const extraCols = cluster_level === "commune" ? ",loyer_median_m2,rendement_brut" : "";
-  let q = supabase
+  let q = getSupabase()
     .from(`dvf_clusters_${cluster_level}`)
     .select(`cluster_id,lat,lon,count,prix_median,prix_m2_median,dept,type_local,nom${extraCols}`)
     .gte("count", cluster_level === "commune" ? 20 : 5);

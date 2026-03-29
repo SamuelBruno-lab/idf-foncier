@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export async function POST(req: NextRequest) {
   const { email, commune_code, commune_nom } = await req.json();
@@ -21,14 +23,14 @@ export async function POST(req: NextRequest) {
 
   // Insert job + waitlist en même temps
   const [jobResult] = await Promise.all([
-    supabase.from("jobs").insert({
+    getSupabase().from("jobs").insert({
       commune_code,
       commune_nom,
       user_email: email,
       status: "pending_payment",
       amount_eur: 19.99,
     }),
-    supabase.from("waitlist").upsert(
+    getSupabase().from("waitlist").upsert(
       { email, commune_code, commune_nom, type: "paid_request" },
       { onConflict: "email,commune_code", ignoreDuplicates: false }
     ),

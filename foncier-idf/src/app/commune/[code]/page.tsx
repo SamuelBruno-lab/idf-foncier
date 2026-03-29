@@ -62,12 +62,15 @@ export default function CommunePage() {
   const [selectedIntent, setSelectedIntent] = useState<Intent | undefined>(undefined);
   const [pointSelected, setPointSelected] = useState(false);
   const [showCommuneSheet, setShowCommuneSheet] = useState(false);
+  const [showAnalysePanel, setShowAnalysePanel] = useState(false);
 
   // Data
   const [allPoints, setAllPoints] = useState<DvfPoint[]>([]);
   const [zones, setZones] = useState<HdbscanZone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<{ totalCount: number; prix_m2_median: number } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [analyseData, setAnalyseData] = useState<any>(null);
 
   // Filter points by active type (client-side, instant switch)
   const points = useMemo(
@@ -133,12 +136,15 @@ export default function CommunePage() {
     }
   }, [dept, code, commune]);
 
-  // Fetch commune stats
+  // Fetch commune stats + full analyse data
   useEffect(() => {
     fetch(`/api/analyse/${code}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.totalCount) setStats({ totalCount: d.totalCount, prix_m2_median: d.prix_m2_median });
+        if (d.totalCount) {
+          setStats({ totalCount: d.totalCount, prix_m2_median: d.prix_m2_median });
+          setAnalyseData(d);
+        }
       })
       .catch(() => {});
   }, [code]);
@@ -266,26 +272,30 @@ export default function CommunePage() {
           )}
         </div>
 
-        {/* Droite : liens vers analyse détaillée + anomalies */}
+        {/* Droite : toggle panneau analyse */}
         {!isMobile && (
           <div style={{ pointerEvents: "all", display: "flex", gap: 8 }}>
-            <Link href={`/analyse/${code}#anomalies`} style={{
-              background: "rgba(255,0,85,0.1)", border: "1px solid rgba(255,0,85,0.35)",
-              borderRadius: 8, padding: "7px 14px",
-              color: "#ff0055", fontSize: 12, fontWeight: 600,
-              fontFamily: "Segoe UI, sans-serif", textDecoration: "none",
-              display: "inline-flex", alignItems: "center", gap: 6,
-            }}>
-              Anomalies de prix
-            </Link>
+            <button
+              onClick={() => setShowAnalysePanel((v) => !v)}
+              style={{
+                background: showAnalysePanel ? `${color}30` : `${color}15`,
+                border: `1px solid ${showAnalysePanel ? color : `${color}44`}`,
+                borderRadius: 8, padding: "7px 14px",
+                color: showAnalysePanel ? "#fff" : color, fontSize: 12, fontWeight: 600,
+                fontFamily: "Segoe UI, sans-serif", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              {showAnalysePanel ? "✕ Fermer" : "📊 Analyse"}
+            </button>
             <Link href={`/analyse/${code}`} style={{
-              background: `${color}15`, border: `1px solid ${color}44`,
+              background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)",
               borderRadius: 8, padding: "7px 14px",
-              color, fontSize: 12, fontWeight: 600,
+              color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 600,
               fontFamily: "Segoe UI, sans-serif", textDecoration: "none",
               display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-              Analyse détaillée →
+              Voir tout →
             </Link>
           </div>
         )}
@@ -571,6 +581,99 @@ export default function CommunePage() {
           </button>
         ))}
       </div>
+
+      {/* === PANNEAU ANALYSE LATERAL === */}
+      {showAnalysePanel && analyseData && (
+        <div style={{
+          position: "fixed", top: 52, right: 0, bottom: 0, width: isMobile ? "100%" : 380,
+          zIndex: 10500, background: "rgba(7,7,20,0.97)",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(12px)",
+          overflowY: "auto", padding: "20px 20px 100px",
+          animation: "panelSlideIn 0.2s ease-out",
+          scrollbarWidth: "none" as React.CSSProperties["scrollbarWidth"],
+        }}>
+          {/* Close */}
+          <button onClick={() => setShowAnalysePanel(false)} style={{
+            position: "sticky", top: 0, float: "right", background: "rgba(255,255,255,0.08)",
+            border: "none", borderRadius: 8, width: 32, height: 32, color: "rgba(255,255,255,0.5)",
+            fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
+          }}>✕</button>
+
+          {/* Header */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 10, color, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>
+              Analyse · {nom}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#00d4ff" }}>{analyseData.totalCount?.toLocaleString("fr-FR") ?? "—"}</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>transactions</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#ffdd00" }}>{analyseData.prix_m2_median?.toLocaleString("fr-FR") ?? "—"} €</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>prix median/m²</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Par type de bien */}
+          {analyseData.byType && analyseData.byType.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+                Par type de bien
+              </div>
+              {analyseData.byType.filter((t: { type: string | null }) => t.type && t.type !== "Dépendance").map((t: { type: string; count: number; prix_m2_median: number | null }) => (
+                <div key={t.type} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+                    {t.type === "Local industriel. commercial ou assimilé" ? "Commerce" : t.type}
+                  </span>
+                  <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#ffdd00" }}>
+                      {t.prix_m2_median?.toLocaleString("fr-FR") ?? "—"} €/m²
+                    </span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{t.count} tx</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Micro-zones */}
+          {analyseData.zones && analyseData.zones.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+                {analyseData.zones.length} micro-zones detectees
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {analyseData.zones.slice(0, 12).map((z: { id: string; cluster_id: number; prix_m2_median: number | null; count: number }) => (
+                  <div key={z.id} style={{
+                    padding: "6px 10px", borderRadius: 6,
+                    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+                    fontSize: 11, color: "rgba(255,255,255,0.5)",
+                  }}>
+                    Z{z.cluster_id}: <span style={{ color: "#ffdd00", fontWeight: 700 }}>{z.prix_m2_median?.toLocaleString("fr-FR") ?? "—"}</span> €/m²
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CTA vers analyse complète */}
+          <Link href={`/analyse/${code}`} style={{
+            display: "block", textAlign: "center", padding: "12px 20px", borderRadius: 10,
+            background: `${color}15`, border: `1px solid ${color}44`,
+            color, fontSize: 13, fontWeight: 700, textDecoration: "none",
+            marginTop: 12,
+          }}>
+            Analyse complete · score + anomalies →
+          </Link>
+        </div>
+      )}
+      <style>{`@keyframes panelSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
 
       {showIntentModal && (
         <AnalyseLeadModal

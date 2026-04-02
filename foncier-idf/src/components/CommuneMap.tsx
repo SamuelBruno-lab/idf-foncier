@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Map, { NavigationControl, ScaleControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
-import { ScatterplotLayer, GeoJsonLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, GeoJsonLayer, TextLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import type { PickingInfo } from "@deck.gl/core";
 import type { DvfPoint } from "@/types/dvf";
@@ -281,9 +281,29 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     },
   }), [showPoints, points, pointPriceRange, isMobile]);
 
+  // Text labels showing prix/m² on each zone centroid
+  const zoneLabelLayer = useMemo(() => new TextLayer<HdbscanZone>({
+    id: "zone-labels",
+    visible: showZones && zones.length > 0,
+    data: zones.filter((z: HdbscanZone) => z.centroid_lat && z.centroid_lon && z.prix_m2_median),
+    getPosition: (z: HdbscanZone) => [z.centroid_lon, z.centroid_lat],
+    getText: (z: HdbscanZone) => `${Math.round(z.prix_m2_median!).toLocaleString("fr-FR")} €/m²`,
+    getSize: 13,
+    getColor: [255, 255, 255, 230],
+    getTextAnchor: "middle" as const,
+    getAlignmentBaseline: "center" as const,
+    fontFamily: "Segoe UI, Arial, sans-serif",
+    fontWeight: 700,
+    outlineWidth: 3,
+    outlineColor: [10, 10, 30, 200],
+    billboard: false,
+    sizeUnits: "pixels" as const,
+    pickable: false,
+  }), [showZones, zones]);
+
   const layers = useMemo(
-    () => [heatmapLayer, zoneLayer, centroidLayer, pointsLayer],
-    [heatmapLayer, zoneLayer, centroidLayer, pointsLayer],
+    () => [heatmapLayer, zoneLayer, centroidLayer, pointsLayer, zoneLabelLayer],
+    [heatmapLayer, zoneLayer, centroidLayer, pointsLayer, zoneLabelLayer],
   );
 
   const renderZoneTooltip = useCallback(() => {

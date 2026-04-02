@@ -291,7 +291,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     const z = hoveredZone.zone;
     return (
       <div style={{
-        position: "fixed", top: isMobile ? 52 : 16, right: isMobile ? 8 : 16, zIndex: 1000,
+        position: "fixed", top: isMobile ? 60 : 64, right: isMobile ? 8 : 16, zIndex: 10100,
         background: "rgba(10,10,30,0.95)", color: "#e8e8f0",
         borderRadius: 10, padding: isMobile ? "10px 14px" : "14px 18px",
         minWidth: isMobile ? 180 : 220, maxWidth: isMobile ? "60vw" : "none",
@@ -329,7 +329,7 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     if (!hoveredPoint || hoveredZone) return null;
     return (
       <div style={{
-        position: "fixed", top: isMobile ? 52 : 16, right: isMobile ? 8 : 16, zIndex: 1000,
+        position: "fixed", top: isMobile ? 60 : 64, right: isMobile ? 8 : 16, zIndex: 10100,
         background: "rgba(10,10,30,0.95)", color: "#e8e8f0",
         borderRadius: 10, padding: isMobile ? "10px 14px" : "14px 18px",
         minWidth: isMobile ? 180 : 220, maxWidth: isMobile ? "60vw" : "none",

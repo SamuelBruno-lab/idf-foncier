@@ -115,12 +115,10 @@ export default function CommunePage() {
       params.set("zoom", "15");
       params.set("mode", "heatmap");
       params.set("code_commune", code);
-      // Free tier: 2024-2025 only for top 30 communes
-      // TODO: Pro users get 2020-2025 (check auth when implemented)
-      const isPro = false;
-      const isFree = isFreeCommune(code);
-      params.set("annee_min", String((!isPro && isFree) ? FREE_ANNEE_MIN : 2020));
-      params.set("annee_max", String(FREE_ANNEE_MAX));
+      // Show all available years until data is re-imported for 2024-2025
+      // TODO: re-enable free tier restriction (2024-2025) after full DVF re-import
+      params.set("annee_min", "2020");
+      params.set("annee_max", "2025");
       // Pass commune coordinates for geographic fallback if code_commune match fails
       if (commune) {
         params.set("lat", String(commune.lat));

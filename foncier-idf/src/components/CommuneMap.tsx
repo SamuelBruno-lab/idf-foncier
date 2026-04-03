@@ -288,17 +288,18 @@ export default function CommuneMap({ commune, points, zones, showZones, showHeat
     data: zones.filter((z: HdbscanZone) => z.centroid_lat && z.centroid_lon && z.prix_m2_median),
     getPosition: (z: HdbscanZone) => [z.centroid_lon, z.centroid_lat],
     getText: (z: HdbscanZone) => `${Math.round(z.prix_m2_median!).toLocaleString("fr-FR")} €/m²`,
-    getSize: 13,
-    getColor: [255, 255, 255, 230],
+    getSize: 14,
+    getColor: [255, 255, 255, 240],
     getTextAnchor: "middle" as const,
     getAlignmentBaseline: "center" as const,
     fontFamily: "Segoe UI, Arial, sans-serif",
     fontWeight: 700,
-    outlineWidth: 3,
-    outlineColor: [10, 10, 30, 200],
-    billboard: false,
+    outlineWidth: 4,
+    outlineColor: [10, 10, 30, 220],
+    billboard: true,
     sizeUnits: "pixels" as const,
     pickable: false,
+    getPixelOffset: [0, -2],
   }), [showZones, zones]);
 
   const layers = useMemo(

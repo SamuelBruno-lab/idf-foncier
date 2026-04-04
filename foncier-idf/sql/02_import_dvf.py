@@ -1,10 +1,14 @@
 """
 datamerry — Import CSV DVF → Supabase
-Usage: python sql/02_import_dvf.py --dept 75 93 94 95 77 92
+Usage:
+  python sql/02_import_dvf.py --dept 75 93 94 95 77 92
+  python sql/02_import_dvf.py --dept 93 --download          # télécharge 2020-2025 depuis data.gouv.fr
+  python sql/02_import_dvf.py --dept 93 --download --years 2024 2025  # années spécifiques
 
 Prérequis:
   pip install pandas python-dotenv httpx
   Fichiers CSV: dvf_75.csv, dvf_93.csv, etc. dans /home/user/
+  Ou utiliser --download pour télécharger automatiquement depuis data.gouv.fr
 """
 
 import argparse
@@ -221,17 +225,59 @@ def upsert_batch(table: str, records: list, on_conflict: str, batch_size=500):
     print()
 
 
+DVF_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv/{year}/departements/{dept}.csv.gz"
+DVF_YEARS_DEFAULT = [2020, 2021, 2022, 2023, 2024, 2025]
+
+
+def download_dept_csv(dept: str, dest: str, years: list[int] | None = None):
+    """Télécharge les CSV DVF data.gouv.fr pour un département (2020-2025)."""
+    import gzip
+    import io
+
+    years = years or DVF_YEARS_DEFAULT
+    frames = []
+    for year in years:
+        url = DVF_URL.format(year=year, dept=dept)
+        print(f"    Téléchargement {url}...")
+        try:
+            resp = httpx.get(url, follow_redirects=True, timeout=120, verify=False)
+            resp.raise_for_status()
+            with gzip.open(io.BytesIO(resp.content)) as f:
+                df = pd.read_csv(f, low_memory=False)
+                df["annee"] = year
+                frames.append(df)
+                print(f"      → {len(df):,} lignes")
+        except Exception as e:
+            print(f"      ⚠ {year}: {e}")
+
+    if not frames:
+        print(f"    ❌ Aucune donnée téléchargée pour dept {dept}")
+        return False
+    merged = pd.concat(frames, ignore_index=True)
+    merged.to_csv(dest, index=False)
+    print(f"    ✅ {dest} ({len(merged):,} lignes)")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dept", nargs="+", default=["60", "75", "77", "78", "91", "92", "93", "94", "95"], help="Départements à importer")
     parser.add_argument("--csv-dir", default="/home/user", help="Dossier des CSV DVF")
+    parser.add_argument("--download", action="store_true", help="Télécharger les CSV DVF depuis data.gouv.fr (2020-2025)")
+    parser.add_argument("--years", nargs="+", type=int, default=None, help="Années à télécharger (défaut: 2020-2025)")
     args = parser.parse_args()
 
     all_records = []
     for dept in args.dept:
         csv_path = os.path.join(args.csv_dir, f"dvf_{dept}.csv")
+
+        if args.download:
+            print(f"\n📥 Téléchargement DVF dept {dept}...")
+            if not download_dept_csv(dept, csv_path, args.years):
+                continue
+
         if not os.path.exists(csv_path):
-            print(f"  Fichier manquant: {csv_path} — skipped")
+            print(f"  Fichier manquant: {csv_path} — skipped (utiliser --download)")
             continue
         records = load_dept(dept, csv_path)
         print(f"  Dept {dept}: {len(records):,} transactions")

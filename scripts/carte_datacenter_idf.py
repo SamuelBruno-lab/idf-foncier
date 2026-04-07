@@ -268,12 +268,29 @@ def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: st
         else:
             return "🟠 Peu bâti"
 
-    parcel_group = folium.FeatureGroup(name="Parcelles datacenter", show=True)
+    # Group parcels by department into separate FeatureGroups
+    dept_names = {
+        "60": "60 - Oise", "75": "75 - Paris", "77": "77 - Seine-et-Marne",
+        "78": "78 - Yvelines", "91": "91 - Essonne", "92": "92 - Hauts-de-Seine",
+        "93": "93 - Seine-Saint-Denis", "94": "94 - Val-de-Marne", "95": "95 - Val-d'Oise",
+    }
+
+    depts_in_data = sorted(results["code_dep"].unique())
+    dept_groups = {}
+    dept_counts = {}
+
+    for dept in depts_in_data:
+        label = dept_names.get(dept, f"Dept {dept}")
+        count = len(results[results["code_dep"] == dept])
+        dept_counts[dept] = count
+        fg = folium.FeatureGroup(name=f"{label} ({count})", show=True)
+        dept_groups[dept] = fg
 
     for _, row in results.iterrows():
         area_ha = row["area_m2"] / 10000
         built_pct = row.get("built_pct", 0)
         color = get_color(row.get("built_ratio", 0))
+        dept = row.get("code_dep", "?")
 
         popup_html = f"""
         <div style="font-family:Arial;font-size:12px;min-width:260px;line-height:1.6">
@@ -281,7 +298,7 @@ def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: st
                 {get_label(row.get('built_ratio', 0))}
             </div>
             <b>Parcelle {row.get('idu', '?')}</b><br>
-            📍 <b>{row.get('nom_com', '?')}</b> ({row.get('code_dep', '?')})<br>
+            📍 <b>{row.get('nom_com', '?')}</b> ({dept})<br>
             📐 Surface : <b>{area_ha:.2f} ha</b> ({row['area_m2']:,.0f} m²)<br>
             🏗️ Emprise bâtie : <b>{built_pct:.0f}%</b> ({row.get('built_m2', 0):,.0f} m²)<br>
             📊 Surface libre : <b>{(row['area_m2'] - row.get('built_m2', 0)):,.0f} m²</b><br>
@@ -299,10 +316,12 @@ def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: st
                 "fillColor": c, "color": c, "weight": 2.5, "fillOpacity": 0.5,
             },
             popup=folium.Popup(popup_html, max_width=340),
-        ).add_to(parcel_group)
+        ).add_to(dept_groups.get(dept, list(dept_groups.values())[0]))
 
-    parcel_group.add_to(m)
-    folium.LayerControl().add_to(m)
+    for fg in dept_groups.values():
+        fg.add_to(m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
 
     # Stats for legend
     n_nu = len(results[results["built_ratio"] < 0.02])

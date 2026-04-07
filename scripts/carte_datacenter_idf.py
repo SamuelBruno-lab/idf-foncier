@@ -117,6 +117,86 @@ out skel qt;
     return gdf
 
 
+def fetch_existing_datacenters() -> list[dict]:
+    """Récupère les datacenters existants depuis OSM."""
+    query = f"""
+[out:json][timeout:60];
+(
+  node["telecom"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  way["telecom"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  relation["telecom"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  node["building"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  way["building"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  node["man_made"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  way["man_made"="data_center"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+);
+out center tags;
+"""
+    print("  Téléchargement datacenters existants (OSM)...")
+    try:
+        resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=120)
+        elements = resp.json().get("elements", [])
+    except Exception as e:
+        print(f"    ⚠ {e}")
+        return []
+
+    results = []
+    for e in elements:
+        lat = e.get("lat") or e.get("center", {}).get("lat")
+        lon = e.get("lon") or e.get("center", {}).get("lon")
+        if not lat or not lon:
+            continue
+        tags = e.get("tags", {})
+        results.append({
+            "lat": lat, "lon": lon,
+            "name": tags.get("name", tags.get("operator", "Datacenter")),
+            "operator": tags.get("operator", ""),
+        })
+    print(f"    → {len(results)} datacenters")
+    return results
+
+
+def fetch_power_plants() -> list[dict]:
+    """Récupère les centrales de production d'électricité depuis OSM."""
+    query = f"""
+[out:json][timeout:60];
+(
+  node["power"="plant"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  way["power"="plant"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  relation["power"="plant"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  node["power"="substation"]["substation"="transmission"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+  way["power"="substation"]["substation"="transmission"]({IDF_BBOX[0]},{IDF_BBOX[1]},{IDF_BBOX[2]},{IDF_BBOX[3]});
+);
+out center tags;
+"""
+    print("  Téléchargement centrales énergétiques (OSM)...")
+    try:
+        resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=120)
+        elements = resp.json().get("elements", [])
+    except Exception as e:
+        print(f"    ⚠ {e}")
+        return []
+
+    results = []
+    for e in elements:
+        lat = e.get("lat") or e.get("center", {}).get("lat")
+        lon = e.get("lon") or e.get("center", {}).get("lon")
+        if not lat or not lon:
+            continue
+        tags = e.get("tags", {})
+        source = tags.get("plant:source", tags.get("generator:source", tags.get("source", "")))
+        output_mw = tags.get("plant:output:electricity", "")
+        results.append({
+            "lat": lat, "lon": lon,
+            "name": tags.get("name", "Centrale"),
+            "source": source,
+            "output": output_mw,
+            "type": "substation" if tags.get("power") == "substation" else "plant",
+        })
+    print(f"    → {len(results)} centrales/postes")
+    return results
+
+
 def fetch_large_parcels(dept: str, min_area: int, max_area: int) -> gpd.GeoDataFrame:
     """Parcelles cadastrales d'un dept entre min_area et max_area m²."""
     cql = f"code_dep='{dept}' AND contenance>={min_area} AND contenance<={max_area}"
@@ -227,7 +307,8 @@ def compute_built_ratio(parcels: gpd.GeoDataFrame, buildings: gpd.GeoDataFrame) 
 
 
 def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: str,
-             min_ha: float, max_ha: float, max_built_ratio: float):
+             min_ha: float, max_ha: float, max_built_ratio: float,
+             datacenters: list[dict] = None, power_plants: list[dict] = None):
     """Carte Folium interactive avec score datacenter."""
     center = [48.75, 2.4]
     m = folium.Map(location=center, zoom_start=9, tiles="CartoDB dark_matter")
@@ -321,6 +402,58 @@ def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: st
     for fg in dept_groups.values():
         fg.add_to(m)
 
+    # Existing datacenters layer
+    if datacenters:
+        dc_group = folium.FeatureGroup(name=f"⚡ Datacenters existants ({len(datacenters)})", show=True)
+        for dc in datacenters:
+            folium.CircleMarker(
+                location=[dc["lat"], dc["lon"]],
+                radius=7,
+                color="#ff00ff",
+                fill=True,
+                fill_color="#ff00ff",
+                fill_opacity=0.8,
+                weight=2,
+                popup=folium.Popup(
+                    f"""<div style="font-family:Arial;font-size:12px;min-width:180px">
+                        <b style="color:#ff00ff">⚡ {dc['name']}</b><br>
+                        {f"Opérateur : {dc['operator']}<br>" if dc['operator'] else ""}
+                    </div>""",
+                    max_width=280,
+                ),
+            ).add_to(dc_group)
+        dc_group.add_to(m)
+
+    # Power plants layer
+    if power_plants:
+        pp_group = folium.FeatureGroup(name=f"🔌 Centrales énergie ({len(power_plants)})", show=True)
+        source_icons = {
+            "gas": "🔥", "solar": "☀️", "wind": "💨", "hydro": "💧",
+            "nuclear": "⚛️", "waste": "♻️", "oil": "🛢️", "coal": "⚫",
+            "geothermal": "🌋", "biomass": "🌿",
+        }
+        for pp in power_plants:
+            icon = source_icons.get(pp["source"], "⚡")
+            color = "#ffdd00" if pp["type"] == "plant" else "#ff8800"
+            radius = 8 if pp["type"] == "plant" else 5
+            popup_html = f"""<div style="font-family:Arial;font-size:12px;min-width:180px">
+                <b style="color:{color}">{icon} {pp['name']}</b><br>
+                {f"Source : {pp['source']}<br>" if pp['source'] else ""}
+                {f"Puissance : {pp['output']}<br>" if pp['output'] else ""}
+                {"Type : Poste source HT" if pp['type'] == 'substation' else "Type : Centrale"}
+            </div>"""
+            folium.CircleMarker(
+                location=[pp["lat"], pp["lon"]],
+                radius=radius,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.8,
+                weight=2,
+                popup=folium.Popup(popup_html, max_width=280),
+            ).add_to(pp_group)
+        pp_group.add_to(m)
+
     folium.LayerControl(collapsed=False).add_to(m)
 
     # Stats for legend
@@ -343,11 +476,16 @@ def make_map(results: gpd.GeoDataFrame, zones: gpd.GeoDataFrame, output_path: st
         <div style="margin-bottom:4px"><span style="color:#00ff88">■</span> Terrain nu (&lt;2%) — <b>{n_nu}</b></div>
         <div style="margin-bottom:4px"><span style="color:#00d4ff">■</span> Quasi vide (2-10%) — <b>{n_quasi}</b></div>
         <div style="margin-bottom:4px"><span style="color:#ff9900">■</span> Peu bâti (10-{int(max_built_ratio*100)}%) — <b>{n_peu}</b></div>
+        <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px">
+            <span style="color:#ff00ff">●</span> Datacenters existants — <b>{len(datacenters or [])}</b><br>
+            <span style="color:#ffdd00">●</span> Centrales énergie — <b>{len([p for p in (power_plants or []) if p['type']=='plant'])}</b><br>
+            <span style="color:#ff8800">●</span> Postes source HT — <b>{len([p for p in (power_plants or []) if p['type']=='substation'])}</b>
+        </div>
         <div style="margin-top:12px;font-size:18px;font-weight:bold;color:#00ff88">
             {len(results)} parcelles
         </div>
         <div style="color:#555;font-size:10px;margin-top:8px">
-            Source : OSM · Cadastre IGN · BDTOPO · datamerry.com
+            Source : OSM · Cadastre IGN · datamerry.com
         </div>
     </div>
     """
@@ -426,7 +564,12 @@ def main():
     buildings = fetch_buildings_for_parcels(joined)
     joined = compute_built_ratio(joined, buildings)
 
-    # Step 5: Filter by built ratio
+    # Step 5: Datacenters existants + centrales énergie
+    print(f"\n[5] POI : datacenters existants + centrales énergie...")
+    datacenters = fetch_existing_datacenters()
+    power_plants = fetch_power_plants()
+
+    # Step 6: Filter by built ratio
     results = joined[joined["built_ratio"] <= args.max_built_ratio].copy()
     results = results.sort_values("built_ratio")
 
@@ -464,7 +607,8 @@ def main():
         print(f"\n📊 CSV exporté : {csv_path}")
 
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", args.output)
-    make_map(results, zones, output_path, args.min_ha, args.max_ha, args.max_built_ratio)
+    make_map(results, zones, output_path, args.min_ha, args.max_ha, args.max_built_ratio,
+             datacenters=datacenters, power_plants=power_plants)
 
 
 if __name__ == "__main__":

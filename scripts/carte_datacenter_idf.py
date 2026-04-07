@@ -218,61 +218,83 @@ def fetch_large_parcels(dept: str, min_area: int, max_area: int) -> gpd.GeoDataF
     return gdf
 
 
-def fetch_buildings_for_dept(dept: str) -> gpd.GeoDataFrame:
-    """Récupère TOUS les bâtiments cadastraux d'un département (paginé)."""
-    all_feats = []
-    offset = 0
-    page_size = 10000
-
-    while True:
-        print(f"\r    Bâtiments dept {dept} (offset {offset})...", end="", flush=True)
-        data = wfs_get({
-            "service": "WFS", "version": "2.0.0", "request": "GetFeature",
-            "typeName": "CADASTRALPARCELS.PARCELLAIRE_EXPRESS:batiment",
-            "outputFormat": "application/json",
-            "count": page_size,
-            "startIndex": offset,
-            "CQL_FILTER": f"code_dep='{dept}'",
-        }, timeout=180)
-
-        if not data:
-            break
-        feats = data.get("features", [])
-        if not feats:
-            break
-        all_feats.extend(feats)
-        if len(feats) < page_size:
-            break
-        offset += page_size
-        # Safety limit: 200k buildings per dept should be enough
-        if offset >= 200000:
-            break
-
-    print(f"\r    Dept {dept}: {len(all_feats)} bâtiments                ")
-    if not all_feats:
-        return gpd.GeoDataFrame()
-    return gpd.GeoDataFrame.from_features(all_feats, crs="EPSG:4326")
-
-
-def fetch_buildings_for_parcels(parcels: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Récupère les bâtiments cadastraux pour les départements concernés."""
+def fetch_buildings_osm(parcels: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Récupère les emprises bâtiments OSM autour des parcelles candidates.
+    Découpe en petits bbox pour éviter les timeouts Overpass.
+    """
     if parcels.empty:
         return gpd.GeoDataFrame()
 
-    depts = parcels["code_dep"].unique()
-    all_buildings = []
+    # Group parcels into spatial clusters (~0.04° chunks ≈ 4km)
+    bounds = parcels.total_bounds  # [minx, miny, maxx, maxy]
+    chunk_size = 0.04
+    lon_range = bounds[2] - bounds[0]
+    lat_range = bounds[3] - bounds[1]
+    n_lon = max(1, int(np.ceil(lon_range / chunk_size)))
+    n_lat = max(1, int(np.ceil(lat_range / chunk_size)))
 
-    for dept in sorted(depts):
-        buildings = fetch_buildings_for_dept(dept)
-        if not buildings.empty:
-            all_buildings.append(buildings)
+    all_buildings = []
+    total = n_lon * n_lat
+    done = 0
+    fetched_chunks = 0
+
+    for i in range(n_lon):
+        for j in range(n_lat):
+            done += 1
+            minlon = bounds[0] + i * chunk_size - 0.002
+            maxlon = bounds[0] + (i + 1) * chunk_size + 0.002
+            minlat = bounds[1] + j * chunk_size - 0.002
+            maxlat = bounds[1] + (j + 1) * chunk_size + 0.002
+
+            # Skip chunks with no parcels
+            chunk_parcels = parcels.cx[minlon:maxlon, minlat:maxlat]
+            if chunk_parcels.empty:
+                continue
+
+            fetched_chunks += 1
+            print(f"\r    Bâtiments OSM chunk {done}/{total} ({fetched_chunks} avec parcelles)...", end="", flush=True)
+
+            query = f"""
+[out:json][timeout:30];
+(
+  way["building"]({minlat},{minlon},{maxlat},{maxlon});
+);
+out body;
+>;
+out skel qt;
+"""
+            for attempt in range(2):
+                try:
+                    resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=60)
+                    if resp.status_code == 200:
+                        elements = resp.json().get("elements", [])
+                        nodes = {e["id"]: (e["lon"], e["lat"]) for e in elements if e["type"] == "node"}
+                        for e in elements:
+                            if e["type"] == "way" and "nodes" in e:
+                                coords = [nodes[n] for n in e["nodes"] if n in nodes]
+                                if len(coords) >= 3:
+                                    if coords[0] != coords[-1]:
+                                        coords.append(coords[0])
+                                    try:
+                                        poly = Polygon(coords)
+                                        if poly.is_valid and poly.area > 0:
+                                            all_buildings.append(poly)
+                                    except Exception:
+                                        pass
+                        break
+                    elif resp.status_code == 429:
+                        time.sleep(5)
+                except Exception:
+                    if attempt == 0:
+                        time.sleep(3)
+
+    print(f"\r    → {len(all_buildings)} bâtiments OSM récupérés                    ")
 
     if not all_buildings:
         return gpd.GeoDataFrame()
 
-    result = pd.concat(all_buildings, ignore_index=True)
-    print(f"    → Total: {len(result)} bâtiments")
-    return result
+    return gpd.GeoDataFrame(geometry=all_buildings, crs="EPSG:4326")
 
 
 def compute_built_ratio(parcels: gpd.GeoDataFrame, buildings: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -560,8 +582,8 @@ def main():
         return
 
     # Step 4: Building coverage analysis
-    print(f"\n[4] Analyse emprise bâtie (bâtiments BDTOPO/Cadastre)...")
-    buildings = fetch_buildings_for_parcels(joined)
+    print(f"\n[4] Analyse emprise bâtie (bâtiments OSM)...")
+    buildings = fetch_buildings_osm(joined)
     joined = compute_built_ratio(joined, buildings)
 
     # Step 5: Datacenters existants + centrales énergie

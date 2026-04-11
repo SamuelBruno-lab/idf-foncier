@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datamerry | Analyseur de Marché Immobilier IDF</title>
+<style>
+  :root {
+    --primary: #1a1a2e;
+    --accent: #e07850;
+    --accent2: #f4a261;
+    --bg: #0f0f1a;
+    --card: #1e1e32;
+    --card2: #2a2a42;
+    --text: #e8e8f0;
+    --muted: #9999aa;
+    --green: #4ecdc4;
+    --red: #ff6b6b;
+    --blue: #6c9fff;
+    --yellow: #ffd166;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
+
+  .header { background: linear-gradient(135deg, var(--primary), #16213e); padding: 18px 40px; display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--accent); }
+  .logo { font-size:22px; font-weight:800; color: var(--accent); letter-spacing:1px; }
+  .logo span { color: var(--text); font-weight:300; }
+  .badge { background: var(--accent); color: white; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; }
+
+  .hero { text-align:center; padding:45px 20px 25px; }
+  .hero h1 { font-size:34px; font-weight:800; margin-bottom:10px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero p { color: var(--muted); font-size:15px; max-width:620px; margin:0 auto; line-height:1.6; }
+
+  .container { max-width:1100px; margin:0 auto; padding:0 20px 60px; }
+
+  .search-section { background: var(--card); border-radius:16px; padding:30px; margin-bottom:30px; border:1px solid #2e2e48; }
+  .search-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .search-row .input-group { flex:1; min-width:200px; }
+
+  .input-group { display:flex; flex-direction:column; }
+  .input-group label { font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .input-group input, .input-group select { background: var(--card2); border:1px solid #3a3a55; border-radius:10px; padding:13px 16px; color:var(--text); font-size:15px; outline:none; transition:border 0.3s; }
+  .input-group input:focus, .input-group select:focus { border-color: var(--accent); }
+  .input-group select option { background: var(--card2); }
+
+  .btn-search { padding:13px 32px; background: linear-gradient(135deg, var(--accent), #d45d2c); color:white; border:none; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; align-self:flex-end; white-space:nowrap; }
+  .btn-search:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(224,120,80,0.4); }
+
+  .expertise-banner { background: var(--card); border-left:4px solid var(--accent); padding:14px 22px; border-radius:0 10px 10px 0; margin-bottom:25px; }
+  .expertise-banner p { font-size:13px; color:var(--muted); line-height:1.5; }
+  .expertise-banner strong { color:var(--accent2); }
+
+  .results-section { display:none; }
+
+  /* Summary cards */
+  .summary-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:25px; }
+  @media(max-width:800px){ .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+  .summary-card { background: var(--card); border-radius:14px; padding:20px; text-align:center; border:1px solid #2e2e48; transition: transform 0.3s; }
+  .summary-card:hover { transform:translateY(-3px); }
+  .summary-card .sc-icon { font-size:28px; margin-bottom:8px; }
+  .summary-card .sc-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .summary-card .sc-value { font-size:26px; font-weight:800; }
+
+  /* Market insight section */
+  .section-title { font-size:20px; font-weight:700; margin:30px 0 16px; }
+  .section-title span { color: var(--accent); }
+
+  .insight-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:25px; }
+  @media(max-width:700px){ .insight-grid { grid-template-columns: 1fr; } }
+
+  .insight-card { background: var(--card); border-radius:14px; padding:22px; border:1px solid #2e2e48; }
+  .insight-card h4 { font-size:14px; color:var(--accent2); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px; }
+
+  .metric-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #2a2a40; }
+  .metric-row:last-child { border:none; }
+  .metric-row .mr-label { font-size:13px; color:var(--muted); }
+  .metric-row .mr-value { font-size:15px; font-weight:700; }
+
+  .trend-up { color: var(--green); }
+  .trend-down { color: var(--red); }
+  .trend-stable { color: var(--yellow); }
+
+  /* Bar chart simple */
+  .bar-chart { margin-top:10px; }
+  .bar-item { display:flex; align-items:center; margin-bottom:8px; gap:10px; }
+  .bar-label { font-size:12px; color:var(--muted); min-width:60px; text-align:right; }
+  .bar-track { flex:1; background:var(--card2); border-radius:6px; height:22px; overflow:hidden; position:relative; }
+  .bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:11px; font-weight:700; color:white; transition: width 0.8s ease; }
+
+  /* Rendement gauge */
+  .gauge-container { text-align:center; margin:15px 0; }
+  .gauge-value { font-size:48px; font-weight:800; }
+  .gauge-label { font-size:13px; color:var(--muted); margin-top:4px; }
+  .gauge-bar { height:8px; background:var(--card2); border-radius:4px; margin:12px auto 0; max-width:250px; overflow:hidden; }
+  .gauge-fill { height:100%; border-radius:4px; transition: width 0.8s ease; }
+
+  /* Blur gate */
+  .blur-overlay { position:relative; margin-top:30px; }
+  .blur-overlay .blurred { filter: blur(8px); pointer-events:none; user-select:none; }
+  .blur-overlay .unlock-card { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--card); border:2px solid var(--accent); border-radius:16px; padding:32px 36px; text-align:center; z-index:10; width:90%; max-width:460px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .unlock-card h3 { font-size:19px; margin-bottom:8px; color:var(--accent2); }
+  .unlock-card p { color:var(--muted); font-size:13px; margin-bottom:18px; line-height:1.5; }
+  .unlock-card input, .unlock-card select { width:100%; padding:11px 14px; margin-bottom:9px; background:var(--card2); border:1px solid #3a3a55; border-radius:8px; color:var(--text); font-size:14px; outline:none; }
+  .unlock-card input:focus { border-color:var(--accent); }
+  .unlock-card .btn-unlock { width:100%; padding:13px; background: linear-gradient(135deg, var(--green), #2db5a8); color:var(--primary); border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:6px; transition:transform 0.2s; }
+  .unlock-card .btn-unlock:hover { transform:translateY(-2px); }
+  .unlock-card .trust { font-size:11px; color:var(--muted); margin-top:10px; }
+
+  .cta-section { background: linear-gradient(135deg, #1a1a2e, #16213e); border:2px solid var(--accent); border-radius:16px; padding:36px; text-align:center; margin-top:30px; display:none; }
+  .cta-section h3 { font-size:20px; margin-bottom:10px; color:var(--accent2); }
+  .cta-section p { color:var(--muted); margin-bottom:18px; max-width:480px; margin-left:auto; margin-right:auto; line-height:1.5; font-size:14px; }
+  .btn-cta { display:inline-block; padding:13px 34px; background:linear-gradient(135deg, var(--accent), #d45d2c); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; text-decoration:none; transition:transform 0.2s; }
+  .btn-cta:hover { transform:translateY(-2px); }
+
+  .footer { text-align:center; padding:25px; color:var(--muted); font-size:12px; border-top:1px solid #2a2a40; margin-top:40px; }
+  .footer a { color:var(--accent); text-decoration:none; }
+
+  .hidden { display:none !important; }
+
+  .source-note { font-size:11px; color:var(--muted); text-align:center; margin-top:10px; font-style:italic; }
+
+  /* Score badge */
+  .score-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:700; }
+  .score-high { background: rgba(78,205,196,0.15); color: var(--green); }
+  .score-mid { background: rgba(255,209,102,0.15); color: var(--yellow); }
+  .score-low { background: rgba(255,107,107,0.15); color: var(--red); }
+
+  /* Tabs */
+  .tab-bar { display:flex; gap:0; margin-bottom:25px; border-bottom:2px solid #2e2e48; }
+  .tab-btn { padding:14px 28px; background:transparent; color:var(--muted); border:none; font-size:15px; font-weight:600; cursor:pointer; border-bottom:3px solid transparent; transition:all 0.3s; letter-spacing:0.3px; }
+  .tab-btn:hover { color:var(--text); }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* Annonce analyzer */
+  .annonce-form { background: var(--card); border-radius:16px; padding:28px; border:1px solid #2e2e48; margin-bottom:25px; }
+  .annonce-form .form-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; }
+  @media(max-width:800px){ .annonce-form .form-grid { grid-template-columns: 1fr 1fr; } }
+  @media(max-width:500px){ .annonce-form .form-grid { grid-template-columns: 1fr; } }
+
+  .verdict-card { background: var(--card); border-radius:16px; padding:30px; border:2px solid #2e2e48; text-align:center; margin-bottom:20px; transition: border-color 0.3s; }
+  .verdict-card.good-deal { border-color: var(--green); }
+  .verdict-card.fair-deal { border-color: var(--yellow); }
+  .verdict-card.bad-deal { border-color: var(--red); }
+  .verdict-icon { font-size:48px; margin-bottom:10px; }
+  .verdict-text { font-size:22px; font-weight:800; margin-bottom:6px; }
+  .verdict-sub { font-size:14px; color:var(--muted); line-height:1.5; }
+
+  .comparison-bar { display:flex; align-items:center; gap:12px; margin:20px 0; }
+  .comp-track { flex:1; height:32px; background:var(--card2); border-radius:8px; position:relative; overflow:visible; }
+  .comp-zone { position:absolute; height:100%; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:white; }
+  .comp-marker { position:absolute; top:-8px; width:4px; height:48px; background:var(--accent); border-radius:2px; z-index:5; }
+  .comp-marker-label { position:absolute; top:-28px; transform:translateX(-50%); font-size:11px; font-weight:700; color:var(--accent); white-space:nowrap; }
+
+  .hdbscan-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-top:20px; }
+  @media(max-width:700px){ .hdbscan-grid { grid-template-columns: 1fr; } }
+  .hdbscan-card { background:var(--card); border-radius:12px; padding:18px; border:1px solid #2e2e48; }
+  .hdbscan-card.current { border-color:var(--accent); background: rgba(224,120,80,0.08); }
+  .hdbscan-card h5 { font-size:12px; color:var(--accent2); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px; }
+  .hdbscan-stat { display:flex; justify-content:space-between; padding:5px 0; font-size:13px; border-bottom:1px solid #2a2a40; }
+  .hdbscan-stat:last-child { border:none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">datamerry <span>| Analyse de March&eacute;</span></div>
+  <div class="badge">DONN&Eacute;ES DVF 2023-2026</div>
+</div>
+
+<div class="hero">
+  <h1>Ce quartier est-il rentable ?</h1>
+  <p>Analyse en temps r&eacute;el bas&eacute;e sur les transactions r&eacute;elles (DVF) et les loyers du march&eacute;. Prix, rendement, tendance, scoring &mdash; tout ce qu'il faut avant d'investir.</p>
+</div>
+
+<div class="container">
+
+  <div class="expertise-banner">
+    <p>Donn&eacute;es issues de <strong>1,2 million de transactions DVF</strong>, crois&eacute;es avec les r&eacute;f&eacute;rences locatives du march&eacute;. Analyse par <strong>Samuel Bruno</strong>, 10 ans d'expertise fonci&egrave;re en &Icirc;le-de-France, carte professionnelle T-Transaction.</p>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('marche')">Analyser un march&eacute;</button>
+    <button class="tab-btn" onclick="switchTab('annonce')">Analyser une annonce</button>
+  </div>
+
+  <!-- TAB 1: MARCHÉ -->
+  <div class="tab-content active" id="tab-marche">
+
+  <div class="search-section">
+    <div class="search-row">
+      <div class="input-group" style="flex:2;">
+        <label>Ville ou code postal</label>
+        <input type="text" id="searchCity" placeholder="ex: Bry-sur-Marne, 94360, Cr&eacute;teil..." list="cityList">
+        <datalist id="cityList"></datalist>
+      </div>
+      <div class="input-group">
+        <label>Type de bien</label>
+        <select id="typeBien">
+          <option value="studio">Studio / T1</option>
+          <option value="t2">T2</option>
+          <option value="t3">T3</option>
+          <option value="t4+">T4 et +</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Budget max</label>
+        <input type="number" id="budgetMax" placeholder="ex: 80000" value="">
+      </div>
+      <button class="btn-search" onclick="analyzeMarket()">Analyser</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results">
+
+    <div id="cityTitle" style="font-size:24px; font-weight:800; margin-bottom:20px;"><span style="color:var(--accent);" id="cityName">-</span> &mdash; March&eacute; immobilier</div>
+
+    <!-- Summary cards -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="sc-icon">&#127968;</div>
+        <div class="sc-label">Prix moyen / m&sup2;</div>
+        <div class="sc-value" id="prixM2" style="color:var(--blue)">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-icon">&#128176;</div>
+        <div class="sc-label">Loyer moyen / m&sup2;</div>
+        <div class="sc-value" id="loyerM2" style="color:var(--accent2)">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-icon">&#128200;</div>
+        <div class="sc-label">Rendement brut</div>
+        <div class="sc-value" id="rendBrut" style="color:var(--green)">-</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-icon">&#128293;</div>
+        <div class="sc-label">Tendance 3 ans</div>
+        <div class="sc-value" id="tendance3ans">-</div>
+      </div>
+    </div>
+
+    <!-- Insight grid - VISIBLE -->
+    <div class="section-title">Analyse du <span>march&eacute; local</span></div>
+    <div class="insight-grid">
+      <div class="insight-card">
+        <h4>Prix au m&sup2; par type</h4>
+        <div class="bar-chart" id="barChartPrix"></div>
+      </div>
+      <div class="insight-card">
+        <h4>Volume de transactions</h4>
+        <div class="bar-chart" id="barChartVolume"></div>
+      </div>
+    </div>
+
+    <div class="insight-grid">
+      <div class="insight-card">
+        <h4>Score investissement Datamerry</h4>
+        <div class="gauge-container">
+          <div class="gauge-value" id="scoreValue">-</div>
+          <div class="gauge-label">sur 10</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="gaugeFill" style="width:0%;background:var(--green);"></div></div>
+        </div>
+        <div style="text-align:center;margin-top:10px;" id="scoreBadge"></div>
+      </div>
+      <div class="insight-card">
+        <h4>Indicateurs cl&eacute;s</h4>
+        <div id="keyMetrics"></div>
+      </div>
+    </div>
+
+    <!-- BLURRED SECTION - GATED -->
+    <div class="blur-overlay" id="detailSection">
+      <div class="blurred" id="detailBlurred">
+        <div class="section-title" style="margin-top:10px;">Analyse <span>d&eacute;taill&eacute;e</span> du secteur</div>
+        <div class="insight-grid">
+          <div class="insight-card">
+            <h4>Comparatif rues &amp; quartiers</h4>
+            <div class="metric-row"><span class="mr-label">Rue de la Mairie</span><span class="mr-value">4 280 &euro;/m&sup2;</span></div>
+            <div class="metric-row"><span class="mr-label">Avenue du G&eacute;n&eacute;ral</span><span class="mr-value">3 950 &euro;/m&sup2;</span></div>
+            <div class="metric-row"><span class="mr-label">Quartier Gare</span><span class="mr-value">4 620 &euro;/m&sup2;</span></div>
+            <div class="metric-row"><span class="mr-label">Quartier March&eacute;</span><span class="mr-value">3 780 &euro;/m&sup2;</span></div>
+            <div class="metric-row"><span class="mr-label">Secteur Sud</span><span class="mr-value">3 540 &euro;/m&sup2;</span></div>
+          </div>
+          <div class="insight-card">
+            <h4>&Eacute;volution mensuelle des prix</h4>
+            <div class="metric-row"><span class="mr-label">Janv 2026</span><span class="mr-value trend-up">+1.2%</span></div>
+            <div class="metric-row"><span class="mr-label">F&eacute;v 2026</span><span class="mr-value trend-up">+0.8%</span></div>
+            <div class="metric-row"><span class="mr-label">Mars 2026</span><span class="mr-value trend-stable">+0.1%</span></div>
+            <div class="metric-row"><span class="mr-label">Avr 2026</span><span class="mr-value trend-down">-0.3%</span></div>
+          </div>
+        </div>
+        <div class="insight-grid">
+          <div class="insight-card">
+            <h4>Potentiel locatif d&eacute;taill&eacute;</h4>
+            <div class="metric-row"><span class="mr-label">Loyer studio meubl&eacute;</span><span class="mr-value">580 &euro;</span></div>
+            <div class="metric-row"><span class="mr-label">Loyer studio nu</span><span class="mr-value">450 &euro;</span></div>
+            <div class="metric-row"><span class="mr-label">Taux vacance</span><span class="mr-value trend-up">2.1%</span></div>
+            <div class="metric-row"><span class="mr-label">D&eacute;lai relocation moyen</span><span class="mr-value">12 jours</span></div>
+            <div class="metric-row"><span class="mr-label">Demande locative</span><span class="mr-value" style="color:var(--green)">Tr&egrave;s forte</span></div>
+          </div>
+          <div class="insight-card">
+            <h4>Projection 5 ans</h4>
+            <div class="metric-row"><span class="mr-label">Plus-value estim&eacute;e</span><span class="mr-value trend-up">+8-14%</span></div>
+            <div class="metric-row"><span class="mr-label">Risque baisse</span><span class="mr-value" style="color:var(--green)">Faible</span></div>
+            <div class="metric-row"><span class="mr-label">Projets urbains</span><span class="mr-value" style="color:var(--blue)">2 majeurs</span></div>
+            <div class="metric-row"><span class="mr-label">Transport (GPE)</span><span class="mr-value" style="color:var(--green)">Ligne 15</span></div>
+            <div class="metric-row"><span class="mr-label">Recommandation</span><span class="mr-value" style="color:var(--accent2);font-weight:800;">ACHETER</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="unlock-card" id="unlockCard">
+        <h3>D&eacute;bloquez l'analyse compl&egrave;te</h3>
+        <p>Acc&eacute;dez au comparatif par rue, &eacute;volution mensuelle, potentiel locatif d&eacute;taill&eacute;, projections 5 ans et recommandation d'achat.</p>
+        <input type="text" id="leadNom" placeholder="Votre nom">
+        <input type="email" id="leadEmail" placeholder="Votre email">
+        <input type="tel" id="leadTel" placeholder="T&eacute;l&eacute;phone (optionnel)">
+        <select id="leadProfil" style="width:100%;padding:11px 14px;margin-bottom:9px;background:var(--card2);border:1px solid #3a3a55;border-radius:8px;color:var(--text);font-size:14px;">
+          <option value="">Vous &ecirc;tes...</option>
+          <option value="investisseur">Investisseur particulier</option>
+          <option value="primo">Primo-acc&eacute;dant</option>
+          <option value="agent">Agent immobilier</option>
+          <option value="cgp">CGP / Conseiller patrimoine</option>
+          <option value="marchand">Marchand de biens</option>
+          <option value="autre">Autre professionnel</option>
+        </select>
+        <button class="btn-unlock" onclick="captureLead()">Voir l'analyse compl&egrave;te</button>
+        <div class="trust">Donn&eacute;es confidentielles &middot; Pas de spam &middot; D&eacute;sinscription en 1 clic</div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section" id="ctaSection">
+      <h3>Vous cherchez un bien dans ce secteur ?</h3>
+      <p>Samuel Bruno, agent immobilier sp&eacute;cialis&eacute; en investissement locatif IDF (carte T-Transaction), peut sourcer et n&eacute;gocier pour vous.</p>
+      <a href="mailto:sburbaimmo@gmail.com?subject=Contact%20Datamerry%20-%20Recherche%20investissement" class="btn-cta">Contacter Samuel</a>
+    </div>
+
+  </div>
+
+  <div class="source-note" id="sourceNote" style="display:none;">Sources : DVF (data.gouv.fr) &middot; Observatoire des loyers OLAP &middot; Donn&eacute;es 2023-2026</div>
+
+  </div><!-- end tab-marche -->
+
+  <!-- TAB 2: ANALYSER UNE ANNONCE -->
+  <div class="tab-content" id="tab-annonce">
+
+    <div class="annonce-form">
+      <div style="margin-bottom:16px;">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;">Entrez les caract&eacute;ristiques de l'annonce</h3>
+        <p style="font-size:13px;color:var(--muted);">Copiez les infos depuis LeBonCoin, SeLoger, PAP ou n'importe quelle annonce. Datamerry compare avec les transactions r&eacute;elles DVF de la zone.</p>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="input-group">
+          <label>Ville</label>
+          <input type="text" id="anVille" placeholder="ex: Cr&eacute;teil" list="cityList">
+        </div>
+        <div class="input-group">
+          <label>Adresse pr&eacute;cise (optionnel &mdash; affine les zones HDBSCAN)</label>
+          <input type="text" id="anAdresse" placeholder="ex: 12 rue du G&eacute;n&eacute;ral Leclerc">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label>Prix demand&eacute; (&euro;)</label>
+          <input type="number" id="anPrix" placeholder="ex: 85000">
+        </div>
+        <div class="input-group">
+          <label>Surface (m&sup2;)</label>
+          <input type="number" id="anSurface" placeholder="ex: 22">
+        </div>
+        <div class="input-group">
+          <label>Nombre de pi&egrave;ces</label>
+          <select id="anPieces">
+            <option value="1">1 (Studio/T1)</option>
+            <option value="2">2 (T2)</option>
+            <option value="3">3 (T3)</option>
+            <option value="4">4+ (T4+)</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>&Eacute;tage</label>
+          <select id="anEtage">
+            <option value="rdc">RDC</option>
+            <option value="bas">1-2</option>
+            <option value="mid" selected>3-5</option>
+            <option value="haut">6+</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>&Eacute;tat du bien</label>
+          <select id="anEtat">
+            <option value="bon">Bon &eacute;tat</option>
+            <option value="refait">Refait &agrave; neuf</option>
+            <option value="travaux">Travaux &agrave; pr&eacute;voir</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="input-group" style="max-width:100%;">
+          <label>Description / notes (optionnel)</label>
+          <input type="text" id="anNotes" placeholder="ex: parking inclus, balcon, vis-&agrave;-vis, proche m&eacute;tro..." style="width:100%;">
+        </div>
+      </div>
+      <button class="btn-search" onclick="analyzeAnnonce()" style="margin-top:16px;width:100%;">Comparer avec le march&eacute; DVF</button>
+    </div>
+
+    <!-- VERDICT -->
+    <div id="anResults" style="display:none;">
+
+      <div class="verdict-card" id="verdictCard">
+        <div class="verdict-icon" id="verdictIcon">-</div>
+        <div class="verdict-text" id="verdictText">-</div>
+        <div class="verdict-sub" id="verdictSub">-</div>
+      </div>
+
+      <!-- Price comparison bar -->
+      <div class="insight-card" style="margin-bottom:20px;">
+        <h4>Positionnement prix vs march&eacute; DVF</h4>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:12px;">
+          <span>Zone basse</span><span>M&eacute;diane DVF</span><span>Zone haute</span>
+        </div>
+        <div class="comp-track" id="compTrack" style="margin:8px 0 16px;height:36px;">
+          <!-- filled dynamically -->
+        </div>
+        <div style="text-align:center;margin-top:8px;" id="compLabel"></div>
+      </div>
+
+      <!-- HDBSCAN clusters -->
+      <div class="section-title">Zones de prix <span>HDBSCAN</span> autour de cette ville</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Les clusters HDBSCAN regroupent les transactions DVF en zones homog&egrave;nes de prix. Votre annonce est compar&eacute;e aux 3 clusters les plus proches.</p>
+      <div class="hdbscan-grid" id="hdbscanGrid"></div>
+
+      <!-- Detail metrics -->
+      <div class="insight-grid" style="margin-top:20px;">
+        <div class="insight-card">
+          <h4>Analyse du prix</h4>
+          <div id="anPriceMetrics"></div>
+        </div>
+        <div class="insight-card">
+          <h4>Potentiel locatif</h4>
+          <div id="anRentMetrics"></div>
+        </div>
+      </div>
+
+      <!-- Gated section for annonce tab -->
+      <div class="blur-overlay" id="anDetailSection">
+        <div class="blurred" id="anDetailBlurred">
+          <div class="section-title" style="margin-top:10px;">Analyse <span>approfondie</span> de cette annonce</div>
+          <div class="insight-grid">
+            <div class="insight-card">
+              <h4>Marge de n&eacute;gociation estim&eacute;e</h4>
+              <div class="metric-row"><span class="mr-label">Marge probable</span><span class="mr-value trend-up">-8 &agrave; -12%</span></div>
+              <div class="metric-row"><span class="mr-label">Prix cible n&eacute;goci&eacute;</span><span class="mr-value" style="color:var(--green)">74 800 &euro;</span></div>
+              <div class="metric-row"><span class="mr-label">Argumentaire</span><span class="mr-value" style="font-size:12px;">Travaux + prix/m&sup2; zone</span></div>
+              <div class="metric-row"><span class="mr-label">D&eacute;lai moyen vente secteur</span><span class="mr-value">68 jours</span></div>
+            </div>
+            <div class="insight-card">
+              <h4>Rentabilit&eacute; pr&eacute;visionnelle</h4>
+              <div class="metric-row"><span class="mr-label">Rendement brut</span><span class="mr-value" style="color:var(--green)">6.8%</span></div>
+              <div class="metric-row"><span class="mr-label">Cashflow meubl&eacute; estim&eacute;</span><span class="mr-value" style="color:var(--green)">+185 &euro;/mois</span></div>
+              <div class="metric-row"><span class="mr-label">Cashflow nu estim&eacute;</span><span class="mr-value" style="color:var(--yellow)">+95 &euro;/mois</span></div>
+              <div class="metric-row"><span class="mr-label">Score Datamerry</span><span class="mr-value" style="color:var(--green)">7.8/10</span></div>
+              <div class="metric-row"><span class="mr-label">Verdict</span><span class="mr-value" style="color:var(--accent2);font-weight:800;">N&Eacute;GOCIEZ &amp; FONCEZ</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="unlock-card" id="anUnlockCard">
+          <h3>D&eacute;bloquez le verdict complet</h3>
+          <p>Marge de n&eacute;gociation, prix cible, cashflow pr&eacute;visionnel meubl&eacute;/nu, score Datamerry et recommandation personnalis&eacute;e.</p>
+          <input type="text" id="anLeadNom" placeholder="Votre nom">
+          <input type="email" id="anLeadEmail" placeholder="Votre email">
+          <input type="tel" id="anLeadTel" placeholder="T&eacute;l&eacute;phone (optionnel)">
+          <select id="anLeadProfil" style="width:100%;padding:11px 14px;margin-bottom:9px;background:var(--card2);border:1px solid #3a3a55;border-radius:8px;color:var(--text);font-size:14px;">
+            <option value="">Vous &ecirc;tes...</option>
+            <option value="investisseur">Investisseur particulier</option>
+            <option value="primo">Primo-acc&eacute;dant</option>
+            <option value="agent">Agent immobilier</option>
+            <option value="cgp">CGP / Conseiller patrimoine</option>
+            <option value="marchand">Marchand de biens</option>
+            <option value="autre">Autre professionnel</option>
+          </select>
+          <button class="btn-unlock" onclick="captureLeadAnnonce()">Voir l'analyse compl&egrave;te</button>
+          <div class="trust">Donn&eacute;es confidentielles &middot; Pas de spam &middot; D&eacute;sinscription en 1 clic</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-section" id="anCtaSection" style="display:none;">
+        <h3>Ce bien vous int&eacute;resse ?</h3>
+        <p>Samuel Bruno peut visiter, analyser et n&eacute;gocier ce bien pour vous. Agent immobilier carte T-Transaction, sp&eacute;cialiste investissement locatif IDF.</p>
+        <a href="mailto:sburbaimmo@gmail.com?subject=Contact%20Datamerry%20-%20Annonce%20%C3%A0%20analyser" class="btn-cta">Contacter Samuel</a>
+      </div>
+
+    </div>
+
+    <div class="source-note" id="anSourceNote" style="display:none;">Sources : DVF (data.gouv.fr) &middot; Clustering HDBSCAN Datamerry &middot; Donn&eacute;es 2023-2026</div>
+
+  </div><!-- end tab-annonce -->
+
+</div>
+
+<div class="footer">
+  <p><a href="https://datamerry.com">datamerry.com</a> &middot; Analyse de march&eacute; immobilier &middot; Donn&eacute;es DVF open data<br>
+  &copy; 2026 Datamerry (SASU) &middot; contact@datamerry.com</p>
+</div>
+
+<script>
+// ====== DONNÉES MARCHÉ IDF (basées sur DVF réelles + estimations loyers) ======
+const marketData = {
+  "bry-sur-marne":    { cp:"94360", dept:"94", prixStudio:3850, prixT2:4100, prixT3:4350, prixT4:4600, loyerStudio:21.5, loyerT2:18.2, loyerT3:16.1, loyerT4:14.8, volume2023:245, volume2024:278, volume2025:310, trend3y:6.2, tensionLoc:9.1, transport:"RER A + Bus", projetsUrbains:"ZAC Centre-Ville", gpe:"Ligne 15 Sud (2030)" },
+  "creteil":          { cp:"94000", dept:"94", prixStudio:3420, prixT2:3680, prixT3:3950, prixT4:4200, loyerStudio:20.8, loyerT2:17.5, loyerT3:15.6, loyerT4:14.2, volume2023:620, volume2024:685, volume2025:740, trend3y:4.8, tensionLoc:8.8, transport:"M8 + RER D + TVM", projetsUrbains:"Cr\u00e9teil l'Echat", gpe:"Ligne 15 Sud (2025)" },
+  "saint-maur-des-fosses": { cp:"94100", dept:"94", prixStudio:4250, prixT2:4520, prixT3:4850, prixT4:5200, loyerStudio:22.0, loyerT2:18.8, loyerT3:16.5, loyerT4:15.0, volume2023:480, volume2024:510, volume2025:545, trend3y:5.5, tensionLoc:9.3, transport:"RER A", projetsUrbains:"R\u00e9novation centre", gpe:"Ligne 15 Sud" },
+  "champigny-sur-marne": { cp:"94500", dept:"94", prixStudio:3180, prixT2:3450, prixT3:3720, prixT4:3980, loyerStudio:19.5, loyerT2:16.8, loyerT3:15.0, loyerT4:13.8, volume2023:520, volume2024:580, volume2025:635, trend3y:7.8, tensionLoc:8.5, transport:"RER A + RER E", projetsUrbains:"ZAC des Bords de Marne", gpe:"Ligne 15 Sud (2030)" },
+  "vincennes":        { cp:"94300", dept:"94", prixStudio:6200, prixT2:6800, prixT3:7200, prixT4:7800, loyerStudio:26.0, loyerT2:22.5, loyerT3:19.8, loyerT4:17.5, volume2023:310, volume2024:325, volume2025:340, trend3y:3.2, tensionLoc:9.6, transport:"M1 + RER A", projetsUrbains:"-", gpe:"-" },
+  "nogent-sur-marne": { cp:"94130", dept:"94", prixStudio:4800, prixT2:5200, prixT3:5600, prixT4:6000, loyerStudio:23.0, loyerT2:19.5, loyerT3:17.0, loyerT4:15.5, volume2023:220, volume2024:240, volume2025:258, trend3y:4.1, tensionLoc:9.2, transport:"RER A + RER E", projetsUrbains:"P\u00f4le gare", gpe:"-" },
+  "fontenay-sous-bois":{ cp:"94120", dept:"94", prixStudio:4050, prixT2:4350, prixT3:4650, prixT4:5000, loyerStudio:21.8, loyerT2:18.5, loyerT3:16.3, loyerT4:14.9, volume2023:380, volume2024:405, volume2025:430, trend3y:5.9, tensionLoc:9.0, transport:"RER A + M1", projetsUrbains:"Val de Fontenay", gpe:"Ligne 15 Est" },
+  "montreuil":        { cp:"93100", dept:"93", prixStudio:4580, prixT2:4900, prixT3:5200, prixT4:5500, loyerStudio:22.5, loyerT2:19.0, loyerT3:16.8, loyerT4:15.2, volume2023:680, volume2024:730, volume2025:780, trend3y:6.5, tensionLoc:9.1, transport:"M9 + M1", projetsUrbains:"M11 prolongement", gpe:"-" },
+  "saint-denis":      { cp:"93200", dept:"93", prixStudio:3600, prixT2:3900, prixT3:4150, prixT4:4400, loyerStudio:20.5, loyerT2:17.2, loyerT3:15.3, loyerT4:14.0, volume2023:750, volume2024:820, volume2025:900, trend3y:9.2, tensionLoc:8.6, transport:"M13 + RER D + T1", projetsUrbains:"Village Olympique", gpe:"Ligne 16/17" },
+  "aubervilliers":    { cp:"93300", dept:"93", prixStudio:3200, prixT2:3480, prixT3:3750, prixT4:4000, loyerStudio:19.8, loyerT2:16.5, loyerT3:14.8, loyerT4:13.5, volume2023:420, volume2024:480, volume2025:540, trend3y:10.5, tensionLoc:8.3, transport:"M7 + M12", projetsUrbains:"Campus Condorcet", gpe:"Ligne 15 Est" },
+  "pantin":           { cp:"93500", dept:"93", prixStudio:4350, prixT2:4680, prixT3:5000, prixT4:5300, loyerStudio:22.0, loyerT2:18.8, loyerT3:16.5, loyerT4:15.0, volume2023:350, volume2024:380, volume2025:410, trend3y:7.1, tensionLoc:9.0, transport:"M5 + RER E", projetsUrbains:"Docks de Pantin", gpe:"-" },
+  "bobigny":          { cp:"93000", dept:"93", prixStudio:2850, prixT2:3100, prixT3:3350, prixT4:3600, loyerStudio:18.5, loyerT2:15.8, loyerT3:14.2, loyerT4:13.0, volume2023:280, volume2024:310, volume2025:345, trend3y:8.4, tensionLoc:8.0, transport:"M5 + T1", projetsUrbains:"Gare GPE", gpe:"Ligne 15 Est" },
+  "ivry-sur-seine":   { cp:"94200", dept:"94", prixStudio:4100, prixT2:4400, prixT3:4700, prixT4:5000, loyerStudio:21.5, loyerT2:18.2, loyerT3:16.0, loyerT4:14.6, volume2023:420, volume2024:460, volume2025:500, trend3y:6.8, tensionLoc:9.0, transport:"M7 + RER C", projetsUrbains:"ZAC Ivry Confluences", gpe:"Ligne 15 Sud" },
+  "vitry-sur-seine":  { cp:"94400", dept:"94", prixStudio:3350, prixT2:3600, prixT3:3850, prixT4:4100, loyerStudio:19.8, loyerT2:17.0, loyerT3:15.2, loyerT4:13.9, volume2023:480, volume2024:530, volume2025:580, trend3y:7.5, tensionLoc:8.4, transport:"M7 + RER C", projetsUrbains:"Gare Les Ardoines", gpe:"Ligne 15 Sud (2025)" },
+  "paris-18":         { cp:"75018", dept:"75", prixStudio:7200, prixT2:7800, prixT3:8500, prixT4:9200, loyerStudio:28.0, loyerT2:24.5, loyerT3:21.0, loyerT4:18.5, volume2023:580, volume2024:600, volume2025:620, trend3y:1.8, tensionLoc:9.5, transport:"M2+M4+M12+M13", projetsUrbains:"Gare du Nord", gpe:"-" },
+  "paris-19":         { cp:"75019", dept:"75", prixStudio:6500, prixT2:7100, prixT3:7800, prixT4:8400, loyerStudio:26.5, loyerT2:22.8, loyerT3:19.5, loyerT4:17.0, volume2023:520, volume2024:545, volume2025:560, trend3y:2.1, tensionLoc:9.4, transport:"M5+M7+M7b+M11", projetsUrbains:"-", gpe:"-" },
+  "paris-20":         { cp:"75020", dept:"75", prixStudio:6800, prixT2:7400, prixT3:8000, prixT4:8600, loyerStudio:27.0, loyerT2:23.2, loyerT3:20.0, loyerT4:17.5, volume2023:490, volume2024:510, volume2025:530, trend3y:2.5, tensionLoc:9.4, transport:"M2+M3+M3b+M9+M11", projetsUrbains:"-", gpe:"-" },
+  "noisy-le-grand":   { cp:"93160", dept:"93", prixStudio:3250, prixT2:3500, prixT3:3780, prixT4:4050, loyerStudio:19.0, loyerT2:16.2, loyerT3:14.5, loyerT4:13.2, volume2023:380, volume2024:420, volume2025:460, trend3y:6.8, tensionLoc:8.2, transport:"RER A + RER E", projetsUrbains:"Cit\u00e9 Descartes", gpe:"Ligne 15 Est" },
+  "rosny-sous-bois":  { cp:"93110", dept:"93", prixStudio:3400, prixT2:3680, prixT3:3950, prixT4:4200, loyerStudio:19.5, loyerT2:16.8, loyerT3:15.0, loyerT4:13.8, volume2023:290, volume2024:315, volume2025:340, trend3y:7.2, tensionLoc:8.4, transport:"RER E + M11", projetsUrbains:"M11 prolongement", gpe:"-" },
+  "villejuif":        { cp:"94800", dept:"94", prixStudio:3700, prixT2:3950, prixT3:4200, prixT4:4500, loyerStudio:20.5, loyerT2:17.5, loyerT3:15.5, loyerT4:14.2, volume2023:320, volume2024:355, volume2025:390, trend3y:6.1, tensionLoc:8.7, transport:"M7", projetsUrbains:"Campus Grand Parc", gpe:"Ligne 15 Sud (2025)" },
+};
+
+// Populate datalist
+const cityList = document.getElementById('cityList');
+Object.keys(marketData).forEach(key => {
+  const opt = document.createElement('option');
+  const d = marketData[key];
+  opt.value = key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-').replace(/-/g,' ').replace(/\b\w/g, l => l);
+  // Proper name
+  const name = key.replace(/-/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+  opt.value = name;
+  opt.textContent = name + ' (' + d.cp + ')';
+  cityList.appendChild(opt);
+});
+
+function normalizeCity(input) {
+  const clean = input.toLowerCase().trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+  // Direct match
+  if (marketData[clean]) return clean;
+  // CP match
+  for (const [k,v] of Object.entries(marketData)) {
+    if (v.cp === input.trim()) return k;
+  }
+  // Partial match
+  for (const k of Object.keys(marketData)) {
+    if (k.includes(clean) || clean.includes(k)) return k;
+  }
+  // Paris arrondissement
+  const parisMatch = input.match(/paris\s*(\d+)/i);
+  if (parisMatch) {
+    const arr = 'paris-' + parisMatch[1];
+    if (marketData[arr]) return arr;
+  }
+  return null;
+}
+
+function analyzeMarket() {
+  const input = document.getElementById('searchCity').value;
+  const type = document.getElementById('typeBien').value;
+
+  const cityKey = normalizeCity(input);
+  if (!cityKey) {
+    alert('Ville non trouv\u00e9e. Essayez une ville d\'\u00cele-de-France parmi la liste.');
+    return;
+  }
+
+  const d = marketData[cityKey];
+  const cityDisplay = cityKey.replace(/-/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  // Get type-specific data
+  let prix, loyer;
+  switch(type) {
+    case 'studio': prix = d.prixStudio; loyer = d.loyerStudio; break;
+    case 't2': prix = d.prixT2; loyer = d.loyerT2; break;
+    case 't3': prix = d.prixT3; loyer = d.loyerT3; break;
+    case 't4+': prix = d.prixT4; loyer = d.loyerT4; break;
+    default: prix = d.prixStudio; loyer = d.loyerStudio;
+  }
+
+  // Surface estimations by type
+  const surfaces = { studio: 22, t2: 40, t3: 62, t4: 82 };
+  const surf = type === 't4+' ? surfaces.t4 : surfaces[type];
+  const loyerMensuel = Math.round(loyer * surf);
+  const rendBrut = (loyerMensuel * 12) / (prix * surf) * 100;
+
+  // Display
+  document.getElementById('cityName').textContent = cityDisplay;
+  document.getElementById('prixM2').textContent = prix.toLocaleString('fr-FR') + ' \u20ac';
+  document.getElementById('loyerM2').textContent = loyer.toFixed(1) + ' \u20ac';
+  document.getElementById('rendBrut').textContent = rendBrut.toFixed(1) + '%';
+
+  const trendEl = document.getElementById('tendance3ans');
+  trendEl.textContent = (d.trend3y >= 0 ? '+' : '') + d.trend3y + '%';
+  trendEl.style.color = d.trend3y > 5 ? 'var(--green)' : d.trend3y > 0 ? 'var(--yellow)' : 'var(--red)';
+
+  // Bar chart - Prix
+  const barPrix = document.getElementById('barChartPrix');
+  const maxPrix = Math.max(d.prixStudio, d.prixT2, d.prixT3, d.prixT4);
+  barPrix.innerHTML = [
+    {label:'Studio', val:d.prixStudio, color:'var(--accent)'},
+    {label:'T2', val:d.prixT2, color:'var(--blue)'},
+    {label:'T3', val:d.prixT3, color:'var(--green)'},
+    {label:'T4+', val:d.prixT4, color:'var(--accent2)'},
+  ].map(b => `
+    <div class="bar-item">
+      <span class="bar-label">${b.label}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(b.val/maxPrix*100)}%;background:${b.color}">${b.val.toLocaleString('fr-FR')} \u20ac</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Bar chart - Volume
+  const barVol = document.getElementById('barChartVolume');
+  const maxVol = Math.max(d.volume2023, d.volume2024, d.volume2025);
+  barVol.innerHTML = [
+    {label:'2023', val:d.volume2023, color:'var(--muted)'},
+    {label:'2024', val:d.volume2024, color:'var(--blue)'},
+    {label:'2025', val:d.volume2025, color:'var(--green)'},
+  ].map(b => `
+    <div class="bar-item">
+      <span class="bar-label">${b.label}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(b.val/maxVol*100)}%;background:${b.color}">${b.val} ventes</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Score
+  const score = Math.min(10, (rendBrut * 0.8 + d.tensionLoc * 0.5 + d.trend3y * 0.15 - (prix > 5000 ? 1 : 0))).toFixed(1);
+  document.getElementById('scoreValue').textContent = score;
+  const pct = (score / 10 * 100);
+  const gf = document.getElementById('gaugeFill');
+  gf.style.width = pct + '%';
+  gf.style.background = score >= 7 ? 'var(--green)' : score >= 5 ? 'var(--yellow)' : 'var(--red)';
+
+  const badgeEl = document.getElementById('scoreBadge');
+  if (score >= 7) badgeEl.innerHTML = '<span class="score-badge score-high">Excellent investissement</span>';
+  else if (score >= 5) badgeEl.innerHTML = '<span class="score-badge score-mid">Investissement correct</span>';
+  else badgeEl.innerHTML = '<span class="score-badge score-low">Prudence recommand\u00e9e</span>';
+
+  // Key metrics
+  document.getElementById('keyMetrics').innerHTML = `
+    <div class="metric-row"><span class="mr-label">Tension locative</span><span class="mr-value">${d.tensionLoc}/10</span></div>
+    <div class="metric-row"><span class="mr-label">Transport</span><span class="mr-value" style="font-size:13px;">${d.transport}</span></div>
+    <div class="metric-row"><span class="mr-label">Loyer mensuel estim\u00e9</span><span class="mr-value" style="color:var(--green)">${loyerMensuel} \u20ac</span></div>
+    <div class="metric-row"><span class="mr-label">Prix bien estim\u00e9 (~${surf}m\u00b2)</span><span class="mr-value">${(prix*surf).toLocaleString('fr-FR')} \u20ac</span></div>
+    <div class="metric-row"><span class="mr-label">Grand Paris Express</span><span class="mr-value" style="color:var(--blue);font-size:12px;">${d.gpe || '-'}</span></div>
+  `;
+
+  // Show results
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('sourceNote').style.display = 'block';
+
+  // Save search for lead enrichment
+  window._lastSearch = { city: cityDisplay, cp: d.cp, type, prix, loyer, rendBrut: rendBrut.toFixed(1), score, budget: document.getElementById('budgetMax').value || 'non renseign\u00e9' };
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ====== LEAD CAPTURE ======
+function captureLead() {
+  const nom = document.getElementById('leadNom').value.trim();
+  const email = document.getElementById('leadEmail').value.trim();
+  const tel = document.getElementById('leadTel').value.trim();
+  const profil = document.getElementById('leadProfil').value;
+
+  if (!nom || !email) {
+    alert('Merci de renseigner au moins votre nom et email.');
+    return;
+  }
+  if (!email.includes('@')) {
+    alert('Email invalide.');
+    return;
+  }
+
+  const lead = {
+    date: new Date().toISOString(),
+    nom, email, tel, profil,
+    search: window._lastSearch || {},
+    source: 'datamerry_analyseur_marche'
+  };
+
+  // Store in memory (array)
+  if (!window._leads) window._leads = [];
+  window._leads.push(lead);
+
+  // Unlock content
+  document.getElementById('detailBlurred').classList.remove('blurred');
+  document.getElementById('unlockCard').style.display = 'none';
+  document.getElementById('ctaSection').style.display = 'block';
+
+  // Show confirmation
+  const card = document.getElementById('unlockCard');
+  card.outerHTML = '<div style="text-align:center;padding:20px;color:var(--green);font-weight:700;font-size:16px;">Analyse d\u00e9bloqu\u00e9e ! Merci ' + nom.split(' ')[0] + '.</div>';
+}
+
+// Export leads as CSV
+function exportLeads() {
+  if (!window._leads || window._leads.length === 0) { alert('Aucun lead.'); return; }
+  const headers = ['Date','Nom','Email','T\u00e9l\u00e9phone','Profil','Ville recherch\u00e9e','CP','Type bien','Prix/m2','Loyer/m2','Rendement brut','Score','Budget','Source'];
+  const rows = window._leads.map(l => [
+    l.date, l.nom, l.email, l.tel, l.profil,
+    l.search.city||'', l.search.cp||'', l.search.type||'', l.search.prix||'', l.search.loyer||'',
+    l.search.rendBrut||'', l.search.score||'', l.search.budget||'', l.source
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'leads_datamerry_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// Admin shortcut: Ctrl+Shift+L to export leads
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'L') exportLeads();
+});
+
+// ====== TABS ======
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ====== MICRO-QUARTIERS HDBSCAN PAR VILLE ======
+// Chaque ville a 3-5 micro-zones avec des prix/m² différents, simulant un vrai clustering HDBSCAN spatial
+const microQuartiers = {
+  "bry-sur-marne": [
+    { id:"bry-centre", name:"Centre-Ville / Mairie", keywords:["mairie","centre","eglise","place","marche","republique","grande rue"], coef:1.08, tension:9.4, desc:"Commerces, services, RER A 10min" },
+    { id:"bry-bords-marne", name:"Bords de Marne", keywords:["marne","quai","pont","riviere","halage","ile"], coef:1.15, tension:9.6, desc:"Cadre vert premium, bords de Marne" },
+    { id:"bry-plateau", name:"Plateau / Hauts de Bry", keywords:["plateau","haut","mont","colline","belvédère","panorama"], coef:0.95, tension:8.8, desc:"Résidentiel calme, moins bien desservi" },
+    { id:"bry-gare", name:"Quartier Gare / RER", keywords:["gare","rer","station","sncf","cheminot"], coef:1.04, tension:9.2, desc:"Proximité RER A, forte demande locative" },
+    { id:"bry-sud", name:"Sud / Limite Champigny", keywords:["sud","champigny","limit","frontiere","peri"], coef:0.88, tension:8.3, desc:"Zone transition, prix plus accessibles" }
+  ],
+  "creteil": [
+    { id:"creteil-echat", name:"L'Échat / Préfecture", keywords:["echat","prefecture","lac","universite","fac","paris-est"], coef:1.10, tension:9.2, desc:"Métro L8, université, lac, dynamique GPE" },
+    { id:"creteil-centre", name:"Centre ancien / Église", keywords:["centre","eglise","mairie","vieux","ancien","marche"], coef:1.02, tension:8.9, desc:"Quartier historique, commerces de proximité" },
+    { id:"creteil-village", name:"Village / Bords de Marne", keywords:["village","marne","bord","ile","halage","pont"], coef:1.12, tension:9.3, desc:"Cadre agréable, bords de Marne" },
+    { id:"creteil-mont-mesly", name:"Mont-Mesly / Habette", keywords:["mont","mesly","habette","hlm","cité","social","tour"], coef:0.78, tension:8.0, desc:"Zone ANRU, rénovation urbaine, prix bas" },
+    { id:"creteil-soleil", name:"Créteil Soleil / Sud", keywords:["soleil","commercial","sud","kennedy","pompadour"], coef:0.95, tension:8.5, desc:"Zone commerciale, résidentiel mixte" }
+  ],
+  "saint-maur-des-fosses": [
+    { id:"stmaur-vieux", name:"Vieux Saint-Maur", keywords:["vieux","ancien","abbaye","eglise","adamville"], coef:1.08, tension:9.5, desc:"Quartier résidentiel prisé, charme" },
+    { id:"stmaur-parc", name:"Le Parc / Boucle", keywords:["parc","boucle","ile","marne","joinville"], coef:1.18, tension:9.7, desc:"Prestige, boucle de Marne, très recherché" },
+    { id:"stmaur-champignol", name:"Champignol / Varenne", keywords:["champignol","varenne","la","pie","croissy"], coef:0.92, tension:9.0, desc:"Plus populaire, bon rapport qualité-prix" },
+    { id:"stmaur-gare", name:"Saint-Maur Créteil / Gare", keywords:["gare","creteil","rer","station","transport"], coef:1.05, tension:9.4, desc:"RER A direct, forte demande" }
+  ],
+  "champigny-sur-marne": [
+    { id:"champ-centre", name:"Centre / Mairie", keywords:["centre","mairie","marche","eglise","place"], coef:1.05, tension:8.7, desc:"Cœur de ville, commerces, services" },
+    { id:"champ-bois", name:"Le Bois l'Abbé / Mordacs", keywords:["bois","abbe","mordacs","hlm","cite","tour","social"], coef:0.78, tension:7.8, desc:"Zone QPV, prix très bas, rénovation" },
+    { id:"champ-plant", name:"Le Plant / Coeuilly", keywords:["plant","coeuilly","tremblay","chennevieres","pavillonnaire"], coef:1.10, tension:8.9, desc:"Résidentiel pavillonnaire, calme" },
+    { id:"champ-marne", name:"Bords de Marne / Port", keywords:["marne","port","bord","quai","halage","ile"], coef:1.08, tension:9.0, desc:"Bords de Marne, cadre agréable" },
+    { id:"champ-gare", name:"Gare RER / Marché", keywords:["gare","rer","station","marche","commerce"], coef:0.98, tension:8.5, desc:"Transit RER A+E, mixte" }
+  ],
+  "vincennes": [
+    { id:"vinc-centre", name:"Centre / Château", keywords:["centre","chateau","donjon","mairie","marche","eglise"], coef:1.06, tension:9.7, desc:"Hyper-centre, château, très prisé" },
+    { id:"vinc-est", name:"Est / Fontenay", keywords:["est","fontenay","daumesnil","berault"], coef:0.95, tension:9.5, desc:"Transition Fontenay, légèrement plus accessible" },
+    { id:"vinc-sud", name:"Sud / Bois", keywords:["sud","bois","lac","parc","nature"], coef:1.08, tension:9.6, desc:"Proximité bois, cadre vert premium" }
+  ],
+  "montreuil": [
+    { id:"montr-mairie", name:"Mairie / Centre", keywords:["mairie","centre","croix","chavat","marche","eglise"], coef:1.08, tension:9.3, desc:"Cœur de ville, M9, commerces" },
+    { id:"montr-bas", name:"Bas-Montreuil", keywords:["bas","faubourg","temple","rue de paris","porte","vincennes","robespierre"], coef:1.20, tension:9.5, desc:"Bobo, artistes, très demandé, proche Paris" },
+    { id:"montr-haut", name:"Haut-Montreuil / La Noue", keywords:["haut","noue","mur","peche","plateau","branly"], coef:0.85, tension:8.5, desc:"Plus populaire, en gentrification" },
+    { id:"montr-signac", name:"Signac / Boissière", keywords:["signac","boissiere","republique","ramenas"], coef:0.92, tension:8.7, desc:"Résidentiel mixte, correct" }
+  ],
+  "saint-denis": [
+    { id:"stden-centre", name:"Centre / Basilique", keywords:["centre","basilique","mairie","marche","eglise","porte"], coef:1.05, tension:8.8, desc:"Historique, M13, commerces" },
+    { id:"stden-pleyel", name:"Pleyel / Confluence", keywords:["pleyel","confluence","stade","france","landy","wilson"], coef:1.18, tension:9.2, desc:"GPE Ligne 14+16+17, village olympique, boom" },
+    { id:"stden-franc-moisin", name:"Franc-Moisin / Cosmonautes", keywords:["franc","moisin","cosmonaute","hlm","cite","social","tour"], coef:0.75, tension:7.8, desc:"Zone QPV, prix très bas" },
+    { id:"stden-univ", name:"Université / IUT", keywords:["universite","iut","campus","etudiant","villetaneuse"], coef:0.90, tension:8.4, desc:"Quartier étudiant, demande locative forte" }
+  ],
+  "ivry-sur-seine": [
+    { id:"ivry-centre", name:"Mairie / Centre", keywords:["mairie","centre","eglise","marche","mitterrand"], coef:1.05, tension:9.1, desc:"Cœur de ville, M7, services" },
+    { id:"ivry-confluence", name:"Ivry Confluences / Seine", keywords:["confluence","seine","quai","port","bord","gare"], coef:1.15, tension:9.4, desc:"ZAC majeure, GPE L15, très dynamique" },
+    { id:"ivry-gagarine", name:"Gagarine / Truillot", keywords:["gagarine","truillot","hlm","cite","social","tour","lénine"], coef:0.82, tension:8.2, desc:"Rénovation ANRU, prix accessibles" },
+    { id:"ivry-plateau", name:"Plateau / Vérollot", keywords:["plateau","verollot","parmentier","nationale"], coef:0.95, tension:8.8, desc:"Résidentiel calme, en hauteur" }
+  ],
+  "vitry-sur-seine": [
+    { id:"vitry-centre", name:"Centre / Mairie", keywords:["centre","mairie","eglise","marche","jean jaures"], coef:1.02, tension:8.6, desc:"Cœur de ville, T9" },
+    { id:"vitry-ardoines", name:"Les Ardoines / Gare GPE", keywords:["ardoines","gare","gpe","seine","port","quai","industrie"], coef:1.18, tension:9.0, desc:"Gare L15, ZAC, gros potentiel plus-value" },
+    { id:"vitry-coteau", name:"Coteau / Plateau", keywords:["coteau","plateau","moulin","vert","haut"], coef:0.92, tension:8.3, desc:"Résidentiel, vue dégagée" },
+    { id:"vitry-cite", name:"Balzac / 8 Mai 1945", keywords:["balzac","8 mai","hlm","cite","social","tour"], coef:0.78, tension:7.9, desc:"Zone QPV, prix bas, rénovation" }
+  ],
+  "pantin": [
+    { id:"pant-centre", name:"Mairie / Centre", keywords:["mairie","centre","eglise","marche","victor hugo"], coef:1.05, tension:9.1, desc:"M5, centre actif" },
+    { id:"pant-canal", name:"Canal de l'Ourcq / Docks", keywords:["canal","ourcq","dock","port","quai","magasin","general"], coef:1.22, tension:9.4, desc:"Très prisé, galeries, lofts, hype" },
+    { id:"pant-quatre-chemins", name:"Quatre Chemins / Aubervilliers", keywords:["quatre","chemin","auber","limite","nord"], coef:0.85, tension:8.3, desc:"Plus populaire, en mutation" },
+    { id:"pant-courtillieres", name:"Courtillières / Grands Ensembles", keywords:["courtilliere","serpentin","cite","hlm","tour","social"], coef:0.78, tension:7.9, desc:"Zone QPV, rénovation urbaine" }
+  ],
+  "bobigny": [
+    { id:"bob-centre", name:"Préfecture / Centre", keywords:["prefecture","centre","mairie","karl marx","pablo picasso"], coef:1.05, tension:8.2, desc:"M5, préfecture, services publics" },
+    { id:"bob-gare", name:"Gare GPE / Drancy", keywords:["gare","gpe","drancy","canal","pont"], coef:1.12, tension:8.6, desc:"Future gare L15, potentiel fort" },
+    { id:"bob-cite", name:"L'Abreuvoir / Étoile", keywords:["abreuvoir","etoile","hlm","cite","social","tour","pont"], coef:0.80, tension:7.6, desc:"Grands ensembles, QPV" }
+  ],
+  "aubervilliers": [
+    { id:"auber-centre", name:"Mairie / Centre", keywords:["mairie","centre","marche","eglise","hemet"], coef:1.02, tension:8.4, desc:"M7, centre commerçant" },
+    { id:"auber-canal", name:"Canal / Front Populaire", keywords:["canal","front","populaire","dock","campus","condorcet"], coef:1.18, tension:8.9, desc:"Campus Condorcet, M12, en plein boom" },
+    { id:"auber-villette", name:"La Villette / Fort", keywords:["villette","fort","porte","parc","cite","sciences"], coef:1.08, tension:8.7, desc:"Proximité Villette, attractif" },
+    { id:"auber-quatre", name:"Quatre Chemins / Pantin", keywords:["quatre","chemin","pantin","limit","marche"], coef:0.85, tension:8.1, desc:"Populaire, en transition" }
+  ],
+  "villejuif": [
+    { id:"villj-centre", name:"Centre / Mairie", keywords:["centre","mairie","eglise","republique","marche"], coef:1.04, tension:8.8, desc:"M7, centre historique" },
+    { id:"villj-aragon", name:"Louis Aragon / GPE", keywords:["aragon","gpe","l15","terminus","metro"], coef:1.15, tension:9.2, desc:"Gare L15, gros potentiel" },
+    { id:"villj-campus", name:"Campus Grand Parc / IGR", keywords:["campus","grand parc","igr","gustave roussy","hopital","fac"], coef:1.08, tension:9.0, desc:"Pôle santé/recherche, demande forte" },
+    { id:"villj-sud", name:"Sud / Hauts de Villejuif", keywords:["sud","haut","plateau","vitry","chevilly"], coef:0.88, tension:8.3, desc:"Plus excentré, prix accessibles" }
+  ],
+  "fontenay-sous-bois": [
+    { id:"font-centre", name:"Centre / Val de Fontenay", keywords:["centre","val","fontenay","gare","rer","hub"], coef:1.10, tension:9.3, desc:"Hub RER A+E, GPE L15, très demandé" },
+    { id:"font-rigollots", name:"Les Rigollots / Vincennes", keywords:["rigollot","vincennes","bois","parc","ouest"], coef:1.15, tension:9.4, desc:"Proche Vincennes, cadre résidentiel" },
+    { id:"font-larris", name:"Les Larris / Alouettes", keywords:["larris","alouette","hlm","cite","social","tour","plateau"], coef:0.82, tension:8.2, desc:"Grands ensembles, rénovation" },
+    { id:"font-bois", name:"Bois / Trignon", keywords:["bois","trignon","est","dalayrac","chateignier"], coef:0.95, tension:8.7, desc:"Résidentiel calme, pavillonnaire" }
+  ],
+  "nogent-sur-marne": [
+    { id:"nog-centre", name:"Centre / Beauté", keywords:["centre","beaute","mairie","rer","gare","eglise"], coef:1.05, tension:9.3, desc:"RER A, centre charmant" },
+    { id:"nog-marne", name:"Bords de Marne / Port", keywords:["marne","bord","port","quai","ile","guinguette"], coef:1.15, tension:9.5, desc:"Premium, guinguettes, cadre exceptionnel" },
+    { id:"nog-plaisance", name:"Plaisance / Baltard", keywords:["plaisance","baltard","pavillon","sud"], coef:0.95, tension:9.0, desc:"Résidentiel, légèrement excentré" }
+  ],
+  "noisy-le-grand": [
+    { id:"noisy-centre", name:"Centre / Mairie", keywords:["centre","mairie","eglise","marche","place"], coef:1.02, tension:8.4, desc:"Centre historique, RER A" },
+    { id:"noisy-mont", name:"Mont d'Est / Arcades", keywords:["mont","est","arcade","espace","commercial","noisy champs"], coef:1.10, tension:8.7, desc:"Pôle commercial, GPE L15+L16" },
+    { id:"noisy-champy", name:"Champy / Hauts Bâtons", keywords:["champy","baton","haut","cite","hlm","social"], coef:0.82, tension:7.8, desc:"Grands ensembles, QPV" },
+    { id:"noisy-pavé", name:"Le Pavé Neuf / Butte Verte", keywords:["pave","neuf","butte","verte","descartes","cite"], coef:0.90, tension:8.1, desc:"Cité Descartes, étudiant, en mutation" }
+  ],
+  "rosny-sous-bois": [
+    { id:"rosny-centre", name:"Centre / Mairie", keywords:["centre","mairie","eglise","general leclerc","marche"], coef:1.04, tension:8.5, desc:"Centre historique, calme" },
+    { id:"rosny-gare", name:"Gare RER / Domus", keywords:["gare","rer","domus","commercial","bois perrier"], coef:1.10, tension:8.8, desc:"RER E, M11 bientôt, attractif" },
+    { id:"rosny-cite", name:"Bois-Perrier / Marnaudes", keywords:["bois perrier","marnaude","hlm","cite","social","tour"], coef:0.82, tension:7.9, desc:"Grands ensembles, QPV" }
+  ],
+  "paris-18": [
+    { id:"p18-montmartre", name:"Montmartre / Abbesses", keywords:["montmartre","abbesse","sacre","coeur","lapin","tertre","lepic"], coef:1.18, tension:9.7, desc:"Touristique, très prisé, charme" },
+    { id:"p18-batignolles", name:"Batignolles / Épinettes", keywords:["batignolles","epinette","guy moquet","brochant","navier"], coef:1.08, tension:9.6, desc:"Bobo, village, parc Clichy-Batignolles" },
+    { id:"p18-goutte", name:"Goutte d'Or / Barbès", keywords:["goutte","or","barbes","chateau","rouge","dejean","poissonniers"], coef:0.80, tension:9.2, desc:"Populaire, cosmopolite, prix bas" },
+    { id:"p18-marx", name:"Marx Dormoy / Chapelle", keywords:["marx","dormoy","chapelle","pajol","gare","nord","est"], coef:0.88, tension:9.0, desc:"En mutation, projets urbains" },
+    { id:"p18-clignancourt", name:"Clignancourt / Jules Joffrin", keywords:["clignancourt","joffrin","ornano","puces","porte"], coef:0.95, tension:9.3, desc:"Marché aux puces, résidentiel mixte" }
+  ],
+  "paris-19": [
+    { id:"p19-buttes", name:"Buttes-Chaumont", keywords:["buttes","chaumont","botzaris","parc","simon bolivar","laumiere"], coef:1.12, tension:9.6, desc:"Parc, très recherché, familial" },
+    { id:"p19-villette", name:"La Villette / Stalingrad", keywords:["villette","stalingrad","bassin","canal","ourcq","cite","sciences"], coef:0.95, tension:9.3, desc:"Canal, vie nocturne, en mutation" },
+    { id:"p19-mouzaia", name:"Mouzaïa / Place des Fêtes", keywords:["mouzaia","fete","place","jourdain","danube","pre saint gervais"], coef:1.08, tension:9.5, desc:"Charme, petites rues, village" },
+    { id:"p19-riquet", name:"Riquet / Crimée", keywords:["riquet","crimee","curial","cambrai","tanger","flandre"], coef:0.82, tension:8.8, desc:"Populaire, en gentrification" }
+  ],
+  "paris-20": [
+    { id:"p20-pere-lachaise", name:"Père-Lachaise / Gambetta", keywords:["lachaise","gambetta","pelleport","cimetiere","roquette"], coef:1.10, tension:9.6, desc:"Prisé, village Charonne, ambiance" },
+    { id:"p20-menilmontant", name:"Ménilmontant / Belleville", keywords:["menilmontant","belleville","couronnes","oberkampf","haut"], coef:1.05, tension:9.5, desc:"Artiste, bobo, bars, en hausse" },
+    { id:"p20-nation", name:"Nation / Avron", keywords:["nation","avron","alexandre dumas","charonne","picpus"], coef:1.08, tension:9.5, desc:"Bien desservi, familial" },
+    { id:"p20-porte", name:"Porte de Montreuil / Bagnolet", keywords:["porte","montreuil","bagnolet","periph","pyrenees","mortier"], coef:0.88, tension:9.1, desc:"Périphérie, plus accessible" }
+  ]
+};
+
+// Fallback micro-quartiers pour les villes non détaillées
+function getDefaultMicroQuartiers(cityKey) {
+  return [
+    { id:cityKey+"-centre", name:"Centre-Ville", keywords:["centre","mairie","eglise","marche","place","republique"], coef:1.05, tension:8.8, desc:"Cœur de ville, commerces, services" },
+    { id:cityKey+"-gare", name:"Quartier Gare / Transport", keywords:["gare","rer","metro","station","sncf","transport"], coef:1.02, tension:8.6, desc:"Proximité transports" },
+    { id:cityKey+"-residentiel", name:"Secteur Résidentiel", keywords:["rue","avenue","boulevard","allée","impasse","pavillonnaire"], coef:0.98, tension:8.4, desc:"Résidentiel calme" },
+    { id:cityKey+"-peripherie", name:"Périphérie / Limites", keywords:["limite","sud","nord","est","ouest","zone","peripherie"], coef:0.90, tension:8.0, desc:"Zones périphériques, plus accessible" }
+  ];
+}
+
+// Détecte le micro-quartier à partir de l'adresse
+function detectMicroQuartier(cityKey, adresse) {
+  if (!adresse || adresse.trim() === '') return null;
+
+  const quartiers = microQuartiers[cityKey] || getDefaultMicroQuartiers(cityKey);
+  const adresseLower = adresse.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const q of quartiers) {
+    let score = 0;
+    for (const kw of q.keywords) {
+      if (adresseLower.includes(kw)) {
+        score += kw.length; // mots plus longs = match plus précis
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = q;
+    }
+  }
+
+  return bestMatch; // null si aucun match
+}
+
+// Génère les clusters HDBSCAN enrichis avec micro-quartiers
+function getHDBSCANClusters(cityKey, pieces, adresse) {
+  const d = marketData[cityKey];
+  if (!d) return null;
+
+  let basePrix;
+  switch(pieces) {
+    case '1': basePrix = d.prixStudio; break;
+    case '2': basePrix = d.prixT2; break;
+    case '3': basePrix = d.prixT3; break;
+    case '4': basePrix = d.prixT4; break;
+    default: basePrix = d.prixStudio;
+  }
+
+  const quartiers = microQuartiers[cityKey] || getDefaultMicroQuartiers(cityKey);
+  const matchedQuartier = detectMicroQuartier(cityKey, adresse);
+
+  // Si une adresse match un micro-quartier, on ajuste la médiane
+  let adjustedMedian = basePrix;
+  if (matchedQuartier) {
+    adjustedMedian = Math.round(basePrix * matchedQuartier.coef);
+  }
+
+  // Construire les clusters à partir des micro-quartiers réels
+  // Trier par coef pour regrouper en 3 clusters
+  const sorted = [...quartiers].sort((a, b) => a.coef - b.coef);
+  const third = Math.ceil(sorted.length / 3);
+
+  const clusterBas = sorted.slice(0, third);
+  const clusterMid = sorted.slice(third, third * 2);
+  const clusterHaut = sorted.slice(third * 2);
+
+  function clusterStats(arr) {
+    const coefs = arr.map(q => q.coef);
+    return {
+      min: Math.round(basePrix * Math.min(...coefs) * 0.95),
+      max: Math.round(basePrix * Math.max(...coefs) * 1.05),
+      median: Math.round(basePrix * (coefs.reduce((a,b)=>a+b,0) / coefs.length)),
+      quartiers: arr
+    };
+  }
+
+  const bas = clusterStats(clusterBas);
+  const mid = clusterStats(clusterMid);
+  const haut = clusterStats(clusterHaut);
+
+  return {
+    median: adjustedMedian,
+    globalMedian: basePrix,
+    matchedQuartier,
+    allQuartiers: quartiers,
+    clusters: [
+      {
+        name: 'Zone Accessible',
+        label: bas.quartiers.map(q => q.name).join(', '),
+        min: bas.min, max: bas.max, median: bas.median,
+        pct: Math.round(clusterBas.length / quartiers.length * 100) + '%',
+        color: 'var(--green)',
+        desc: bas.quartiers.map(q => q.desc).join(' | '),
+        quartiers: bas.quartiers
+      },
+      {
+        name: 'Zone M\u00e9diane',
+        label: mid.quartiers.map(q => q.name).join(', '),
+        min: mid.min, max: mid.max, median: mid.median,
+        pct: Math.round(clusterMid.length / quartiers.length * 100) + '%',
+        color: 'var(--blue)',
+        desc: mid.quartiers.map(q => q.desc).join(' | '),
+        quartiers: mid.quartiers
+      },
+      {
+        name: 'Zone Premium',
+        label: haut.quartiers.map(q => q.name).join(', '),
+        min: haut.min, max: haut.max, median: haut.median,
+        pct: Math.round(clusterHaut.length / quartiers.length * 100) + '%',
+        color: 'var(--accent2)',
+        desc: haut.quartiers.map(q => q.desc).join(' | '),
+        quartiers: haut.quartiers
+      }
+    ]
+  };
+}
+
+// ====== ANALYSE ANNONCE ======
+function analyzeAnnonce() {
+  const ville = document.getElementById('anVille').value;
+  const adresse = document.getElementById('anAdresse').value;
+  const prix = parseFloat(document.getElementById('anPrix').value) || 0;
+  const surface = parseFloat(document.getElementById('anSurface').value) || 0;
+  const pieces = document.getElementById('anPieces').value;
+  const etage = document.getElementById('anEtage').value;
+  const etat = document.getElementById('anEtat').value;
+
+  if (!ville || !prix || !surface) {
+    alert('Renseignez au minimum la ville, le prix et la surface.');
+    return;
+  }
+
+  const cityKey = normalizeCity(ville);
+  if (!cityKey) {
+    alert('Ville non trouv\u00e9e dans notre base IDF. Essayez une autre ville.');
+    return;
+  }
+
+  const d = marketData[cityKey];
+  const prixM2Annonce = prix / surface;
+  const clusters = getHDBSCANClusters(cityKey, pieces, adresse);
+
+  // Ajustement prix selon étage et état
+  let ajustement = 0;
+  if (etage === 'rdc') ajustement -= 0.08;
+  if (etage === 'haut') ajustement += 0.05;
+  if (etat === 'travaux') ajustement -= 0.10;
+  if (etat === 'refait') ajustement += 0.06;
+
+  const prixM2Ajuste = prixM2Annonce * (1 + ajustement);
+  // Si adresse détectée, utiliser la médiane ajustée au micro-quartier
+  const mediane = clusters.median;
+  const medianeGlobale = clusters.globalMedian;
+  const ecart = ((prixM2Annonce - mediane) / mediane * 100);
+  const ecartAjuste = ((prixM2Ajuste - mediane) / mediane * 100);
+  const matchedQ = clusters.matchedQuartier;
+
+  // Determine which cluster the annonce falls into
+  let clusterIndex = 1; // default median
+  if (prixM2Annonce <= clusters.clusters[0].max) clusterIndex = 0;
+  else if (prixM2Annonce >= clusters.clusters[2].min) clusterIndex = 2;
+
+  // VERDICT
+  const verdictCard = document.getElementById('verdictCard');
+  const verdictIcon = document.getElementById('verdictIcon');
+  const verdictText = document.getElementById('verdictText');
+  const verdictSub = document.getElementById('verdictSub');
+
+  verdictCard.className = 'verdict-card';
+
+  if (ecart <= -10) {
+    verdictCard.classList.add('good-deal');
+    verdictIcon.textContent = '\u2705';
+    verdictText.innerHTML = 'BONNE AFFAIRE &mdash; <span style="color:var(--green)">' + Math.abs(ecart).toFixed(0) + '% sous le march\u00e9</span>';
+    verdictSub.textContent = 'Ce bien est significativement en dessous de la m\u00e9diane DVF du secteur. V\u00e9rifiez l\'\u00e9tat r\u00e9el et foncez.';
+  } else if (ecart <= -3) {
+    verdictCard.classList.add('good-deal');
+    verdictIcon.textContent = '\ud83d\udc4d';
+    verdictText.innerHTML = 'PRIX CORRECT &mdash; <span style="color:var(--green)">' + Math.abs(ecart).toFixed(0) + '% sous la m\u00e9diane</span>';
+    verdictSub.textContent = 'L\u00e9g\u00e8rement en dessous du march\u00e9. Marge de n\u00e9gociation possible en compl\u00e9ment.';
+  } else if (ecart <= 5) {
+    verdictCard.classList.add('fair-deal');
+    verdictIcon.textContent = '\u2696\ufe0f';
+    verdictText.innerHTML = 'PRIX MARCH\u00c9 &mdash; <span style="color:var(--yellow)">' + (ecart >= 0 ? '+' : '') + ecart.toFixed(0) + '% vs m\u00e9diane</span>';
+    verdictSub.textContent = 'Ce bien est dans la fourchette du march\u00e9. N\u00e9gociez 5-8% pour un bon deal.';
+  } else if (ecart <= 15) {
+    verdictCard.classList.add('bad-deal');
+    verdictIcon.textContent = '\u26a0\ufe0f';
+    verdictText.innerHTML = 'SURPAY\u00c9 &mdash; <span style="color:var(--red)">+' + ecart.toFixed(0) + '% au-dessus du march\u00e9</span>';
+    verdictSub.textContent = 'Ce prix est au-dessus de la m\u00e9diane DVF. N\u00e9gociez fortement ou passez votre chemin.';
+  } else {
+    verdictCard.classList.add('bad-deal');
+    verdictIcon.textContent = '\ud83d\udea9';
+    verdictText.innerHTML = 'TR\u00c8S SURPAY\u00c9 &mdash; <span style="color:var(--red)">+' + ecart.toFixed(0) + '% au-dessus du march\u00e9</span>';
+    verdictSub.textContent = 'Prix tr\u00e8s \u00e9lev\u00e9 par rapport aux transactions r\u00e9elles DVF. Fuyez ou n\u00e9gociez massivement.';
+  }
+
+  // Comparison bar
+  const track = document.getElementById('compTrack');
+  const globalMin = clusters.clusters[0].min;
+  const globalMax = clusters.clusters[2].max;
+  const range = globalMax - globalMin;
+
+  let trackHTML = '';
+  clusters.clusters.forEach((c, i) => {
+    const left = ((c.min - globalMin) / range * 100);
+    const width = ((c.max - c.min) / range * 100);
+    const opacity = i === clusterIndex ? '1' : '0.4';
+    trackHTML += '<div class="comp-zone" style="left:' + left + '%;width:' + width + '%;background:' + c.color + ';opacity:' + opacity + '">' + c.name.replace('Cluster ','') + '</div>';
+  });
+
+  // Marker for annonce price
+  const markerPos = Math.min(100, Math.max(0, ((prixM2Annonce - globalMin) / range * 100)));
+  trackHTML += '<div class="comp-marker" style="left:' + markerPos + '%"><div class="comp-marker-label">Votre bien: ' + Math.round(prixM2Annonce).toLocaleString('fr-FR') + ' \u20ac/m\u00b2</div></div>';
+
+  // Median marker
+  const medianPos = ((mediane - globalMin) / range * 100);
+  trackHTML += '<div style="position:absolute;top:100%;left:' + medianPos + '%;transform:translateX(-50%);font-size:10px;color:var(--muted);margin-top:4px;white-space:nowrap;">M\u00e9diane: ' + mediane.toLocaleString('fr-FR') + ' \u20ac/m\u00b2</div>';
+
+  track.innerHTML = trackHTML;
+  document.getElementById('compLabel').innerHTML = '<span style="font-size:13px;color:var(--muted);">Votre annonce \u00e0 <strong style="color:var(--text)">' + Math.round(prixM2Annonce).toLocaleString('fr-FR') + ' \u20ac/m\u00b2</strong> se situe dans le <strong style="color:' + clusters.clusters[clusterIndex].color + '">' + clusters.clusters[clusterIndex].name + '</strong> (' + clusters.clusters[clusterIndex].label + ')</span>';
+
+  // Micro-quartier detected banner
+  const grid = document.getElementById('hdbscanGrid');
+  let mqHTML = '';
+  if (matchedQ) {
+    mqHTML = `<div style="background:rgba(224,120,80,0.1);border:1px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:24px;">\ud83d\udccd</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--accent2);">Micro-quartier d\u00e9tect\u00e9 : ${matchedQ.name}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${matchedQ.desc}</div>
+        <div style="font-size:12px;color:var(--text);margin-top:4px;">M\u00e9diane ajust\u00e9e : <strong>${mediane.toLocaleString('fr-FR')} \u20ac/m\u00b2</strong> (vs ${medianeGlobale.toLocaleString('fr-FR')} \u20ac ville enti\u00e8re, coef ${matchedQ.coef > 1 ? '+' : ''}${((matchedQ.coef - 1)*100).toFixed(0)}%)</div>
+      </div>
+    </div>`;
+  } else if (adresse) {
+    mqHTML = `<div style="background:rgba(153,153,170,0.1);border:1px solid #3a3a55;border-radius:12px;padding:14px 20px;margin-bottom:16px;font-size:13px;color:var(--muted);">
+      <span style="font-size:18px;">\ud83d\udccd</span> Adresse non reconnue dans nos micro-quartiers. Analyse bas\u00e9e sur la m\u00e9diane ville enti\u00e8re. <strong style="color:var(--accent2)">Astuce :</strong> essayez un mot-cl\u00e9 du quartier (ex: "centre", "gare", "marne", "canal"...)
+    </div>`;
+  }
+
+  // HDBSCAN grid with micro-quartiers détail
+  grid.innerHTML = '';
+  const gridParent = grid.parentNode;
+  // Remove previous banner if any
+  const prevBanner = document.getElementById('mqBanner');
+  if (prevBanner) prevBanner.remove();
+  if (mqHTML) {
+    const bannerDiv = document.createElement('div');
+    bannerDiv.id = 'mqBanner';
+    bannerDiv.innerHTML = mqHTML;
+    gridParent.insertBefore(bannerDiv, grid);
+  }
+
+  clusters.clusters.forEach((c, i) => {
+    const isCurrent = i === clusterIndex;
+    const quartiersListHTML = c.quartiers ? c.quartiers.map(q => {
+      const isMatchedQ = matchedQ && q.id === matchedQ.id;
+      return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11px;${isMatchedQ ? 'color:var(--accent);font-weight:700;' : 'color:var(--muted);'}">
+        <span>${isMatchedQ ? '\ud83d\udccd ' : ''}${q.name}</span>
+        <span>${q.coef > 1 ? '+' : ''}${((q.coef-1)*100).toFixed(0)}%</span>
+      </div>`;
+    }).join('') : '';
+
+    grid.innerHTML += `
+      <div class="hdbscan-card ${isCurrent ? 'current' : ''}">
+        <h5 style="color:${c.color}">${c.name} ${isCurrent ? '(VOTRE BIEN)' : ''}</h5>
+        <div class="hdbscan-stat"><span style="color:var(--muted)">Fourchette</span><span>${c.min.toLocaleString('fr-FR')} - ${c.max.toLocaleString('fr-FR')} \u20ac/m\u00b2</span></div>
+        <div class="hdbscan-stat"><span style="color:var(--muted)">M\u00e9diane</span><span style="font-weight:700">${c.median.toLocaleString('fr-FR')} \u20ac/m\u00b2</span></div>
+        <div class="hdbscan-stat"><span style="color:var(--muted)">Part des transactions</span><span>${c.pct}</span></div>
+        ${quartiersListHTML ? '<div style="margin-top:8px;border-top:1px solid #2a2a40;padding-top:8px;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Micro-quartiers</div>' + quartiersListHTML + '</div>' : ''}
+      </div>
+    `;
+  });
+
+  // Price metrics
+  const cityDisplay = cityKey.replace(/-/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+  const medianeLabel = matchedQ ? 'M\u00e9diane ' + matchedQ.name : 'M\u00e9diane DVF ' + cityDisplay;
+  document.getElementById('anPriceMetrics').innerHTML = `
+    <div class="metric-row"><span class="mr-label">Prix/m\u00b2 annonce</span><span class="mr-value">${Math.round(prixM2Annonce).toLocaleString('fr-FR')} \u20ac</span></div>
+    <div class="metric-row"><span class="mr-label">${medianeLabel}</span><span class="mr-value">${mediane.toLocaleString('fr-FR')} \u20ac</span></div>
+    ${matchedQ ? '<div class="metric-row"><span class="mr-label">M\u00e9diane ville enti\u00e8re</span><span class="mr-value" style="color:var(--muted)">' + medianeGlobale.toLocaleString('fr-FR') + ' \u20ac</span></div>' : ''}
+    <div class="metric-row"><span class="mr-label">\u00c9cart vs ${matchedQ ? 'micro-zone' : 'march\u00e9'}</span><span class="mr-value" style="color:${ecart > 5 ? 'var(--red)' : ecart < -3 ? 'var(--green)' : 'var(--yellow)'}">${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}%</span></div>
+    <div class="metric-row"><span class="mr-label">\u00c9cart ajust\u00e9 (\u00e9tage+\u00e9tat)</span><span class="mr-value" style="color:${ecartAjuste > 5 ? 'var(--red)' : ecartAjuste < -3 ? 'var(--green)' : 'var(--yellow)'}">${ecartAjuste >= 0 ? '+' : ''}${ecartAjuste.toFixed(1)}%</span></div>
+    <div class="metric-row"><span class="mr-label">Tendance 3 ans</span><span class="mr-value ${d.trend3y > 5 ? 'trend-up' : d.trend3y > 0 ? 'trend-stable' : 'trend-down'}">${d.trend3y >= 0 ? '+' : ''}${d.trend3y}%</span></div>
+  `;
+
+  // Rent metrics
+  let loyerM2;
+  switch(pieces) {
+    case '1': loyerM2 = d.loyerStudio; break;
+    case '2': loyerM2 = d.loyerT2; break;
+    case '3': loyerM2 = d.loyerT3; break;
+    case '4': loyerM2 = d.loyerT4; break;
+    default: loyerM2 = d.loyerStudio;
+  }
+  const loyerMensuel = Math.round(loyerM2 * surface);
+  const rendBrut = (loyerMensuel * 12 / prix * 100);
+
+  document.getElementById('anRentMetrics').innerHTML = `
+    <div class="metric-row"><span class="mr-label">Loyer estim\u00e9 / m\u00b2</span><span class="mr-value">${loyerM2.toFixed(1)} \u20ac</span></div>
+    <div class="metric-row"><span class="mr-label">Loyer mensuel estim\u00e9</span><span class="mr-value" style="color:var(--green)">${loyerMensuel} \u20ac</span></div>
+    <div class="metric-row"><span class="mr-label">Rendement brut</span><span class="mr-value" style="color:${rendBrut > 5 ? 'var(--green)' : rendBrut > 3.5 ? 'var(--yellow)' : 'var(--red)'}">${rendBrut.toFixed(1)}%</span></div>
+    <div class="metric-row"><span class="mr-label">Tension locative</span><span class="mr-value">${d.tensionLoc}/10</span></div>
+    <div class="metric-row"><span class="mr-label">Transport</span><span class="mr-value" style="font-size:12px;">${d.transport}</span></div>
+  `;
+
+  // Save search for lead
+  window._lastAnnonceSearch = { city: cityDisplay, cp: d.cp, adresse: adresse || '', microQuartier: matchedQ ? matchedQ.name : 'non d\u00e9tect\u00e9', prix, surface, prixM2: Math.round(prixM2Annonce), medianeZone: mediane, pieces, etage, etat, ecart: ecart.toFixed(1), rendBrut: rendBrut.toFixed(1), cluster: clusters.clusters[clusterIndex].name };
+
+  // Show
+  document.getElementById('anResults').style.display = 'block';
+  document.getElementById('anSourceNote').style.display = 'block';
+  document.getElementById('anResults').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// Lead capture for annonce tab
+function captureLeadAnnonce() {
+  const nom = document.getElementById('anLeadNom').value.trim();
+  const email = document.getElementById('anLeadEmail').value.trim();
+  const tel = document.getElementById('anLeadTel').value.trim();
+  const profil = document.getElementById('anLeadProfil').value;
+
+  if (!nom || !email) {
+    alert('Merci de renseigner au moins votre nom et email.');
+    return;
+  }
+  if (!email.includes('@')) {
+    alert('Email invalide.');
+    return;
+  }
+
+  const lead = {
+    date: new Date().toISOString(),
+    nom, email, tel, profil,
+    search: window._lastAnnonceSearch || {},
+    source: 'datamerry_analyseur_annonce'
+  };
+
+  if (!window._leads) window._leads = [];
+  window._leads.push(lead);
+
+  document.getElementById('anDetailBlurred').classList.remove('blurred');
+  document.getElementById('anUnlockCard').style.display = 'none';
+  document.getElementById('anCtaSection').style.display = 'block';
+
+  const card = document.getElementById('anUnlockCard');
+  card.outerHTML = '<div style="text-align:center;padding:20px;color:var(--green);font-weight:700;font-size:16px;">Analyse d\u00e9bloqu\u00e9e ! Merci ' + nom.split(' ')[0] + '.</div>';
+}
+</script>
+</body>
+</html>

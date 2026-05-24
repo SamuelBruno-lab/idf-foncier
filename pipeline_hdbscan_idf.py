@@ -24,6 +24,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -59,7 +60,12 @@ PRIX_M2_MIN = 500  # plancher global
 
 # URLs DVF géocodées par année/département (geo-dvf.etalab.gouv.fr)
 DVF_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv/{year}/departements/{dept}.csv.gz"
-DVF_YEARS = [2020, 2021, 2022, 2023, 2024, 2025]
+
+# Fenêtre DVF dynamique : 6 années glissantes incluant l'année courante.
+# DGFiP publie 2× par an (avril + octobre) → l'année courante peut être absente
+# jusqu'à la release d'octobre ; download_dept ignore silencieusement les 404.
+_CURRENT_YEAR = datetime.now().year
+DVF_YEARS = list(range(_CURRENT_YEAR - 5, _CURRENT_YEAR + 1))
 
 
 # ── Utilitaires ───────────────────────────────────────────────────────────────
@@ -158,6 +164,90 @@ def load_csv_dept(dept: str, csv_path: Path) -> pd.DataFrame:
     return df
 
 
+# ── Fenêtre adaptative, holding period, volatilité ────────────────────────
+
+def adaptive_window(
+    df: pd.DataFrame,
+    target_n: int = 50,
+    max_lookback: int = 6,
+) -> tuple[int, int, int] | None:
+    """
+    Choisit la fenêtre temporelle la plus récente contenant ≥target_n transactions.
+    Floor : 1 an (cas Paris × Appartement où une seule année suffit).
+    Plafond : `max_lookback` ans (au-delà, les prix anciens polluent la médiane).
+
+    Returns (annee_min, annee_max, n_in_window) ou None si df est vide.
+    Si même `max_lookback` ans ne suffisent pas, retourne la fenêtre maximale
+    avec le n disponible — la stat sera moins fiable mais on garde la donnée.
+    """
+    if "annee" not in df.columns or df.empty:
+        return None
+    annees = df["annee"].dropna()
+    if annees.empty:
+        return None
+    annee_max = int(annees.max())
+    for window_size in range(1, max_lookback + 1):
+        annee_min = annee_max - window_size + 1
+        n = int((df["annee"] >= annee_min).sum())
+        if n >= target_n:
+            return annee_min, annee_max, n
+    annee_min = annee_max - max_lookback + 1
+    n = int((df["annee"] >= annee_min).sum())
+    return annee_min, annee_max, n
+
+
+def compute_holding_periods(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Pour chaque parcelle vendue ≥2 fois dans DVF, retourne les durées entre
+    mutations successives (en mois). Utilise TOUT l'historique df, pas
+    seulement la fenêtre adaptative — on veut le maximum de paires observables.
+
+    Returns DataFrame[id_parcelle, duree_mois].
+    """
+    cols = {"id_parcelle", "date_mutation"}
+    if not cols.issubset(df.columns):
+        return pd.DataFrame(columns=["id_parcelle", "duree_mois"])
+
+    sub = df[["id_parcelle", "date_mutation"]].dropna()
+    sub = sub.drop_duplicates(subset=["id_parcelle", "date_mutation"])
+    sub = sub.assign(date_mutation=pd.to_datetime(sub["date_mutation"], errors="coerce"))
+    sub = sub.dropna(subset=["date_mutation"]).sort_values(["id_parcelle", "date_mutation"])
+    sub["prev_date"] = sub.groupby("id_parcelle")["date_mutation"].shift(1)
+    sub["duree_mois"] = ((sub["date_mutation"] - sub["prev_date"]).dt.days / 30.44).round()
+    return sub.dropna(subset=["duree_mois"])[["id_parcelle", "duree_mois"]]
+
+
+def compute_volatility(
+    grp: pd.DataFrame,
+) -> tuple[float | None, float | None, list[dict]]:
+    """
+    Sur le sous-ensemble d'un cluster, calcule :
+      - prix_m2_yoy_pct : évolution % moyenne année sur année des médianes
+      - prix_m2_volatility : coefficient de variation = stddev / mean
+      - prix_m2_history : [{annee, median, n}] par année dans la fenêtre
+
+    YoY et CV nécessitent ≥2 années, sinon None.
+    """
+    if "annee" not in grp.columns:
+        return None, None, []
+    yearly = (
+        grp.dropna(subset=["prix_m2"])
+        .groupby("annee")
+        .agg(median_prix_m2=("prix_m2", "median"), n=("prix_m2", "count"))
+        .reset_index()
+        .sort_values("annee")
+    )
+    history = [
+        {"annee": int(r.annee), "median": int(r.median_prix_m2), "n": int(r.n)}
+        for r in yearly.itertuples()
+    ]
+    if len(yearly) < 2 or yearly["median_prix_m2"].mean() == 0:
+        return None, None, history
+    yoy = yearly["median_prix_m2"].pct_change().mean() * 100
+    cv = yearly["median_prix_m2"].std() / yearly["median_prix_m2"].mean()
+    return round(float(yoy), 2), round(float(cv), 3), history
+
+
 # ── HDBSCAN par commune × type ─────────────────────────────────────────────
 
 def hdbscan_params(n: int, type_local: str = "") -> dict | None:
@@ -212,9 +302,18 @@ def process_commune_type(
     dept: str,
     type_local: str,
     sub: pd.DataFrame,
+    window_annee_min: int | None = None,
+    window_annee_max: int | None = None,
+    holdings_lookup: dict[str, list[float]] | None = None,
 ) -> list[dict]:
     """
-    Applique HDBSCAN sur un sous-ensemble commune × type_local.
+    Applique HDBSCAN sur un sous-ensemble commune × type_local (déjà filtré
+    par la fenêtre adaptative en amont).
+
+    `holdings_lookup` : dict {id_parcelle: [duree_mois, ...]} pré-calculé sur
+    TOUT l'historique DVF (pas seulement la fenêtre). Permet d'agréger la
+    durée de détention médiane par cluster.
+
     Retourne la liste des zones (clusters) à insérer dans dvf_hdbscan_zones.
     """
     params = hdbscan_params(len(sub), type_local)
@@ -258,6 +357,23 @@ def process_commune_type(
         prix_m2_vals = grp["prix_m2"].dropna().values
         centroid = pts.mean(axis=0)
 
+        # Holding period : agrège les durées des parcelles présentes dans ce cluster.
+        # On utilise toutes les paires de mutations observées sur ces parcelles,
+        # même celles hors fenêtre (la durée de détention reflète l'histoire complète).
+        duree_median_mois = None
+        n_reventes = 0
+        if holdings_lookup:
+            cluster_parcelles = grp["id_parcelle"].dropna().unique() if "id_parcelle" in grp.columns else []
+            durees: list[float] = []
+            for p in cluster_parcelles:
+                durees.extend(holdings_lookup.get(p, []))
+            if durees:
+                duree_median_mois = int(np.median(durees))
+                n_reventes = len(durees)
+
+        # Volatilité et historique annuel
+        yoy_pct, volatility, history = compute_volatility(grp)
+
         # Nettoyage du nom de type pour ID
         type_slug = (
             type_local.replace(" ", "_").replace(".", "").replace(",", "")[:30]
@@ -273,23 +389,46 @@ def process_commune_type(
             "cluster_id": int(cid),
             "count": int(len(grp)),
             "prix_m2_median": int(np.median(prix_m2_vals)) if len(prix_m2_vals) > 0 else None,
+            "prix_m2_p10": int(np.percentile(prix_m2_vals, 10)) if len(prix_m2_vals) > 0 else None,
             "prix_m2_p25": int(np.percentile(prix_m2_vals, 25)) if len(prix_m2_vals) > 0 else None,
             "prix_m2_p75": int(np.percentile(prix_m2_vals, 75)) if len(prix_m2_vals) > 0 else None,
+            "prix_m2_p90": int(np.percentile(prix_m2_vals, 90)) if len(prix_m2_vals) > 0 else None,
             "prix_median": int(grp["valeur_fonciere"].median()) if grp["valeur_fonciere"].notna().any() else None,
             "hull_coords": hull_coords,
             "centroid_lat": float(centroid[0]),
             "centroid_lon": float(centroid[1]),
+            # Plage descriptive (years réellement présentes)
             "annee_min": int(grp["annee"].min()) if "annee" in grp.columns else None,
             "annee_max": int(grp["annee"].max()) if "annee" in grp.columns else None,
+            # Fenêtre adaptative choisie (avant HDBSCAN)
+            "window_annee_min": window_annee_min,
+            "window_annee_max": window_annee_max,
+            # Durée de détention
+            "duree_detention_median_mois": duree_median_mois,
+            "n_reventes_observees": n_reventes,
+            # Volatilité
+            "prix_m2_yoy_pct": yoy_pct,
+            "prix_m2_volatility": volatility,
+            "prix_m2_history": history,
         })
 
     return zones
 
 
-def run_hdbscan_all(df: pd.DataFrame, commune_filter: str | None = None) -> list[dict]:
+def run_hdbscan_all(
+    df: pd.DataFrame,
+    commune_filter: str | None = None,
+    target_n_window: int = 50,
+    max_lookback_years: int = 6,
+) -> list[dict]:
     """
-    Applique HDBSCAN pour toutes les communes × types dans le DataFrame.
-    Retourne la liste complète des zones.
+    Applique HDBSCAN pour toutes les communes × types dans le DataFrame, avec
+    fenêtre temporelle adaptative par (commune × type) et durée de détention.
+
+    Étapes :
+      1. Pré-calcul des durées de détention sur tout l'historique DVF
+      2. Pour chaque (commune × type) : fenêtre adaptative → filtre → HDBSCAN
+      3. Log de la fenêtre choisie par (commune × type)
     """
     all_zones = []
     types_cibles = [
@@ -297,6 +436,14 @@ def run_hdbscan_all(df: pd.DataFrame, commune_filter: str | None = None) -> list
         "Maison",
         "Local industriel. commercial ou assimilé",
     ]
+
+    # ── Pré-calcul des durées de détention (tout l'historique DVF) ────────
+    print("\n  Calcul des durées de détention (toutes parcelles ≥2 mutations)...")
+    holdings_df = compute_holding_periods(df)
+    holdings_lookup: dict[str, list[float]] = {}
+    for row in holdings_df.itertuples():
+        holdings_lookup.setdefault(row.id_parcelle, []).append(float(row.duree_mois))
+    print(f"    → {len(holdings_lookup):,} parcelles avec historique de revente ({len(holdings_df):,} paires)")
 
     communes = df["code_commune"].dropna().unique()
     if commune_filter:
@@ -315,16 +462,36 @@ def run_hdbscan_all(df: pd.DataFrame, commune_filter: str | None = None) -> list
             sub = comm_df[comm_df["type_local"] == type_local].copy()
             if len(sub) < 5:
                 continue
-            zones = process_commune_type(code_commune, nom_commune, dept, type_local, sub)
+
+            # Fenêtre adaptative : on prend la plus petite fenêtre récente
+            # avec ≥target_n transactions (floor 1 an, plafond max_lookback ans).
+            window = adaptive_window(sub, target_n=target_n_window, max_lookback=max_lookback_years)
+            if window is None:
+                continue
+            window_min, window_max, n_in_window = window
+            sub_windowed = sub[sub["annee"] >= window_min].copy()
+
+            # Log de la fenêtre choisie pour cette (commune × type)
+            window_size = window_max - window_min + 1
+            print(
+                f"    {code_commune} {nom_commune[:25]:<25} × {type_local[:15]:<15} "
+                f"→ [{window_min}-{window_max}] ({window_size}an, n={n_in_window})"
+            )
+
+            zones = process_commune_type(
+                code_commune, nom_commune, dept, type_local, sub_windowed,
+                window_annee_min=window_min,
+                window_annee_max=window_max,
+                holdings_lookup=holdings_lookup,
+            )
             commune_zones.extend(zones)
 
         all_zones.extend(commune_zones)
 
         if i % 50 == 0 or i == total:
             n_zones = len(all_zones)
-            print(f"  [{i}/{total}] {code_commune} — {len(commune_zones)} zones | total: {n_zones}", end="\r")
+            print(f"  [{i}/{total}] {code_commune} — {len(commune_zones)} zones | total: {n_zones}")
 
-    print()
     return all_zones
 
 

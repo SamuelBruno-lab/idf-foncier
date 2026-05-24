@@ -48,7 +48,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / "foncier-idf" / ".env.local")
 
-SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").strip()
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_KEY = (
     os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")

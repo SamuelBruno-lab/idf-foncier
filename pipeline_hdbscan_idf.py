@@ -76,10 +76,14 @@ def load_env():
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     if not url or not key:
         raise RuntimeError(f"Variables Supabase manquantes dans {ENV_FILE}")
-    # Defensive strip : GitHub Secrets et certains gestionnaires de mdp ajoutent
-    # parfois un \n final lors du copy-paste, ce qui casse httpx avec
-    # "InvalidURL: Invalid non-printable ASCII character in URL".
-    return url.strip(), key.strip()
+    # Defensive sanitization :
+    # - strip() : GitHub Secrets ajoute parfois un \n final
+    # - rstrip('/') : retirer le slash final (sinon URL devient https://x//rest/v1/...
+    #   ce qui produit PostgREST PGRST125 "Invalid path specified in request URL")
+    url = url.strip().rstrip("/")
+    key = key.strip()
+    print(f"  Supabase URL: {url}")
+    return url, key
 
 
 def download_dept(dept: str, dest: Path, years: list[int] = DVF_YEARS) -> bool:

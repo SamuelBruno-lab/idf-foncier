@@ -143,19 +143,24 @@ export async function GET(req: NextRequest) {
 
   // ── 4. Loyer de marché (depuis fact_rendement) pour l'écart % ─────
   const bucket = bucketFromPieces(pieces);
-  const marcheRes = await supabase
-    .from("fact_rendement")
-    .select("loyer_m2_median, loyer_source, loyer_quality")
-    .eq("code_commune", resolvedCommune)
-    .eq("type_local", "Appartement")
-    .in("nb_pieces_bucket", [bucket, "all"])
-    .order("nb_pieces_bucket", { ascending: false })  // bucket précis d'abord
-    .limit(1)
-    .maybeSingle()
-    .catch(() => ({ data: null, error: null }));
+  let marcheData: { loyer_m2_median: number | null; loyer_source: string | null; loyer_quality: string | null } | null = null;
+  try {
+    const res = await supabase
+      .from("fact_rendement")
+      .select("loyer_m2_median, loyer_source, loyer_quality")
+      .eq("code_commune", resolvedCommune)
+      .eq("type_local", "Appartement")
+      .in("nb_pieces_bucket", [bucket, "all"])
+      .order("nb_pieces_bucket", { ascending: false })  // bucket précis d'abord
+      .limit(1)
+      .maybeSingle();
+    marcheData = (res.data ?? null) as typeof marcheData;
+  } catch (err) {
+    console.warn("[plafonds] fact_rendement lookup failed:", err);
+  }
 
-  const loyerMarche = marcheRes.data?.loyer_m2_median
-    ? Number(marcheRes.data.loyer_m2_median)
+  const loyerMarche = marcheData?.loyer_m2_median
+    ? Number(marcheData.loyer_m2_median)
     : null;
 
   // ── 5. Construction réponse ───────────────────────────────────────
@@ -206,8 +211,8 @@ export async function GET(req: NextRequest) {
     marche: loyerMarche
       ? {
           loyer_m2_median: loyerMarche,
-          source: marcheRes.data?.loyer_source,
-          quality: marcheRes.data?.loyer_quality,
+          source: marcheData?.loyer_source ?? null,
+          quality: marcheData?.loyer_quality ?? null,
         }
       : null,
     ecart_lli_vs_marche_pct: ecartMarchePct,    // négatif = marché plus cher que LLI

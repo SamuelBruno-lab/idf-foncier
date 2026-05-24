@@ -47,23 +47,33 @@ export async function geocodeAddress(
   const queryHash = hashQuery(normalized);
 
   // ── 1. Cache check (tolérant si table absente) ──────────────────────
-  const cached = await supabase
-    .from("address_geocode_cache")
-    .select("result_json, rerank_provider, hit_count")
-    .eq("query_hash", queryHash)
-    .maybeSingle()
-    .catch(() => ({ data: null, error: { message: "cache table missing" } }));
+  let cached: {
+    data: { result_json: unknown; rerank_provider: string | null; hit_count: number } | null;
+    error: unknown;
+  } = { data: null, error: null };
+  try {
+    const res = await supabase
+      .from("address_geocode_cache")
+      .select("result_json, rerank_provider, hit_count")
+      .eq("query_hash", queryHash)
+      .maybeSingle();
+    cached = res as typeof cached;
+  } catch (err) {
+    console.warn("[cache] check failed (table missing?):", err);
+  }
 
   if (cached.data && !cached.error) {
-    await supabase
-      .from("address_geocode_cache")
-      .update({
-        hit_count: (cached.data.hit_count ?? 0) + 1,
-        last_used_at: new Date().toISOString(),
-      })
-      .eq("query_hash", queryHash)
-      .then(() => {})
-      .catch((err) => console.warn("[cache] hit_count update failed:", err));
+    try {
+      await supabase
+        .from("address_geocode_cache")
+        .update({
+          hit_count: (cached.data.hit_count ?? 0) + 1,
+          last_used_at: new Date().toISOString(),
+        })
+        .eq("query_hash", queryHash);
+    } catch (err) {
+      console.warn("[cache] hit_count update failed:", err);
+    }
 
     const cachedResults = cached.data.result_json as GeocodedAddress[];
     const cachedProvider = cached.data.rerank_provider as
@@ -123,18 +133,20 @@ export async function geocodeAddress(
     rerankProvider === "groq" || rerankProvider === "cerebras"
       ? rerankProvider
       : null;
-  await supabase
-    .from("address_geocode_cache")
-    .upsert({
-      query_hash: queryHash,
-      query_normalized: normalized,
-      result_json: results,
-      rerank_provider: cachedProvider,
-      hit_count: 0,
-      last_used_at: new Date().toISOString(),
-    })
-    .then(() => {})
-    .catch((err) => console.warn("[cache] upsert failed:", err));
+  try {
+    await supabase
+      .from("address_geocode_cache")
+      .upsert({
+        query_hash: queryHash,
+        query_normalized: normalized,
+        result_json: results,
+        rerank_provider: cachedProvider,
+        hit_count: 0,
+        last_used_at: new Date().toISOString(),
+      });
+  } catch (err) {
+    console.warn("[cache] upsert failed:", err);
+  }
 
   return {
     results,

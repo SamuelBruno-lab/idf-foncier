@@ -1,0 +1,34 @@
+name: Refresh zonage A/B/C + éligibilités (annual)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Le zonage A/B/C est révisé par arrêté ministériel chaque année,
+    # généralement publié au JO en T1. On lance le 15 février.
+    - cron: "0 4 15 2 *"
+
+jobs:
+  refresh-plafonds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas httpx python-dotenv
+
+      - name: Run plafonds pipeline
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          cd ..
+          python idf-foncier/pipeline_plafonds.py

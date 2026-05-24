@@ -3,7 +3,7 @@ name: Refresh fact_rendement (OLAP + ANIL annual)
 on:
   workflow_dispatch: {}
   schedule:
-    # OLAP publie typiquement en décembre/janvier, ANIL en début d'année.
+    # OLAP publie en décembre/janvier, ANIL en début d'année.
     # On lance le 31 janvier pour récupérer les deux dernières publications.
     - cron: "0 4 31 1 *"
 
@@ -28,7 +28,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        working-directory: ${{ github.workspace }}
-        run: |
-          cd ..
-          python idf-foncier/pipeline_rendement.py
+        run: python pipeline_rendement.py

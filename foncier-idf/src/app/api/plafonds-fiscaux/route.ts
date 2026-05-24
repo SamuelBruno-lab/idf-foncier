@@ -142,8 +142,13 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 4. Loyer de marché (depuis fact_rendement) pour l'écart % ─────
+  type MarcheRow = {
+    loyer_m2_median: number | null;
+    loyer_source: string | null;
+    loyer_quality: string | null;
+  };
   const bucket = bucketFromPieces(pieces);
-  let marcheData: { loyer_m2_median: number | null; loyer_source: string | null; loyer_quality: string | null } | null = null;
+  let marcheData: MarcheRow | null = null;
   try {
     const res = await supabase
       .from("fact_rendement")
@@ -154,14 +159,17 @@ export async function GET(req: NextRequest) {
       .order("nb_pieces_bucket", { ascending: false })  // bucket précis d'abord
       .limit(1)
       .maybeSingle();
-    marcheData = (res.data ?? null) as typeof marcheData;
+    if (res.data) {
+      marcheData = res.data as unknown as MarcheRow;
+    }
   } catch (err) {
     console.warn("[plafonds] fact_rendement lookup failed:", err);
   }
 
-  const loyerMarche = marcheData?.loyer_m2_median
-    ? Number(marcheData.loyer_m2_median)
-    : null;
+  const loyerMarche =
+    marcheData && marcheData.loyer_m2_median != null
+      ? Number(marcheData.loyer_m2_median)
+      : null;
 
   // ── 5. Construction réponse ───────────────────────────────────────
   const lli = plafonds.get("lli") ?? null;

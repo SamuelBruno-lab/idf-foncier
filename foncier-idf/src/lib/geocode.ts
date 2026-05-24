@@ -47,27 +47,31 @@ export async function geocodeAddress(
   const queryHash = hashQuery(normalized);
 
   // ── 1. Cache check (tolérant si table absente) ──────────────────────
-  let cached: {
-    data: { result_json: unknown; rerank_provider: string | null; hit_count: number } | null;
-    error: unknown;
-  } = { data: null, error: null };
+  type CacheRow = {
+    result_json: unknown;
+    rerank_provider: string | null;
+    hit_count: number | null;
+  };
+  let cacheRow: CacheRow | null = null;
   try {
     const res = await supabase
       .from("address_geocode_cache")
       .select("result_json, rerank_provider, hit_count")
       .eq("query_hash", queryHash)
       .maybeSingle();
-    cached = res as typeof cached;
+    if (res.data && !res.error) {
+      cacheRow = res.data as unknown as CacheRow;
+    }
   } catch (err) {
     console.warn("[cache] check failed (table missing?):", err);
   }
 
-  if (cached.data && !cached.error) {
+  if (cacheRow) {
     try {
       await supabase
         .from("address_geocode_cache")
         .update({
-          hit_count: (cached.data.hit_count ?? 0) + 1,
+          hit_count: (cacheRow.hit_count ?? 0) + 1,
           last_used_at: new Date().toISOString(),
         })
         .eq("query_hash", queryHash);
@@ -75,8 +79,8 @@ export async function geocodeAddress(
       console.warn("[cache] hit_count update failed:", err);
     }
 
-    const cachedResults = cached.data.result_json as GeocodedAddress[];
-    const cachedProvider = cached.data.rerank_provider as
+    const cachedResults = cacheRow.result_json as GeocodedAddress[];
+    const cachedProvider = cacheRow.rerank_provider as
       | "groq"
       | "cerebras"
       | null;

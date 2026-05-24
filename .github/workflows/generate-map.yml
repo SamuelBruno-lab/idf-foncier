@@ -57,6 +57,7 @@ jobs:
           COMMUNE_NOM: ${{ steps.vars.outputs.commune_nom }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        working-directory: foncier-idf
         run: |
           python scripts/generate_commune_map.py
 

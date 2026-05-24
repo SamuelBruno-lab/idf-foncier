@@ -1,0 +1,226 @@
+/**
+ * GET /api/plafonds-fiscaux?address=...&surface=62&pieces=3
+ *   ou
+ * GET /api/plafonds-fiscaux?code_insee=93029&surface=62&pieces=3
+ *
+ * Renvoie pour une adresse :
+ *   - Zone A/B/C
+ *   - Éligibilité ACV / Denormandie / ORT / Loc'Avantages / LLI
+ *   - Plafonds de loyer 2025 pour chaque dispositif applicable
+ *   - Calcul loyer LLI max pour ce logement précis (si surface fournie) :
+ *     formule Art. 2 terdecies D CGI : LMZONE × (0.7 + 19/surface_utile)
+ *   - Écart % entre plafond LLI et loyer de marché (si fact_rendement dispo)
+ *
+ * Pinel = clos au 31/12/2024, jamais renvoyé comme applicable.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+
+import { geocodeAddress, type GeocodeMeta } from "@/lib/geocode";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+
+const CURRENT_YEAR = 2025;
+
+type ZoneAbc = "Abis" | "A" | "B1" | "B2" | "C";
+
+function bucketFromPieces(pieces: number | null): "T1-T2" | "T3+" | "all" {
+  if (pieces == null || !Number.isFinite(pieces)) return "all";
+  if (pieces <= 2) return "T1-T2";
+  return "T3+";
+}
+
+export async function GET(req: NextRequest) {
+  const sp = req.nextUrl.searchParams;
+  const address = sp.get("address")?.trim();
+  const codeCommune = sp.get("code_commune")?.trim();
+  const surfaceRaw = sp.get("surface");
+  const surface = surfaceRaw ? Number(surfaceRaw) : null;
+  const piecesRaw = sp.get("pieces");
+  const pieces = piecesRaw ? Number(piecesRaw) : null;
+
+  if (!address && !codeCommune) {
+    return NextResponse.json(
+      { error: "Paramètre 'address' OU 'code_commune' requis" },
+      { status: 400 },
+    );
+  }
+  if (surface !== null && (!Number.isFinite(surface) || surface <= 0)) {
+    return NextResponse.json(
+      { error: "Paramètre 'surface' invalide" },
+      { status: 400 },
+    );
+  }
+
+  const supabase = getSupabaseServerClient();
+
+  // ── 1. Résolution commune ──────────────────────────────────────────
+  let resolvedCommune: string;
+  let addressPayload: Record<string, unknown> | null = null;
+  let geocodeMeta: GeocodeMeta | null = null;
+
+  if (address) {
+    let geocode;
+    try {
+      geocode = await geocodeAddress(address, supabase);
+    } catch (err) {
+      console.error("[/api/plafonds-fiscaux] geocoding failed:", err);
+      return NextResponse.json(
+        { error: "Service de géocodage indisponible" },
+        { status: 503 },
+      );
+    }
+    const top = geocode.results[0];
+    if (!top) {
+      return NextResponse.json(
+        { error: "Adresse introuvable" },
+        { status: 404 },
+      );
+    }
+    geocodeMeta = geocode.meta;
+    resolvedCommune = top.code_insee;
+    addressPayload = {
+      label: top.label,
+      lat: top.lat,
+      lon: top.lon,
+      code_insee: top.code_insee,
+      postcode: top.postcode,
+      city: top.city,
+    };
+  } else {
+    resolvedCommune = codeCommune!;
+  }
+
+  // ── 2. Lookups en parallèle ────────────────────────────────────────
+  const [zoneRes, eligRes] = await Promise.all([
+    supabase
+      .from("dim_zonage_abc")
+      .select("zone")
+      .eq("code_insee", resolvedCommune)
+      .order("annee", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("dim_commune_eligibilite")
+      .select("programme, annee")
+      .eq("code_insee", resolvedCommune)
+      .eq("annee", CURRENT_YEAR),
+  ]);
+
+  const zone = (zoneRes.data?.zone as ZoneAbc | undefined) ?? null;
+  if (!zone) {
+    return NextResponse.json(
+      {
+        error: "Zone A/B/C non disponible pour cette commune",
+        code_commune: resolvedCommune,
+        hint: "Vérifier que dim_zonage_abc est populée (cf. pipeline_plafonds.py)",
+        address: addressPayload,
+      },
+      { status: 404 },
+    );
+  }
+
+  const programmes = new Set<string>(
+    (eligRes.data ?? []).map((r) => r.programme as string),
+  );
+  const acv = programmes.has("acv");
+  const denormandieEligible =
+    programmes.has("denormandie") || programmes.has("ort") || acv;
+
+  // ── 3. Plafonds de loyer (toutes lignes pour cette zone, année courante)
+  const { data: plafondsRows } = await supabase
+    .from("dim_plafond_loyer")
+    .select("dispositif, loyer_max_m2, source_juridique")
+    .eq("zone", zone)
+    .eq("annee", CURRENT_YEAR);
+
+  const plafonds = new Map<string, { loyer_max_m2: number; source: string | null }>();
+  for (const row of plafondsRows ?? []) {
+    plafonds.set(row.dispositif as string, {
+      loyer_max_m2: Number(row.loyer_max_m2),
+      source: (row.source_juridique as string | null) ?? null,
+    });
+  }
+
+  // ── 4. Loyer de marché (depuis fact_rendement) pour l'écart % ─────
+  const bucket = bucketFromPieces(pieces);
+  const marcheRes = await supabase
+    .from("fact_rendement")
+    .select("loyer_m2_median, loyer_source, loyer_quality")
+    .eq("code_commune", resolvedCommune)
+    .eq("type_local", "Appartement")
+    .in("nb_pieces_bucket", [bucket, "all"])
+    .order("nb_pieces_bucket", { ascending: false })  // bucket précis d'abord
+    .limit(1)
+    .maybeSingle()
+    .catch(() => ({ data: null, error: null }));
+
+  const loyerMarche = marcheRes.data?.loyer_m2_median
+    ? Number(marcheRes.data.loyer_m2_median)
+    : null;
+
+  // ── 5. Construction réponse ───────────────────────────────────────
+  const lli = plafonds.get("lli") ?? null;
+  const locInt = plafonds.get("loc_avantages_intermediaire") ?? null;
+  const locSoc = plafonds.get("loc_avantages_social") ?? null;
+  const locVS = plafonds.get("loc_avantages_tres_social") ?? null;
+  const deno = plafonds.get("denormandie") ?? null;
+
+  const lliApplicable = lli !== null && zone !== "C";
+
+  let calculLLI = null;
+  if (lliApplicable && surface && lli) {
+    const loyerM2Logement = round2(lli.loyer_max_m2 * (0.7 + 19 / surface));
+    calculLLI = {
+      surface_utile_m2: surface,
+      loyer_m2_max_pour_ce_logement: loyerM2Logement,
+      loyer_mensuel_max_eur: Math.round(loyerM2Logement * surface),
+      formule: "LMZONE × (0.7 + 19 / surface_utile)",
+      source_juridique: lli.source ?? "Art. 2 terdecies D annexe III CGI",
+    };
+  }
+
+  const ecartMarchePct =
+    lliApplicable && lli && loyerMarche
+      ? round1(((lli.loyer_max_m2 - loyerMarche) / loyerMarche) * 100)
+      : null;
+
+  return NextResponse.json({
+    zone_abc: zone,
+    annee_reference: CURRENT_YEAR,
+    eligibilites: {
+      lli: lliApplicable,
+      loc_avantages: locInt !== null,           // toutes zones
+      denormandie: denormandieEligible && deno !== null,
+      acv,
+      ort: programmes.has("ort"),
+      pinel: false,                             // dispositif clos
+    },
+    plafonds_loyer_m2: {
+      lli: lli?.loyer_max_m2 ?? null,
+      loc_avantages_intermediaire: locInt?.loyer_max_m2 ?? null,
+      loc_avantages_social: locSoc?.loyer_max_m2 ?? null,
+      loc_avantages_tres_social: locVS?.loyer_max_m2 ?? null,
+      denormandie: denormandieEligible ? (deno?.loyer_max_m2 ?? null) : null,
+    },
+    calcul_lli_pour_logement: calculLLI,
+    marche: loyerMarche
+      ? {
+          loyer_m2_median: loyerMarche,
+          source: marcheRes.data?.loyer_source,
+          quality: marcheRes.data?.loyer_quality,
+        }
+      : null,
+    ecart_lli_vs_marche_pct: ecartMarchePct,    // négatif = marché plus cher que LLI
+    pinel_note: "Dispositif clos depuis le 31/12/2024 — non éligible aux nouvelles opérations",
+    address: addressPayload,
+    geocode_meta: geocodeMeta,
+  });
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}

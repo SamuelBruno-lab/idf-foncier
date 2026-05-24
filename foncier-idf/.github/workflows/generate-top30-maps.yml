@@ -12,8 +12,11 @@ on:
         type: boolean
         default: false
   schedule:
-    # Exécution mensuelle le 1er du mois à 3h UTC
-    - cron: "0 3 1 * *"
+    # Aligné sur la cadence DGFiP : DVF est publié 2× par an (avril + octobre).
+    # On lance le 1er mai (pour récupérer la release d'avril, couvrant T4 année précédente)
+    # et le 1er novembre (release d'octobre, couvrant S1 année courante).
+    # Cf. https://files.data.gouv.fr/geo-dvf/latest/
+    - cron: "0 3 1 5,11 *"
 
 jobs:
   generate-hdbscan:

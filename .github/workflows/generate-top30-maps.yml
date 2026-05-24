@@ -11,10 +11,14 @@ on:
         description: "Skip communes already generated"
         type: boolean
         default: false
+      skip_maps:
+        description: "Skip static HTML maps (Supabase upload only)"
+        type: boolean
+        default: false
   schedule:
     # Aligné sur la cadence DGFiP : DVF est publié 2× par an (avril + octobre).
-    # On lance le 1er mai (pour récupérer la release d'avril, couvrant T4 année précédente)
-    # et le 1er novembre (release d'octobre, couvrant S1 année courante).
+    # On lance le 1er mai (release d'avril, T4 année précédente)
+    # et le 1er novembre (release d'octobre, S1 année courante).
     # Cf. https://files.data.gouv.fr/geo-dvf/latest/
     - cron: "0 3 1 5,11 *"
 
@@ -33,32 +37,27 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm folium branca
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm folium branca
 
       - name: Run HDBSCAN pipeline for Top 30 communes (Supabase upload)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        working-directory: ${{ github.workspace }}
         run: |
-          cd ..
           DOWNLOAD_FLAG=""
           if [ "${{ inputs.skip_download }}" != "true" ]; then
             DOWNLOAD_FLAG="--download"
           fi
-          python idf-foncier/pipeline_top30_communes.py $DOWNLOAD_FLAG \
-            --csv-dir /tmp/dvf
+          python pipeline_top30_communes.py $DOWNLOAD_FLAG --csv-dir /tmp/dvf
 
-      - name: Generate static HTML maps for each commune (pipeline_commune.py)
-        working-directory: ${{ github.workspace }}
+      - name: Generate static HTML maps for each commune
+        if: ${{ inputs.skip_maps != true }}
         run: |
           SKIP_FLAG=""
           if [ "${{ inputs.skip_existing }}" == "true" ]; then
             SKIP_FLAG="--skip-existing"
           fi
-          # Télécharger les CSV départementaux si pas déjà fait
           DOWNLOAD_FLAG=""
           if [ "${{ inputs.skip_download }}" != "true" ]; then
             DOWNLOAD_FLAG="--download"
@@ -66,9 +65,10 @@ jobs:
           python pipeline_commune.py --all $DOWNLOAD_FLAG $SKIP_FLAG
 
       - name: Commit maps
+        if: ${{ inputs.skip_maps != true }}
         run: |
           git config user.name "datamerry-bot"
           git config user.email "bot@datamerry.com"
-          git add maps/*/carte_*.html maps/*/index.html
+          git add maps/*/carte_*.html maps/*/index.html 2>/dev/null || true
           git diff --staged --quiet || git commit -m "feat: cartes Top 30 communes IDF (pipeline_commune.py)"
-          git push
+          git push || echo "Nothing to push or push failed (non-blocking)"

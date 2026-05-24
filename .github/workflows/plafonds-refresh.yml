@@ -3,8 +3,8 @@ name: Refresh zonage A/B/C + éligibilités (annual)
 on:
   workflow_dispatch: {}
   schedule:
-    # Le zonage A/B/C est révisé par arrêté ministériel chaque année,
-    # généralement publié au JO en T1. On lance le 15 février.
+    # Zonage A/B/C révisé par arrêté ministériel annuel (publié au JO en T1).
+    # On lance le 15 février.
     - cron: "0 4 15 2 *"
 
 jobs:
@@ -28,7 +28,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        working-directory: ${{ github.workspace }}
-        run: |
-          cd ..
-          python idf-foncier/pipeline_plafonds.py
+        run: python pipeline_plafonds.py

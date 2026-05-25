@@ -197,13 +197,21 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  // Jeanbrun a une formule légèrement différente : le coefficient est plafonné à 1.2
-  // (vs sans cap pour LLI). Cf. arrêté du 6 janvier 2026.
+  // Jeanbrun = amortissement déductible (PAS réduction d'IR forfaitaire)
+  // Par niveau, taux d'amortissement annuel sur 80% de la valeur du bien
+  // + plafond annuel d'amortissement déductible. Cf. arrêté 6 janvier 2026.
+  const JEANBRUN_AMORT = {
+    intermediaire: { taux_pct: 3.5, plafond_annuel_eur: 8000 },
+    social: { taux_pct: 4.5, plafond_annuel_eur: 10000 },
+    tres_social: { taux_pct: 5.5, plafond_annuel_eur: 12000 },
+  };
+
   let calculJeanbrun = null;
   if (jeanbrunApplicable && surface && jeanInt) {
     const coeff = Math.min(0.7 + 19 / surface, 1.2);
     const buildLevel = (
       row: { loyer_max_m2: number; source: string | null } | null,
+      amort: { taux_pct: number; plafond_annuel_eur: number },
     ) =>
       row == null
         ? null
@@ -211,15 +219,18 @@ export async function GET(req: NextRequest) {
             loyer_m2_zone: row.loyer_max_m2,
             loyer_m2_max_pour_ce_logement: round2(row.loyer_max_m2 * coeff),
             loyer_mensuel_max_eur: Math.round(row.loyer_max_m2 * coeff * surface),
+            amortissement_taux_pct: amort.taux_pct,
+            amortissement_plafond_annuel_eur: amort.plafond_annuel_eur,
           };
     calculJeanbrun = {
       surface_utile_m2: surface,
-      coefficient: round2(coeff),
-      formule: "LMZONE × min(0.7 + 19 / surface_utile ; 1.2)",
+      coefficient_loyer: round2(coeff),
+      formule_loyer: "LMZONE × min(0.7 + 19 / surface_utile ; 1.2)",
       source_juridique: jeanInt.source ?? "Arrêté du 6 janvier 2026",
-      intermediaire: buildLevel(jeanInt),
-      social: buildLevel(jeanSoc),
-      tres_social: buildLevel(jeanVS),
+      base_amortissement: "80% de la valeur du bien (collectif neuf uniquement)",
+      intermediaire: buildLevel(jeanInt, JEANBRUN_AMORT.intermediaire),
+      social: buildLevel(jeanSoc, JEANBRUN_AMORT.social),
+      tres_social: buildLevel(jeanVS, JEANBRUN_AMORT.tres_social),
     };
   }
 
@@ -261,11 +272,47 @@ export async function GET(req: NextRequest) {
       : null,
     ecart_lli_vs_marche_pct: ecartMarchePct,
     notes: {
-      pinel: "Dispositif clos depuis le 31/12/2024 — non éligible aux nouvelles opérations",
-      jeanbrun:
-        "Successeur du Pinel depuis 2025. Réduction d'IR -30 à -45% sur 9 ans. " +
-        "Couvre toute la France métropolitaine + DOM. 3 niveaux de loyer (intermédiaire/social/très social).",
+      pinel:
+        "Dispositif clos depuis le 31/12/2024 — non éligible aux nouvelles opérations",
+      jeanbrun: {
+        mecanisme:
+          "AMORTISSEMENT déductible des revenus fonciers (PAS une réduction d'IR forfaitaire comme Pinel). " +
+          "Chaque euro amorti efface X centimes d'IR selon TMI : 0,41€ à TMI 41%, 0,11€ à TMI 11%. " +
+          "→ Intéressant pour les hauts revenus (TMI ≥ 41%), peu utile à TMI ≤ 30%.",
+        eligibilite_construction: [
+          "Logements neufs ou en VEFA",
+          "Ancien avec travaux ≥ 30 k€ (réhabilitation)",
+          "Logements collectifs (maisons individuelles exclues)",
+        ],
+        couverture: "Partout en France (toutes zones, métropole + DOM)",
+        usage_locataire:
+          "Doit être la résidence PRINCIPALE du locataire. " +
+          "Plafonds de ressources du locataire à respecter selon le niveau choisi.",
+        engagement: "Location 9 ans (prorogeable)",
+        niveaux_loyer_logique:
+          "Les décotes -15% / -30% / -45% s'appliquent sur le PRIX DU MARCHÉ LOCAL " +
+          "(pas seulement le plafond de zone). Le plafond réel = min(plafond zone arrêté, " +
+          "marché local × (1 - décote)). En zone détendue le marché local pilote, en zone " +
+          "tendue le plafond de zone s'applique.",
+        deficit_foncier_majore:
+          "Déficit foncier imputable sur le revenu global jusqu'à 10 700€/an, " +
+          "EXCÉDENT REPORTABLE 10 ans sur les revenus fonciers. " +
+          "→ Cumulable avec l'amortissement (double avantage fiscal).",
+        plafond_niches_fiscales: "HORS plafond global des niches fiscales (10 000€)",
+        piege_revente:
+          "À la revente, l'amortissement déduit pendant la détention est " +
+          "RÉINTÉGRÉ dans la plus-value imposable (cf. réforme LMNP 02/2025). " +
+          "Le Jeanbrun n'efface pas l'impôt, il le décale → intéressant si horizon ≥15 ans, " +
+          "idéalement jusqu'à exonération PV à 22 ans.",
+        horizon_recommande: "≥15 ans (sinon perte sèche ; < 9 ans à éviter absolument)",
+      },
     },
+    advisory:
+      "Le Jeanbrun est un calcul fiscal complexe dont la rentabilité dépend de la TMI, " +
+      "de l'horizon de détention et du niveau de loyer accepté. Cette API expose les plafonds " +
+      "et coefficients réglementaires — la simulation patrimoniale complète (cash-flow net, " +
+      "fiscalité revente, comparaison LMNP au réel) nécessite un conseiller en gestion " +
+      "de patrimoine. À ne pas vendre comme un 'nouveau Pinel' (≠ structure fiscale).",
     address: addressPayload,
     geocode_meta: geocodeMeta,
   });

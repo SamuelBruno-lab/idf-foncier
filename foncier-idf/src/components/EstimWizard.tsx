@@ -243,6 +243,48 @@ export default function EstimWizard({
     return QUESTIONS.length;
   }
 
+  // Revient à la question précédente (pop history + restaure state)
+  // Note : restaure la valeur saisie pour éviter de retaper (adresse, surface…)
+  function goBack() {
+    if (history.length === 0) return;
+    const last = history[history.length - 1];
+    const lastAnswer = answers[last.q.id];
+    const newHistory = history.slice(0, -1);
+    const newAnswers = { ...answers };
+    delete newAnswers[last.q.id];
+
+    // Retrouve l'index dans QUESTIONS de la question qu'on restaure
+    const idx = QUESTIONS.findIndex((q) => q.id === last.q.id);
+
+    setHistory(newHistory);
+    setAnswers(newAnswers);
+    setCurrentStepIdx(idx >= 0 ? idx : 0);
+
+    // Restaure la valeur précédente dans l'input / multi selon le type de question
+    if (last.q.type === "multi-choice" && Array.isArray(lastAnswer)) {
+      setCurrentMulti(lastAnswer as string[]);
+      setCurrentInput("");
+    } else if (
+      last.q.type === "text" ||
+      last.q.type === "number" ||
+      last.q.type === "address"
+    ) {
+      setCurrentInput(String(lastAnswer ?? ""));
+      setCurrentMulti([]);
+    } else {
+      // single-choice : pas de restauration (l'utilisateur reclique sur un bouton)
+      setCurrentInput("");
+      setCurrentMulti([]);
+    }
+
+    // Si on revient depuis un état "résultat", on annule l'estimation
+    if (leadStatus !== "wizard" && leadStatus !== "estimating") {
+      setResult(null);
+      setLeadStatus("wizard");
+      setLeadError(null);
+    }
+  }
+
   const currentQuestion = QUESTIONS[currentStepIdx];
   const isFinished = currentStepIdx >= QUESTIONS.length;
 
@@ -468,6 +510,40 @@ export default function EstimWizard({
                     if (currentInput.trim()) submitAnswer(currentInput.trim());
                   }}
                 />
+              )}
+
+              {/* Bouton retour (sauf à la 1ère question) */}
+              {history.length > 0 && (
+                <div style={{ paddingLeft: 36, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    style={{
+                      background: "transparent",
+                      color: "#64748b",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    onMouseOver={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "#f1f5f9";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#475569";
+                    }}
+                    onMouseOut={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#64748b";
+                    }}
+                  >
+                    ← Précédent
+                  </button>
+                </div>
               )}
             </div>
           </div>

@@ -3,10 +3,11 @@
 DATAMERRY — Pipeline d'ingestion du taux OAT 10 ans France.
 
 Sources (par ordre de préférence) :
-  1. ECB Statistical Data Warehouse (autorité européenne, JSON SDMX 2.1)
-     https://data-api.ecb.europa.eu/service/data/FM/D.FR.EUR.4F.BB.U2_10Y.YLD
-  2. Banque de France Webstat (CSV)
-  3. FRED St. Louis Fed (mirroir mensuel, fallback dernier recours)
+  1. Eurostat SDMX 2.1 — irt_lt_mcby_d (Maastricht bond yield 10Y daily)
+     https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/irt_lt_mcby_d/D.PA.MCBY.FR
+     Gratuit, daily depuis 1993, source officielle EU.
+  2. ECB Statistical Data Warehouse (fallback, daily)
+  3. FRED St. Louis Fed (fallback ultime, monthly — requiert FRED_API_KEY gratuite)
      https://api.stlouisfed.org/fred/series/observations?series_id=IRLTLT01FRM156N
 
 Mode :
@@ -46,122 +47,145 @@ except ImportError:
 # Sources de données
 # ─────────────────────────────────────────────────────────────────────────────
 
-ECB_SDW_URL = (
-    "https://data-api.ecb.europa.eu/service/data/FM/"
-    "D.FR.EUR.4F.BB.U2_10Y.YLD"
+# Eurostat — Maastricht bond yield 10Y daily France
+# Dataset: irt_lt_mcby_d (Long term government bond yields - Maastricht criterion - Daily)
+# Key dimensions: FREQ=D, UNIT=PA (% per annum), INDIC=MCBY, GEO=FR
+EUROSTAT_URL = (
+    "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/"
+    "irt_lt_mcby_d/D.PA.MCBY.FR"
 )
-ECB_SDW_PARAMS = {"format": "csvdata"}
+EUROSTAT_PARAMS = {"format": "csvdata", "compress": "false"}
 
-BDF_WEBSTAT_URL = (
-    # Série OAT 10 ans (publication quotidienne BdF)
-    # Le code de série exact peut évoluer ; à valider via webstat.banque-france.fr
-    "https://webstat.banque-france.fr/ws_wsfr/downloadFile.do"
-)
-BDF_WEBSTAT_SERIES_ID = "IRS.D.FR.L.L40.CI.0000.EUR.N.Z"
+# ECB SDW (fallback secondaire — l'endpoint exact varie, on tente plusieurs codes)
+ECB_SDW_CANDIDATES = [
+    "https://data-api.ecb.europa.eu/service/data/IRS/M.FR.L.L40.CI.0000.EUR.N.Z",
+    "https://data-api.ecb.europa.eu/service/data/FM/D.FR.EUR.4F.BB.U2_10Y.YLD",
+]
 
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
-FRED_SERIES_ID = "IRLTLT01FRM156N"  # mensuel — fallback en dernier recours
+FRED_SERIES_ID = "IRLTLT01FRM156N"  # mensuel — fallback ultime
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fetcher ECB SDW (source principale)
+# Fetcher Eurostat — source principale (daily, gratuit, sans clé)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_ecb_sdw(start: date | None = None) -> pd.DataFrame:
+def fetch_eurostat(start: date | None = None) -> pd.DataFrame:
     """
-    Récupère la série OAT 10 ans France depuis ECB SDW au format CSV.
+    Récupère la série OAT 10 ans France depuis Eurostat SDMX 2.1 au format CSV.
+    Dataset: irt_lt_mcby_d (Maastricht criterion bond yields, daily).
 
     Retourne un DataFrame [date_obs, taux_oat_10y, source].
     """
-    params = dict(ECB_SDW_PARAMS)
+    from io import StringIO
+
+    params = dict(EUROSTAT_PARAMS)
+    # Eurostat respecte startPeriod en YYYY-MM-DD
     if start is not None:
         params["startPeriod"] = start.isoformat()
 
-    print(f"  → ECB SDW : {ECB_SDW_URL}?{params}")
+    print(f"  → Eurostat : {EUROSTAT_URL}")
     resp = requests.get(
-        ECB_SDW_URL,
+        EUROSTAT_URL,
         params=params,
         headers={"Accept": "text/csv"},
-        timeout=30,
+        timeout=60,
     )
     if resp.status_code != 200:
         raise RuntimeError(
-            f"ECB SDW HTTP {resp.status_code} — {resp.text[:200]}"
+            f"Eurostat HTTP {resp.status_code} — {resp.text[:200]}"
         )
 
-    # Le CSV SDMX ECB a une structure avec entête puis lignes : KEY,DATE,VALUE,...
-    # On parse via pandas en sautant les éventuels headers
-    from io import StringIO
-
+    # CSV Eurostat SDMX 2.1 :
+    #   DATAFLOW,LAST UPDATE,freq,unit,indic,geo,TIME_PERIOD,OBS_VALUE,OBS_FLAG
     df = pd.read_csv(StringIO(resp.text))
-    # On cherche les 2 colonnes clés
+    if df.empty:
+        raise RuntimeError("Eurostat : CSV vide")
+
+    # Repérage des colonnes (Eurostat respecte ces noms standards)
     date_col = next(
-        (c for c in df.columns if c.lower() in ("time_period", "date", "obs_date")),
+        (c for c in df.columns if c.upper() in ("TIME_PERIOD", "TIME", "DATE")),
         None,
     )
     value_col = next(
-        (c for c in df.columns if c.lower() in ("obs_value", "value")),
+        (c for c in df.columns if c.upper() in ("OBS_VALUE", "VALUE")),
         None,
     )
     if not date_col or not value_col:
         raise RuntimeError(
-            f"ECB SDW : colonnes inattendues {list(df.columns)[:10]}"
+            f"Eurostat : colonnes inattendues {list(df.columns)[:12]}"
         )
 
     out = pd.DataFrame(
         {
-            "date_obs": pd.to_datetime(df[date_col]).dt.date,
+            "date_obs": pd.to_datetime(df[date_col], errors="coerce").dt.date,
             "taux_oat_10y": pd.to_numeric(df[value_col], errors="coerce"),
         }
     )
-    out["source"] = "ECB_SDW"
-    out = out.dropna(subset=["taux_oat_10y"]).drop_duplicates(subset=["date_obs"])
+    out["source"] = "EUROSTAT"
+    out = (
+        out.dropna(subset=["date_obs", "taux_oat_10y"])
+           .drop_duplicates(subset=["date_obs"])
+           .sort_values("date_obs")
+    )
     return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fetcher BdF Webstat (fallback 1)
+# Fetcher ECB SDW (fallback secondaire — endpoints multi-candidats)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_bdf_webstat(start: date | None = None) -> pd.DataFrame:
+def fetch_ecb_sdw(start: date | None = None) -> pd.DataFrame:
     """
-    Fallback : Banque de France Webstat (CSV).
-    L'URL exact peut évoluer ; valider sur webstat.banque-france.fr si bug.
+    Tente plusieurs codes de série ECB SDW jusqu'à trouver celui qui marche.
+    Les codes ECB changent rarement mais peuvent être réorganisés.
     """
-    print(f"  → BdF Webstat (fallback)")
-    params = {
-        "id": BDF_WEBSTAT_SERIES_ID,
-        "format": "csv",
-    }
-    resp = requests.get(BDF_WEBSTAT_URL, params=params, timeout=30)
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"BdF Webstat HTTP {resp.status_code} — {resp.text[:200]}"
-        )
-
     from io import StringIO
 
-    # BdF utilise un format CSV semi-colon avec entête textuel ; à ajuster
-    df = pd.read_csv(StringIO(resp.text), sep=";", skiprows=5)
-    df.columns = [c.strip() for c in df.columns]
-    date_col = next((c for c in df.columns if "date" in c.lower()), df.columns[0])
-    value_col = next(
-        (c for c in df.columns if "value" in c.lower() or "taux" in c.lower()),
-        df.columns[1],
-    )
-    out = pd.DataFrame(
-        {
-            "date_obs": pd.to_datetime(df[date_col], dayfirst=True, errors="coerce").dt.date,
-            "taux_oat_10y": pd.to_numeric(
-                df[value_col].astype(str).str.replace(",", "."), errors="coerce"
-            ),
-        }
-    )
-    out["source"] = "BDF_WEBSTAT"
-    out = out.dropna(subset=["date_obs", "taux_oat_10y"]).drop_duplicates(subset=["date_obs"])
-    if start is not None:
-        out = out[out["date_obs"] >= start]
-    return out
+    last_err = None
+    for url in ECB_SDW_CANDIDATES:
+        try:
+            params = {"format": "csvdata"}
+            if start is not None:
+                params["startPeriod"] = start.isoformat()
+            print(f"  → ECB SDW candidate : {url}")
+            resp = requests.get(
+                url,
+                params=params,
+                headers={"Accept": "text/csv"},
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                last_err = f"HTTP {resp.status_code}: {resp.text[:150]}"
+                continue
+
+            df = pd.read_csv(StringIO(resp.text))
+            date_col = next(
+                (c for c in df.columns if c.upper() in ("TIME_PERIOD", "DATE", "OBS_DATE")),
+                None,
+            )
+            value_col = next(
+                (c for c in df.columns if c.upper() in ("OBS_VALUE", "VALUE")),
+                None,
+            )
+            if not date_col or not value_col:
+                last_err = f"colonnes inattendues : {list(df.columns)[:8]}"
+                continue
+            out = pd.DataFrame(
+                {
+                    "date_obs": pd.to_datetime(df[date_col]).dt.date,
+                    "taux_oat_10y": pd.to_numeric(df[value_col], errors="coerce"),
+                }
+            )
+            out["source"] = "ECB_SDW"
+            out = out.dropna(subset=["taux_oat_10y"]).drop_duplicates(subset=["date_obs"])
+            if len(out) > 0:
+                return out
+            last_err = "0 ligne après parsing"
+        except Exception as e:
+            last_err = str(e)
+            continue
+    raise RuntimeError(f"Aucun endpoint ECB SDW ne fonctionne. Dernière erreur : {last_err}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -209,8 +233,14 @@ def fetch_fred(start: date | None = None) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fetch_oat_with_fallback(start: date | None = None) -> pd.DataFrame:
+    """
+    Cascade des sources par ordre de préférence :
+      1. Eurostat (daily, gratuit, sans clé) — recommandé
+      2. ECB SDW (daily, multi-endpoints)
+      3. FRED (monthly, requiert FRED_API_KEY gratuite — fallback ultime)
+    """
     errors: list[str] = []
-    for fetcher in (fetch_ecb_sdw, fetch_bdf_webstat, fetch_fred):
+    for fetcher in (fetch_eurostat, fetch_ecb_sdw, fetch_fred):
         try:
             df = fetcher(start=start)
             if len(df) > 0:

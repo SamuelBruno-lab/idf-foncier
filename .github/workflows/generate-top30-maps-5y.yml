@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm alphashape shapely
 
       - name: Run HDBSCAN pipeline 5 ans (table dvf_hdbscan_zones_5y)
         env:

@@ -267,6 +267,63 @@ def compute_volatility(
 
 # ── HDBSCAN par commune × type ─────────────────────────────────────────────
 
+def compute_hull(pts: np.ndarray, alpha: float = 200.0) -> list[list[float]] | None:
+    """
+    Calcule l'enveloppe géométrique d'un nuage de points avec alpha shape
+    (concave hull) — épouse la forme réelle du cluster, donc PAS de
+    chevauchement entre clusters HDBSCAN distincts (qui sont séparés
+    spatialement par construction de l'algo density-based).
+
+    Fallback sur convex hull si alpha shape échoue (cluster trop petit,
+    points colinéaires, etc.) — peut chevaucher mais reste valide.
+
+    Args:
+        pts: array shape (N, 2) de coordonnées [lat, lon]
+        alpha: paramètre d'alpha shape. Plus grand = enveloppe plus serrée.
+               ~200 marche bien à l'échelle commune en lat/lon
+               (cluster ~500m = ~0.005°, alpha = 1/0.005 = 200).
+
+    Returns:
+        Liste fermée [[lat, lon], ...] (premier = dernier) ou None si <3 points.
+    """
+    if len(pts) < 3:
+        return None
+
+    # Tentative 1 : alpha shape (méthode scientifiquement correcte)
+    try:
+        import alphashape
+        from shapely.geometry import MultiPolygon, Polygon
+
+        coords = [(float(p[0]), float(p[1])) for p in pts]
+        shape = alphashape.alphashape(coords, alpha)
+
+        if shape is None or shape.is_empty:
+            raise ValueError("alpha shape vide")
+
+        if isinstance(shape, Polygon):
+            poly = shape
+        elif isinstance(shape, MultiPolygon):
+            # cluster split en plusieurs morceaux → on garde le plus gros
+            poly = max(shape.geoms, key=lambda g: g.area)
+        else:
+            raise ValueError(f"geom_type inattendu : {shape.geom_type}")
+
+        hull_pts = [[float(x), float(y)] for x, y in poly.exterior.coords]
+        if len(hull_pts) >= 4:  # polygone valide (3 points + fermeture)
+            return hull_pts
+    except Exception:
+        pass  # silencieusement fallback
+
+    # Tentative 2 : convex hull classique (fallback)
+    try:
+        hull = ConvexHull(pts)
+        hull_pts = pts[hull.vertices].tolist()
+        hull_pts.append(hull_pts[0])  # fermer le polygone
+        return hull_pts
+    except Exception:
+        return None
+
+
 def hdbscan_params(n: int, type_local: str = "") -> dict | None:
     """
     Paramètres adaptatifs par type de bien.
@@ -360,16 +417,11 @@ def process_commune_type(
         grp = sub[sub["cluster"] == cid]
         pts = grp[["latitude", "longitude"]].values
 
-        # Polygone convexe (besoin d'au moins 3 points distincts)
-        hull_coords = None
-        if len(pts) >= 3:
-            try:
-                hull = ConvexHull(pts)
-                hull_pts = pts[hull.vertices].tolist()
-                hull_pts.append(hull_pts[0])  # fermer le polygone
-                hull_coords = hull_pts  # [[lat, lon], ...]
-            except Exception:
-                pass
+        # Enveloppe : alpha shape (concave hull) si possible — pas de
+        # chevauchement avec les autres clusters HDBSCAN car ceux-ci sont
+        # spatialement disjoints par construction (algo density-based).
+        # Fallback convex hull si alphashape échoue.
+        hull_coords = compute_hull(pts, alpha=200.0)
 
         prix_m2_vals = grp["prix_m2"].dropna().values
         centroid = pts.mean(axis=0)

@@ -63,7 +63,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pandas numpy hdbscan scipy httpx python-dotenv
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv alphashape shapely
 
       - name: Run pipeline for dept ${{ matrix.dept }}
         env:

@@ -37,7 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm folium branca
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm folium branca alphashape shapely
 
       - name: Run HDBSCAN pipeline for Top 30 communes (Supabase upload)
         env:

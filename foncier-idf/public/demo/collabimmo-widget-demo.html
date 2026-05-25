@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DATAMERRY — Démo widget Collabimmo</title>
+  <style>
+    /* === Mock du contexte "site Collabimmo" === */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 24px;
+    }
+    .page {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: #ffffff;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+    }
+    .nav__brand { font-size: 20px; font-weight: 800; color: #c2410c; }
+    .nav__links { display: flex; gap: 24px; font-size: 14px; color: #475569; }
+    .hero {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+    }
+    .hero h1 { font-size: 28px; margin-bottom: 8px; }
+    .hero p { color: #64748b; font-size: 14px; }
+
+    /* === LE WIDGET DATAMERRY EMBARQUÉ — 100% identique à /public/widget.js === */
+    .dm-widget {
+      --dm-primary: #c2410c; /* couleur Collabimmo (orange brûlé) */
+      --dm-bg: #ffffff;
+      --dm-text: #0f172a;
+      --dm-muted: #64748b;
+      --dm-border: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--dm-text);
+      background: var(--dm-bg);
+      border: 1px solid var(--dm-border);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 720px;
+      line-height: 1.4;
+      box-shadow: 0 4px 24px rgba(0,0,0,.04);
+      margin: 0 auto;
+    }
+    .dm-widget * { box-sizing: border-box; margin: 0; padding: 0; }
+    .dm-widget__hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--dm-border);
+      margin-bottom: 16px;
+    }
+    .dm-widget__cabinet { font-weight: 700; font-size: 18px; color: var(--dm-primary); }
+    .dm-widget__by { font-size: 11px; color: var(--dm-muted); text-transform: uppercase; letter-spacing: .05em; }
+    .dm-widget__address h2 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .dm-widget__address .dm-meta { color: var(--dm-muted); font-size: 14px; margin-bottom: 16px; }
+    .dm-widget__sv {
+      width: 100%; height: auto; max-height: 240px;
+      object-fit: cover; border-radius: 12px; margin-bottom: 20px;
+    }
+    .dm-widget__main {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .dm-widget__card {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .dm-widget__card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--dm-muted);
+      margin-bottom: 8px;
+    }
+    .dm-bignum {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--dm-primary);
+      line-height: 1.1;
+    }
+    .dm-sub { font-size: 13px; color: var(--dm-text); margin-top: 4px; }
+    .dm-mini { font-size: 11px; color: var(--dm-muted); margin-top: 6px; }
+    .dm-widget__neighborhood {
+      padding-top: 16px;
+      border-top: 1px solid var(--dm-border);
+    }
+    .dm-widget__neighborhood h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--dm-muted);
+      margin-bottom: 12px;
+    }
+    .dm-widget__scores {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .dm-score { text-align: center; }
+    .dm-score__val {
+      display: block;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--dm-primary);
+    }
+    .dm-score__max { font-size: 13px; color: var(--dm-muted); font-weight: 400; }
+    .dm-score__lbl {
+      display: block;
+      font-size: 11px;
+      color: var(--dm-muted);
+      margin-top: 4px;
+    }
+    .dm-widget__ftr {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--dm-border);
+      font-size: 10px;
+      color: var(--dm-muted);
+      text-align: center;
+    }
+
+    /* === Annotation explicative (zone non-prod) === */
+    .annot {
+      max-width: 720px;
+      margin: 24px auto 0;
+      padding: 16px;
+      background: #fffbeb;
+      border: 1px dashed #f59e0b;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #92400e;
+    }
+    .annot code {
+      background: #fef3c7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "Menlo", "Monaco", monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Faux site Collabimmo pour donner le contexte -->
+    <header class="nav">
+      <span class="nav__brand">COLLABIMMO</span>
+      <nav class="nav__links">
+        <span>Acheter</span>
+        <span>Vendre</span>
+        <span>Estimer</span>
+        <span>Contact</span>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h1>Estimation détaillée de votre bien</h1>
+      <p>Notre cabinet vous fournit une analyse complète propulsée par DATAMERRY®.</p>
+    </section>
+
+    <!-- === ICI commence ce que Diara intègre en 4 lignes HTML === -->
+    <!-- <script src="https://datamerry.com/widget.js" async></script> -->
+    <!-- <div data-datamerry-report data-key="wdmk_live_..." data-address="..." data-color="#c2410c"></div> -->
+
+    <div class="dm-widget">
+      <header class="dm-widget__hdr">
+        <span class="dm-widget__cabinet">COLLABIMMO</span>
+        <span class="dm-widget__by">propulsé par DATAMERRY</span>
+      </header>
+
+      <section class="dm-widget__address">
+        <h2>10 rue de Rivoli, 75001 Paris</h2>
+        <p class="dm-meta">75001 Paris · 62 m² · 3 pièces · Appartement</p>
+      </section>
+
+      <!-- Image Streetview Mapillary (placeholder Unsplash pour mock) -->
+      <img class="dm-widget__sv"
+           src="https://images.unsplash.com/photo-1549143198-7cb4f3525f0d?auto=format&fit=crop&w=900&q=70"
+           alt="Vue rue 10 rue de Rivoli" />
+
+      <section class="dm-widget__main">
+        <div class="dm-widget__card">
+          <h3>Estimation marché</h3>
+          <p class="dm-bignum">823 460 €</p>
+          <p class="dm-sub">13 282 €/m²</p>
+          <p class="dm-mini">Fourchette 762 000 € – 891 000 €</p>
+          <p class="dm-mini">Basé sur 187 ventes DVF dans la zone</p>
+        </div>
+
+        <div class="dm-widget__card">
+          <h3>Rendement locatif</h3>
+          <p class="dm-bignum">3,2 %</p>
+          <p class="dm-sub">Loyer 35 €/m²</p>
+          <p class="dm-mini">Net estimé 2,4 %</p>
+          <p class="dm-mini">Source OLAP Paris</p>
+        </div>
+
+        <div class="dm-widget__card">
+          <h3>Zone fiscale</h3>
+          <p class="dm-bignum">Abis</p>
+          <p class="dm-sub">Éligible Jeanbrun · LLI · Loc'Avantages</p>
+        </div>
+      </section>
+
+      <section class="dm-widget__neighborhood">
+        <h3>Quartier</h3>
+        <div class="dm-widget__scores">
+          <div class="dm-score">
+            <span class="dm-score__val">94<span class="dm-score__max">/100</span></span>
+            <span class="dm-score__lbl">Accessibilité transports</span>
+          </div>
+          <div class="dm-score">
+            <span class="dm-score__val">88<span class="dm-score__max">/100</span></span>
+            <span class="dm-score__lbl">Ville à 15 min</span>
+          </div>
+          <div class="dm-score">
+            <span class="dm-score__val">7</span>
+            <span class="dm-score__lbl">Écoles &lt; 1,5 km</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="dm-widget__ftr">
+        Sources : DVF, OLAP, ANIL, INSEE, OpenStreetMap, Mapillary · 25/05/2026
+      </footer>
+    </div>
+
+    <div class="annot">
+      <strong>📌 Comment Diara intègre ça sur son site Collabimmo</strong> — 4 lignes HTML :
+      <pre style="margin-top:8px; white-space:pre-wrap;"><code>&lt;script src="https://datamerry.com/widget.js" async&gt;&lt;/script&gt;
+&lt;div data-datamerry-report
+     data-key="wdmk_live_xxxxxxxx..."
+     data-address="10 rue de Rivoli 75001"
+     data-surface="62"
+     data-pieces="3"
+     data-color="#c2410c"&gt;&lt;/div&gt;</code></pre>
+      Le widget appelle <code>/api/widget/render</code>, vérifie le domaine <code>collabimmo.fr</code>,
+      et injecte automatiquement le HTML stylé ci-dessus. La couleur (<code>data-color</code>) s'aligne
+      sur la charte du cabinet. Le rendu est intégral en SSR — pas de framework JS requis côté Collabimmo.
+    </div>
+
+  </div>
+</body>
+</html>

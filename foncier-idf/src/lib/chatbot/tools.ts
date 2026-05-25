@@ -153,6 +153,32 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "compute_market_adjusted_price",
+      description:
+        "Calcule un prix de mise en vente AJUSTÉ au contexte macro actuel " +
+        "(taux OAT 10 ans aujourd'hui vs moyenne historique des ventes du cluster). " +
+        "Applique un modèle log-linéaire prix~taux avec β = -9% par +100bp " +
+        "(médiane littérature française : Antipa-Lecat OFCE 2013 et analyse DVF×OAT DATAMERRY). " +
+        "À utiliser dans le TEMPS 3 du conseil pour proposer un prix d'annonce CONSERVATEUR " +
+        "tenant compte de la hausse/baisse des taux depuis l'historique des ventes DVF.",
+      parameters: {
+        type: "object",
+        properties: {
+          address: { type: "string", description: "Adresse complète" },
+          surface: { type: "number", description: "Surface m² (obligatoire pour prix total)" },
+          type_local: {
+            type: "string",
+            enum: ["Appartement", "Maison"],
+            description: "Type de bien (défaut: Appartement)",
+          },
+        },
+        required: ["address"],
+      },
+    },
+  },
 ];
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -424,6 +450,192 @@ async function handleNeighborhood(args: { address: string }) {
   };
 }
 
+// ── Tool: compute_market_adjusted_price ──────────────────────────────────────
+//
+// Modèle log-linéaire : log(prix) = α + β × taux_oat
+// β par défaut = -0.094 → exp(-0.094) - 1 ≈ -9.0% par +100bp de taux OAT
+//
+// Sources :
+//   - Antipa & Lecat (OFCE 2013, DOLS panel 2003-2008) : -7,1%/+1pt taux bancaire
+//   - DATAMERRY analyses/dvf_oat_correlation.py (à actualiser quand exécuté)
+//
+// Override via env DATAMERRY_BETA_OAT (ex: "-0.085" pour -8,5%/+100bp).
+const BETA_OAT_DEFAULT = -0.094;
+// Fenêtre historique par défaut (proxy en attendant d'exposer min/max date de
+// mutation par cluster HDBSCAN). Les transactions DVF du cluster sont
+// majoritairement dans cette fenêtre pour les datasets adaptive et 5y.
+const OAT_HISTORICAL_WINDOW_START = "2020-01-01";
+const OAT_HISTORICAL_WINDOW_END = "2025-12-31";
+
+async function handleMarketAdjustedPrice(args: {
+  address: string;
+  surface?: number;
+  type_local?: string;
+}) {
+  // 1) Prix de base via le tool d'estimation existant
+  const estim = await handleEstimate({
+    address: args.address,
+    surface: args.surface,
+    type_local: args.type_local,
+  });
+  if (!estim.available) {
+    return {
+      available: false,
+      reason: "estimation_prix_indisponible",
+      details:
+        "reason" in estim ? estim.reason : "Le cluster DVF n'a pas pu être identifié.",
+    };
+  }
+  if (estim.prix_m2_median == null) {
+    return {
+      available: false,
+      reason: "no_prix_m2_in_cluster",
+      details: "Le cluster DVF identifié n'a pas de prix médian (count=0 ou data corrompue).",
+    };
+  }
+
+  // 2) Récupère OAT actuel + OAT moyen historique
+  const sb = getSupabaseServerClient();
+
+  let taux_actuel: number | null = null;
+  try {
+    const { data: latest, error } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y, date_obs")
+      .order("date_obs", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && latest) {
+      taux_actuel = Number((latest as { taux_oat_10y: number }).taux_oat_10y);
+    }
+  } catch (err) {
+    console.warn("[chatbot] fact_taux_oat10y query latest failed:", err);
+  }
+
+  if (taux_actuel == null) {
+    return {
+      available: false,
+      reason: "oat_table_empty_or_missing",
+      hint:
+        "La table fact_taux_oat10y est vide ou inaccessible. " +
+        "Lance : python pipeline_oat10y.py --bootstrap (Phase A).",
+      // On renvoie quand même le prix brut pour que le LLM puisse continuer
+      prix_m2_cluster_brut: estim.prix_m2_median,
+      prix_total_cluster_brut: estim.prix_total_median ?? null,
+    };
+  }
+
+  let taux_moyen_historique: number | null = null;
+  try {
+    const { data: rows, error } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y")
+      .gte("date_obs", OAT_HISTORICAL_WINDOW_START)
+      .lte("date_obs", OAT_HISTORICAL_WINDOW_END);
+    if (!error && rows && rows.length > 0) {
+      const typed = rows as Array<{ taux_oat_10y: number }>;
+      taux_moyen_historique =
+        typed.reduce((acc, r) => acc + Number(r.taux_oat_10y), 0) / typed.length;
+    }
+  } catch (err) {
+    console.warn("[chatbot] fact_taux_oat10y avg query failed:", err);
+  }
+
+  if (taux_moyen_historique == null) {
+    return {
+      available: false,
+      reason: "oat_avg_unavailable",
+      hint:
+        "Impossible de calculer OAT moyen historique " +
+        `${OAT_HISTORICAL_WINDOW_START} → ${OAT_HISTORICAL_WINDOW_END}.`,
+      taux_oat_actuel: taux_actuel,
+      prix_m2_cluster_brut: estim.prix_m2_median,
+    };
+  }
+
+  // 3) Application du modèle log-linéaire
+  const betaRaw = process.env.DATAMERRY_BETA_OAT;
+  const BETA = betaRaw ? Number(betaRaw) : BETA_OAT_DEFAULT;
+  const delta_taux_pts = taux_actuel - taux_moyen_historique;
+  const adjustment_factor = Math.exp(BETA * delta_taux_pts);
+  const delta_pct = (adjustment_factor - 1) * 100;
+
+  const prix_m2_brut = estim.prix_m2_median;
+  const prix_m2_ajuste = Math.round(prix_m2_brut * adjustment_factor);
+
+  const surface_safe = args.surface && args.surface > 0 ? args.surface : null;
+  const prix_total_ajuste = surface_safe
+    ? Math.round(prix_m2_ajuste * surface_safe)
+    : null;
+
+  // Suggestions opérationnelles (prix annonce / plancher / plan B)
+  const prix_annonce_m2 = Math.round(prix_m2_ajuste * 1.04); // marge négo +4%
+  const prix_plancher_m2 = Math.round(prix_m2_ajuste * 0.95); // -5% sous la valeur ajustée
+  const prix_annonce_total = surface_safe ? prix_annonce_m2 * surface_safe : null;
+  const prix_plancher_total = surface_safe ? prix_plancher_m2 * surface_safe : null;
+
+  return {
+    available: true,
+    address: estim.address,
+    surface: surface_safe,
+
+    // Avant ajustement (référence cluster brute)
+    prix_m2_cluster_brut: prix_m2_brut,
+    prix_total_cluster_brut: estim.prix_total_median ?? null,
+    nb_ventes_dvf: estim.nb_ventes_dvf,
+
+    // Contexte marché OAT
+    taux_oat_actuel_pct: round(taux_actuel, 4),
+    taux_oat_moyen_historique_pct: round(taux_moyen_historique, 4),
+    delta_taux_pts: round(delta_taux_pts, 3),
+    periode_historique: `${OAT_HISTORICAL_WINDOW_START} → ${OAT_HISTORICAL_WINDOW_END}`,
+
+    // Paramètres modèle
+    beta_applique: BETA,
+    elasticite_par_100bp_pct: round((Math.exp(BETA) - 1) * 100, 2),
+    methodologie:
+      "Modèle log-linéaire log(prix) = α + β × taux_oat. " +
+      "β par défaut = -0.094 (médiane littérature française : Antipa-Lecat OFCE 2013 et benchmark DATAMERRY). " +
+      "Override via variable env DATAMERRY_BETA_OAT.",
+
+    // Résultat ajusté
+    delta_pct: round(delta_pct, 2),
+    prix_m2_ajuste,
+    prix_total_ajuste,
+
+    // Suggestions opérationnelles
+    suggestions: {
+      prix_annonce_m2,
+      prix_annonce_total,
+      prix_plancher_m2,
+      prix_plancher_total,
+      note:
+        "Prix annonce = ajusté × 1.04 (marge de négociation +4%). " +
+        "Prix plancher = ajusté × 0.95 (en-dessous, le bien est largement sous-coté). " +
+        "Plan B à 60 jours si pas d'offre : repasser au prix ajusté brut.",
+    },
+
+    warnings: [
+      delta_pct < -15
+        ? "Forte décote (-15%+) liée à la remontée des taux OAT vs historique. " +
+          "Plus value latente faible pour le vendeur — argumenter horizon long terme."
+        : null,
+      delta_pct > 10
+        ? "Prime liée à la baisse des taux OAT vs historique. " +
+          "Opportunité de timing pour le vendeur, mais attention aux acheteurs prudents."
+        : null,
+      Math.abs(delta_taux_pts) < 0.2
+        ? "Faible delta de taux : ajustement marginal, le prix cluster reste très représentatif."
+        : null,
+    ].filter(Boolean),
+  };
+}
+
+function round(n: number, decimals: number): number {
+  const f = 10 ** decimals;
+  return Math.round(n * f) / f;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Dispatcher
 // ──────────────────────────────────────────────────────────────────────────────
@@ -451,6 +663,10 @@ export async function executeTool(
         return await handleRentalStrategies(args as Parameters<typeof handleRentalStrategies>[0]);
       case "neighborhood_report":
         return await handleNeighborhood(args as Parameters<typeof handleNeighborhood>[0]);
+      case "compute_market_adjusted_price":
+        return await handleMarketAdjustedPrice(
+          args as Parameters<typeof handleMarketAdjustedPrice>[0],
+        );
       default:
         return { error: `unknown_tool: ${name}` };
     }

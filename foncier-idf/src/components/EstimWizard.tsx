@@ -63,16 +63,20 @@ const QUESTIONS: Question[] = [
     label: "De quel type de bien s'agit-il ?",
     type: "single-choice",
     required: true,
-    // NB — On limite volontairement aux types résidentiels :
-    //  - Terrain : se valorise en charge foncière (bilan promoteur) ≠ €/m² DVF.
-    //              De plus le volume IDF est très faible.
-    //  - Commerce / Tertiaire : se valorisent par capitalisation des loyers,
-    //              valeur du droit au bail et notation emplacement (n°1/2/3).
-    //              Pas du €/m² DVF non plus.
-    // Ces types seront réintroduits avec une méthodologie adaptée (cf. roadmap).
+    // NB méthodologie :
+    //  - Appartement / Maison : estimation automatique DVF (HDBSCAN clusters).
+    //  - Commerce / Tertiaire : DVF les regroupe sous "Local industriel,
+    //    commercial ou assimilé". L'estimation auto retombe en fallback
+    //    (no_cluster) → on capture le lead, Diara qualifie au téléphone.
+    //  - Terrain : ne se valorise PAS en €/m² DVF mais en CHARGE FONCIÈRE
+    //    (bilan promoteur). On court-circuite le wizard juste après l'adresse
+    //    et on route directement vers la capture lead avec message dédié.
     options: [
       { value: "Appartement", label: "Appartement", emoji: "🏢" },
       { value: "Maison", label: "Maison", emoji: "🏡" },
+      { value: "Commerce", label: "Commerce", emoji: "🏪" },
+      { value: "Tertiaire", label: "Bureaux / Entrepôt", emoji: "🏬" },
+      { value: "Terrain", label: "Terrain", emoji: "🌳" },
     ],
   },
   {
@@ -131,6 +135,7 @@ const QUESTIONS: Question[] = [
       { value: "pre-1900", label: "Haussmannien / pierre (avant 1900)", emoji: "🏛️" },
       { value: "inconnu", label: "Je ne sais pas" },
     ],
+    skipIf: (a) => String(a.type_bien) === "Terrain", // pas de bâti sur un terrain nu
   },
   {
     id: "dpe",
@@ -146,6 +151,7 @@ const QUESTIONS: Question[] = [
       { value: "G", label: "G — Passoire", emoji: "🔴" },
       { value: "inconnu", label: "Je ne sais pas" },
     ],
+    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
   {
     id: "etat",
@@ -157,6 +163,7 @@ const QUESTIONS: Question[] = [
       { value: "correct", label: "Correct, quelques travaux", emoji: "🛠️" },
       { value: "renover", label: "À rénover", emoji: "🪚" },
     ],
+    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
   {
     id: "exterieurs",
@@ -170,7 +177,9 @@ const QUESTIONS: Question[] = [
       { value: "cave", label: "Cave", emoji: "🍷" },
       { value: "aucun", label: "Aucun", emoji: "—" },
     ],
+    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
+  // Usage : variante résidentielle
   {
     id: "usage",
     label: "Le bien est destiné à être :",
@@ -181,6 +190,22 @@ const QUESTIONS: Question[] = [
       { value: "residence-secondaire", label: "Résidence secondaire", emoji: "🏖️" },
       { value: "vente-occupe", label: "Vente occupée (locataire en place)", emoji: "🔒" },
     ],
+    skipIf: (a) => !["Appartement", "Maison"].includes(String(a.type_bien)),
+  },
+  // Usage : variante pro (Commerce / Tertiaire)
+  {
+    id: "usage_pro",
+    label: "Quel type d'activité dans le local ?",
+    type: "single-choice",
+    options: [
+      { value: "vente-detail", label: "Vente / commerce de détail", emoji: "🛍️" },
+      { value: "restauration", label: "Restauration / bar", emoji: "🍽️" },
+      { value: "bureau", label: "Bureau / profession libérale", emoji: "💼" },
+      { value: "medical", label: "Médical / paramédical", emoji: "🩺" },
+      { value: "atelier-stockage", label: "Atelier / stockage / logistique", emoji: "📦" },
+      { value: "autre", label: "Autre activité", emoji: "—" },
+    ],
+    skipIf: (a) => !["Commerce", "Tertiaire"].includes(String(a.type_bien)),
   },
 ];
 
@@ -198,6 +223,10 @@ export type EstimWizardProps = {
 
 type Result = {
   available: boolean;
+  // Raison du non-disponible le cas échéant : "terrain" (court-circuit charge
+  // foncière), "no_cluster" (pas d'estimation auto pour ce micro-marché),
+  // "geocode_failed", "address_not_found", etc.
+  reason?: string;
   address?: string;
   prix_m2_median?: number;
   prix_total_median?: number;
@@ -329,6 +358,23 @@ export default function EstimWizard({
   async function fetchEstimate(allAnswers: Answers) {
     setLoading(true);
     setLeadStatus("estimating");
+
+    // Court-circuit Terrain : pas d'estimation auto (méthodologie différente
+    // = bilan promoteur / charge foncière). On route directement vers la
+    // capture lead pour que le cabinet rappelle.
+    if (String(allAnswers.type_bien) === "Terrain") {
+      // Petit délai d'UI pour l'effet "analyse en cours"
+      await new Promise((r) => setTimeout(r, 600));
+      setResult({
+        available: false,
+        reason: "terrain",
+        address: String(allAnswers.address ?? ""),
+      });
+      setLeadStatus("result");
+      setLoading(false);
+      return;
+    }
+
     try {
       const params = new URLSearchParams({
         address: String(allAnswers.address ?? ""),
@@ -344,14 +390,14 @@ export default function EstimWizard({
         cache: "no-store",
       });
       if (!res.ok) {
-        setResult({ available: false });
+        setResult({ available: false, reason: "fetch_error" });
         setLeadStatus("result");
         return;
       }
       setResult((await res.json()) as Result);
       setLeadStatus("result");
     } catch {
-      setResult({ available: false });
+      setResult({ available: false, reason: "network_error" });
       setLeadStatus("result");
     } finally {
       setLoading(false);
@@ -879,102 +925,122 @@ function ResultCard({
       ? new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)
       : "—";
 
-  // Cas 1 — Pas d'estimation disponible : on propose direct le contact cabinet
-  if (!result.available || !result.prix_m2_median) {
-    return (
-      <ChatBubble role="bot" primaryColor={primaryColor}>
-        Je n&apos;ai pas pu estimer ce bien automatiquement.
-        <br />
-        Contactez directement <strong>{cabinetName}</strong> pour une analyse
-        personnalisée :
-        <div style={{ marginTop: 12 }}>
-          <a
-            href={ctaUrl}
-            style={{
-              display: "inline-block",
-              background: primaryColor,
-              color: "white",
-              padding: "10px 18px",
-              borderRadius: 10,
-              fontWeight: 700,
-              fontSize: 13,
-              textDecoration: "none",
-            }}
-          >
-            {ctaLabel}
-          </a>
-        </div>
-      </ChatBubble>
-    );
-  }
+  const hasEstimation = result.available && result.prix_m2_median != null;
+  const isTerrain = result.reason === "terrain";
 
   return (
     <>
-      <ChatBubble role="bot" primaryColor={primaryColor}>
-        Voici l&apos;estimation pour <strong>{result.address}</strong> :
-      </ChatBubble>
-      <div
-        style={{
-          background: `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}25 100%)`,
-          padding: 24,
-          borderRadius: 12,
-          textAlign: "center",
-          margin: "12px 0 12px 36px",
-          border: `1px solid ${primaryColor}40`,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            color: primaryColor,
-            fontWeight: 700,
-            marginBottom: 6,
-            letterSpacing: "0.05em",
-          }}
-        >
-          Estimation marché
-        </div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: primaryColor }}>
-          {fmt(result.prix_total_median)} €
-        </div>
-        <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
-          {fmt(result.prix_m2_median)} €/m²
-          {result.nb_ventes ? ` · ${result.nb_ventes} ventes DVF` : ""}
-        </div>
-        {result.prix_m2_p10 && result.prix_m2_p90 && answers.surface ? (
+      {/* ───────────── Section 1 — Affichage selon le cas ───────────── */}
+
+      {/* Cas A : estimation disponible (Appartement / Maison avec cluster) */}
+      {hasEstimation && (
+        <>
+          <ChatBubble role="bot" primaryColor={primaryColor}>
+            Voici l&apos;estimation pour <strong>{result.address}</strong> :
+          </ChatBubble>
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-around",
-              marginTop: 16,
-              paddingTop: 12,
-              borderTop: "1px solid rgba(0,0,0,0.05)",
+              background: `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}25 100%)`,
+              padding: 24,
+              borderRadius: 12,
+              textAlign: "center",
+              margin: "12px 0 12px 36px",
+              border: `1px solid ${primaryColor}40`,
             }}
           >
-            <SmallStat
-              label="Plancher"
-              value={`${fmt(Math.round(result.prix_m2_p10 * Number(answers.surface)))} €`}
-            />
-            <SmallStat label="Médiane" value={`${fmt(result.prix_total_median)} €`} />
-            <SmallStat
-              label="Plafond"
-              value={`${fmt(Math.round(result.prix_m2_p90 * Number(answers.surface)))} €`}
-            />
+            <div
+              style={{
+                fontSize: 11,
+                textTransform: "uppercase",
+                color: primaryColor,
+                fontWeight: 700,
+                marginBottom: 6,
+                letterSpacing: "0.05em",
+              }}
+            >
+              Estimation marché
+            </div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: primaryColor }}>
+              {fmt(result.prix_total_median)} €
+            </div>
+            <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+              {fmt(result.prix_m2_median)} €/m²
+              {result.nb_ventes ? ` · ${result.nb_ventes} ventes DVF` : ""}
+            </div>
+            {result.prix_m2_p10 && result.prix_m2_p90 && answers.surface ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-around",
+                  marginTop: 16,
+                  paddingTop: 12,
+                  borderTop: "1px solid rgba(0,0,0,0.05)",
+                }}
+              >
+                <SmallStat
+                  label="Plancher"
+                  value={`${fmt(Math.round(result.prix_m2_p10 * Number(answers.surface)))} €`}
+                />
+                <SmallStat label="Médiane" value={`${fmt(result.prix_total_median)} €`} />
+                <SmallStat
+                  label="Plafond"
+                  value={`${fmt(Math.round(result.prix_m2_p90 * Number(answers.surface)))} €`}
+                />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
 
-      {/* ───────────── État : lead-sent (succès, message confirmation) ───────────── */}
+      {/* Cas B : Terrain — message charge foncière / bilan promoteur */}
+      {!hasEstimation && isTerrain && (
+        <ChatBubble role="bot" primaryColor={primaryColor}>
+          🌳 <strong>L&apos;estimation d&apos;un terrain est un exercice particulier.</strong>
+          <br />
+          <span style={{ fontSize: 13 }}>
+            Contrairement à un appartement ou une maison, un terrain ne se valorise
+            pas en €/m² des transactions DVF mais via la <strong>charge foncière</strong>{" "}
+            (bilan promoteur) — c&apos;est-à-dire le prix maximum qu&apos;un opérateur peut
+            payer compte tenu du programme constructible (PLU, COS/CES), des coûts
+            de construction locaux et de la marge cible.
+            {"\n\n"}
+            Un expert <strong>{cabinetName}</strong> vous rappelle sous 24h ouvrées
+            pour réaliser cette analyse personnalisée gratuitement.
+          </span>
+        </ChatBubble>
+      )}
+
+      {/* Cas C : autre échec (no_cluster Commerce/Tertiaire, géocodage, etc.) */}
+      {!hasEstimation && !isTerrain && (
+        <ChatBubble role="bot" primaryColor={primaryColor}>
+          🔍 <strong>Ce type de bien nécessite une analyse personnalisée.</strong>
+          <br />
+          <span style={{ fontSize: 13 }}>
+            Pour ce micro-marché, nous n&apos;avons pas suffisamment de transactions
+            comparables pour fournir une estimation automatique fiable. Un expert{" "}
+            <strong>{cabinetName}</strong> vous rappelle sous 24h ouvrées pour réaliser
+            une estimation personnalisée gratuitement, en prenant en compte les
+            spécificités de votre bien.
+          </span>
+        </ChatBubble>
+      )}
+
+      {/* ───────────── Section 2 — Capture lead (ou confirmation envoi) ───────────── */}
+
       {leadStatus === "lead-sent" ? (
         <>
           <ChatBubble role="bot" primaryColor={primaryColor}>
-            ✅ <strong>Votre rapport détaillé vient d&apos;être envoyé par email.</strong>
+            ✅ <strong>
+              {hasEstimation
+                ? "Votre rapport détaillé vient d'être envoyé par email."
+                : "Votre demande vient d'être transmise à " + cabinetName + "."}
+            </strong>
             <br />
             <span style={{ fontSize: 13 }}>
-              {cabinetName} a également reçu votre estimation et vous recontactera{" "}
-              <strong>sous 24h ouvrées</strong> pour affiner gratuitement avec une visite
-              physique (état réel, étage exact, exposition, prestations).
+              {cabinetName} vous recontactera <strong>sous 24h ouvrées</strong>
+              {hasEstimation
+                ? " pour affiner gratuitement avec une visite physique (état réel, étage exact, exposition, prestations)."
+                : " avec une analyse personnalisée gratuite."}
             </span>
           </ChatBubble>
           <div style={{ paddingLeft: 36, marginTop: 12, marginBottom: 12 }}>
@@ -1011,13 +1077,21 @@ function ResultCard({
           </div>
         </>
       ) : (
-        /* ───────────── État : result / lead-form / lead-sending / lead-error ───────────── */
         <>
           <ChatBubble role="bot" primaryColor={primaryColor}>
-            Cette estimation est <strong>indicative</strong>. Pour recevoir le{" "}
-            <strong>rapport détaillé par email</strong> et être recontacté(e) gratuitement
-            par un expert <strong>{cabinetName}</strong> sous 24h ouvrées, complétez vos
-            coordonnées :
+            {hasEstimation ? (
+              <>
+                Cette estimation est <strong>indicative</strong>. Pour recevoir le{" "}
+                <strong>rapport détaillé par email</strong> et être recontacté(e)
+                gratuitement par un expert <strong>{cabinetName}</strong> sous 24h ouvrées,
+                complétez vos coordonnées :
+              </>
+            ) : (
+              <>
+                Laissez vos coordonnées, un expert <strong>{cabinetName}</strong> vous
+                rappelle gratuitement sous 24h ouvrées :
+              </>
+            )}
           </ChatBubble>
           <LeadCaptureForm
             primaryColor={primaryColor}
@@ -1025,6 +1099,7 @@ function ResultCard({
             disabled={leadStatus === "lead-sending"}
             sending={leadStatus === "lead-sending"}
             errorCode={leadStatus === "lead-error" ? leadError : null}
+            ctaButtonLabel={hasEstimation ? "Recevoir mon rapport →" : "Être recontacté(e) →"}
             onSubmit={onSubmitLead}
             onReset={onReset}
           />
@@ -1044,6 +1119,7 @@ function LeadCaptureForm({
   disabled,
   sending,
   errorCode,
+  ctaButtonLabel = "Recevoir mon rapport →",
   onSubmit,
   onReset,
 }: {
@@ -1052,6 +1128,7 @@ function LeadCaptureForm({
   disabled: boolean;
   sending: boolean;
   errorCode: string | null;
+  ctaButtonLabel?: string;
   onSubmit: (form: {
     visitor_name: string;
     visitor_email: string;
@@ -1233,7 +1310,7 @@ function LeadCaptureForm({
               Envoi en cours…
             </>
           ) : (
-            <>Recevoir mon rapport →</>
+            <>{ctaButtonLabel}</>
           )}
         </button>
       </form>

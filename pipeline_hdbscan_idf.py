@@ -269,21 +269,50 @@ def compute_volatility(
 
 def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float]] | None:
     """
-    Enveloppe d'un cluster. Pour le MVP, on reste sur convex hull (stable,
-    pas de deps externes). Alpha shape sera réintroduit en Phase ultérieure
-    avec un setup plus robuste (libgeos-dev system + tests sur cluster réel).
+    Enveloppe d'un cluster : alpha shape (concave hull) si possible,
+    fallback convex hull. Auto-tune alpha si non spécifié.
 
     Returns list fermée [[lat, lon], ...] ou None si <3 points.
     """
     if len(pts) < 3:
         return None
+
+    # Tentative alpha shape (défensif : si lib manque ou erreur, on retombe sur convex)
+    try:
+        import alphashape  # noqa: PLC0415
+        from shapely.geometry import MultiPolygon, Polygon  # noqa: PLC0415
+
+        coords = [(float(p[0]), float(p[1])) for p in pts]
+        alphas = [alpha] if alpha is not None else [5000.0, 2500.0, 1500.0, 800.0, 400.0, 200.0]
+
+        for a in alphas:
+            try:
+                shape = alphashape.alphashape(coords, a)
+            except Exception:
+                continue
+            if shape is None or getattr(shape, "is_empty", True):
+                continue
+            poly = None
+            if isinstance(shape, Polygon):
+                poly = shape
+            elif isinstance(shape, MultiPolygon):
+                poly = max(shape.geoms, key=lambda g: g.area)
+            if poly is not None and not poly.is_empty:
+                hull_pts = [[float(x), float(y)] for x, y in poly.exterior.coords]
+                if len(hull_pts) >= 4:
+                    return hull_pts
+    except ImportError:
+        pass  # alphashape/shapely pas installé → fallback silencieux convex
+    except Exception as e:
+        print(f"    ⚠ alpha shape inattendu : {type(e).__name__} {e}")
+
+    # Fallback convex hull
     try:
         hull = ConvexHull(pts)
         hull_pts = pts[hull.vertices].tolist()
-        hull_pts.append(hull_pts[0])  # fermer le polygone
+        hull_pts.append(hull_pts[0])
         return hull_pts
-    except Exception as e:
-        print(f"    ⚠ ConvexHull échec ({e}), zone sans polygone")
+    except Exception:
         return None
 
 
@@ -557,6 +586,36 @@ def upsert_zones(
     }
     url = f"{supabase_url}/rest/v1/{table_name}?on_conflict=id"
     total = len(zones)
+
+    # ── DELETE des anciennes zones pour les communes qu'on update ───────
+    # Cluster IDs HDBSCAN ne sont pas stables d'un run à l'autre → upsert sur
+    # id génère des lignes orphelines. On nettoie d'abord, puis insert frais.
+    # CAST str() obligatoire : code_commune peut être numpy.int64 (hors IDF).
+    # Chunking par 200 : URL PostgREST limitée à ~8 KB.
+    communes_to_clean = sorted(set(str(z["code_commune"]) for z in zones))
+    if communes_to_clean:
+        print(f"  DELETE des anciennes zones pour {len(communes_to_clean)} commune(s)...")
+        del_headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Prefer": "return=minimal",
+        }
+        chunk = 200
+        deleted_total = 0
+        with httpx.Client(timeout=90) as client:
+            for i in range(0, len(communes_to_clean), chunk):
+                sub = communes_to_clean[i : i + chunk]
+                in_list = ",".join(sub)
+                del_url = f"{supabase_url}/rest/v1/{table_name}?code_commune=in.({in_list})"
+                try:
+                    r = client.delete(del_url, headers=del_headers)
+                    if r.status_code in (200, 204):
+                        deleted_total += len(sub)
+                    else:
+                        print(f"    ⚠ DELETE chunk {i//chunk + 1} HTTP {r.status_code}: {r.text[:150]}")
+                except Exception as e:
+                    print(f"    ⚠ DELETE chunk {i//chunk + 1} exception: {e}")
+        print(f"    {deleted_total}/{len(communes_to_clean)} communes nettoyées")
 
     def clean(v):
         if v is None:

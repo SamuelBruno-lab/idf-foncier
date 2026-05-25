@@ -447,15 +447,42 @@ def process_commune_type(
         return []
 
     sub = sub.copy()
-    sub["cluster"] = labels
+    sub["hdbscan_cluster"] = labels
+
+    # Calcul des centroïdes HDBSCAN (clusters non-bruit)
+    centroids: dict[int, np.ndarray] = {}
+    for cid in sorted(set(labels)):
+        if cid < 0:
+            continue
+        c_pts = sub[sub["hdbscan_cluster"] == cid][["latitude", "longitude"]].values
+        if len(c_pts) > 0:
+            centroids[cid] = c_pts.mean(axis=0)
+    if not centroids:
+        return []
+
+    # RÉASSIGNATION VORONOI : chaque transaction → centroïde le plus proche.
+    # Garantit que les stats par zone matchent EXACTEMENT ce qu'on voit sur la carte
+    # (les points dans le territoire Voronoi de la zone X comptent pour la zone X).
+    # Les anciens "noise" HDBSCAN sont aussi réaffectés (au centroïde le plus proche).
+    centroid_ids = list(centroids.keys())
+    centroid_arr = np.array([centroids[cid] for cid in centroid_ids])
+    try:
+        from scipy.spatial import cKDTree  # noqa: PLC0415
+
+        tree = cKDTree(centroid_arr)
+        all_pts_xy = sub[["latitude", "longitude"]].values
+        _, nearest_idx = tree.query(all_pts_xy, k=1)
+        sub["cluster"] = [centroid_ids[i] for i in nearest_idx]
+    except Exception:
+        # Fallback : on garde l'assignation HDBSCAN initiale
+        sub["cluster"] = sub["hdbscan_cluster"]
 
     zones = []
-    for cid in sorted(set(labels)):
-        if cid < 0:  # bruit
-            continue
-
+    for cid in centroid_ids:
         grp = sub[sub["cluster"] == cid]
         pts = grp[["latitude", "longitude"]].values
+        if len(pts) == 0:
+            continue
 
         # Enveloppe : alpha shape (concave hull) si possible — pas de
         # chevauchement avec les autres clusters HDBSCAN car ceux-ci sont
@@ -464,7 +491,10 @@ def process_commune_type(
         hull_coords = compute_hull(pts)  # alpha auto-tune (cf. compute_hull docstring)
 
         prix_m2_vals = grp["prix_m2"].dropna().values
-        centroid = pts.mean(axis=0)
+        # Centroïde HDBSCAN original (utilisé pour la tessellation Voronoi).
+        # On le garde pour cohérence — le re-centroïde des points réaffectés
+        # dérive légèrement et casserait le matching Voronoi.
+        centroid = centroids[cid]
 
         # Holding period : agrège les durées des parcelles présentes dans ce cluster.
         # On utilise toutes les paires de mutations observées sur ces parcelles,

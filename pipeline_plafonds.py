@@ -55,9 +55,10 @@ SUPABASE_KEY = (
 ).strip()
 
 # ── Source zonage A/B/C ──────────────────────────────────────────────────
-# Le dataset a une API stable, on récupère les ressources CSV via JSON.
+# Slug officiel sur data.gouv.fr (vérifié 2026-05). Publié par Kadata, contient
+# le mapping commune → zone Abis/A/B1/B2/C basé sur l'arrêté ministériel.
 DATAGOUV_DATASET_ZONAGE = (
-    "https://www.data.gouv.fr/api/1/datasets/zonage-abis-a-b-c/"
+    "https://www.data.gouv.fr/api/1/datasets/zonage-abc-des-communes-tension-du-marche-des-logements/"
 )
 
 # Mapping libellés zonage → valeurs canoniques dim_zonage_abc.zone

@@ -126,20 +126,37 @@ export async function GET(req: NextRequest) {
   const denormandieEligible =
     programmes.has("denormandie") || programmes.has("ort") || acv;
 
-  // ── 3. Plafonds de loyer (toutes lignes pour cette zone, année courante)
+  // ── 3. Plafonds de loyer (dernière année dispo par dispositif) ─────
+  // On ne filtre pas sur CURRENT_YEAR : les arrêtés ne sortent pas tous la même
+  // année (ex: LLI 2025, Jeanbrun 2026), et certains restent valides plusieurs
+  // années. On prend la ligne la plus récente par dispositif.
   const { data: plafondsRows } = await supabase
     .from("dim_plafond_loyer")
-    .select("dispositif, loyer_max_m2, source_juridique")
+    .select("dispositif, loyer_max_m2, source_juridique, annee")
     .eq("zone", zone)
-    .eq("annee", CURRENT_YEAR);
+    .order("annee", { ascending: false });
 
-  const plafonds = new Map<string, { loyer_max_m2: number; source: string | null }>();
+  const plafonds = new Map<
+    string,
+    { loyer_max_m2: number; source: string | null; annee: number }
+  >();
   for (const row of plafondsRows ?? []) {
-    plafonds.set(row.dispositif as string, {
-      loyer_max_m2: Number(row.loyer_max_m2),
-      source: (row.source_juridique as string | null) ?? null,
-    });
+    const dispositif = row.dispositif as string;
+    // Première ligne (la plus récente après order desc) → on garde
+    if (!plafonds.has(dispositif)) {
+      plafonds.set(dispositif, {
+        loyer_max_m2: Number(row.loyer_max_m2),
+        source: (row.source_juridique as string | null) ?? null,
+        annee: Number(row.annee),
+      });
+    }
   }
+
+  // Année de référence = la plus récente trouvée dans les plafonds
+  const anneeReference =
+    plafonds.size > 0
+      ? Math.max(...Array.from(plafonds.values()).map((p) => p.annee))
+      : CURRENT_YEAR;
 
   // ── 4. Loyer de marché (depuis fact_rendement) pour l'écart % ─────
   type MarcheRow = {
@@ -241,7 +258,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     zone_abc: zone,
-    annee_reference: CURRENT_YEAR,
+    annee_reference: anneeReference,
     eligibilites: {
       jeanbrun: jeanbrunApplicable,             // toutes zones France
       lli: lliApplicable,

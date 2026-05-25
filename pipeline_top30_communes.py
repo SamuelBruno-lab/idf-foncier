@@ -28,7 +28,10 @@ from pipeline_hdbscan_idf import (
     run_hdbscan_all,
     upsert_zones,
     load_env,
+    PRIX_M2_MAX,
+    PRIX_M2_MIN,
 )
+from dvf_ventilation import ventilate_dataset
 
 # ── Top 30 communes IDF (code INSEE) ──────────────────────────────────────────
 # Correspondance avec src/lib/communes-top30.ts
@@ -140,6 +143,25 @@ def main():
     commune_codes = set(code for code, _, _ in TOP30)
     data = data[data["code_commune"].astype(str).isin(commune_codes)]
     print(f"  Filtré Top 30: {len(data):,} transactions | {data['code_commune'].nunique()} communes")
+
+    # ── 3.5 Ventilation des mutations mixtes ──────────────────────────────
+    # Sépare pures/mixtes, clustering préliminaire, puis ventile le prix total
+    # de chaque vente multi-type au prorata (surface × prix_m2 référence).
+    # Sans ça les biens mixtes (commerce+appart, immeubles de rapport)
+    # polluaient les statistiques.
+    print("\n[2.5] Ventilation des mutations mixtes...")
+    seuil_max = PRIX_M2_MAX
+    seuil_min = {tl: PRIX_M2_MIN for tl in PRIX_M2_MAX}  # même plancher pour tous les types
+    n_before = len(data)
+    data = ventilate_dataset(
+        data,
+        seuil_m2_max=seuil_max,
+        seuil_m2_min=seuil_min,
+        min_cluster_size=8,
+        min_samples=2,
+        min_parcelle_tx=5,
+    )
+    print(f"  {n_before:,} → {len(data):,} transactions après ventilation")
 
     # ── 4. HDBSCAN ───────────────────────────────────────────────────────
     print("\n[3] Calcul HDBSCAN...")

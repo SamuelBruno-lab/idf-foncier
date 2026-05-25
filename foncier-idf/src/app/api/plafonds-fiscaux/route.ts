@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { geocodeAddress, type GeocodeMeta } from "@/lib/geocode";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { withApiKey } from "@/lib/auth/apiKey";
 
 const CURRENT_YEAR = 2025;
 
@@ -29,7 +30,7 @@ function bucketFromPieces(pieces: number | null): "T1-T2" | "T3+" | "all" {
   return "T3+";
 }
 
-export async function GET(req: NextRequest) {
+async function handlePlafonds(req: NextRequest): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams;
   const address = sp.get("address")?.trim();
   const codeCommune = sp.get("code_commune")?.trim();
@@ -342,3 +343,7 @@ function round1(n: number): number {
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+export const GET = withApiKey(handlePlafonds, {
+  endpoint: "/api/plafonds-fiscaux",
+});

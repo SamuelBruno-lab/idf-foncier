@@ -12,12 +12,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { geocodeAddress } from "@/lib/geocode";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { withApiKey } from "@/lib/auth/apiKey";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 10;
 const MIN_QUERY_LENGTH = 3;
 
-export async function GET(req: NextRequest) {
+async function handleAddressSearch(req: NextRequest): Promise<NextResponse> {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   const limitParam = req.nextUrl.searchParams.get("limit");
   const limit = Math.min(
@@ -45,3 +46,7 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiKey(handleAddressSearch, {
+  endpoint: "/api/address/search",
+});

@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { geocodeAddress, type GeocodeMeta } from "@/lib/geocode";
 import { pointInPolygon } from "@/lib/geo";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { withApiKey } from "@/lib/auth/apiKey";
 
 const TYPE_ALIASES: Record<string, string> = {
   appartement: "Appartement",
@@ -63,7 +64,7 @@ type HypothesesRow = {
   taxe_fonciere_pct: number;
 };
 
-export async function GET(req: NextRequest) {
+async function handleRendement(req: NextRequest): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams;
   const address = sp.get("address")?.trim();
   const codeCommune = sp.get("code_commune")?.trim();
@@ -264,3 +265,5 @@ function pickRow(
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+export const GET = withApiKey(handleRendement, { endpoint: "/api/rendement" });

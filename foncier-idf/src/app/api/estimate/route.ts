@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
 import { pointInPolygon } from "@/lib/geo";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { withApiKey } from "@/lib/auth/apiKey";
 
 const CLUSTER_HIGH_CONFIDENCE_N = 50;
 const CLUSTER_MIN_N = 30;
@@ -112,7 +113,7 @@ function distSq(a: [number, number], b: [number, number]): number {
   return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
 }
 
-export async function GET(req: NextRequest) {
+async function handleEstimate(req: NextRequest): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams;
   const address = sp.get("address")?.trim() ?? "";
   const typeLocal = resolveTypeLocal(sp.get("type"));
@@ -379,3 +380,5 @@ function addressPayload(top: {
     city: top.city,
   };
 }
+
+export const GET = withApiKey(handleEstimate, { endpoint: "/api/estimate" });

@@ -192,6 +192,72 @@ export const TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "compute_discount_rate",
+      description:
+        "Calcule le TAUX D'ACTUALISATION CAPM pour un cluster donné selon la " +
+        "formule classique : t_a = t_sr + β × p_rm. Retourne le détail des " +
+        "composantes (taux sans risque OAT 10y, beta composite volatilité × " +
+        "illiquidité × rareté du micro-marché, prime de risque marché immo). " +
+        "À utiliser systématiquement pour les questions de VALORISATION (analyse " +
+        "type DCF/investisseur institutionnel), notamment pour les utilisateurs " +
+        "qui parlent en termes financiers (banque privée, analyste, conseiller).",
+      parameters: {
+        type: "object",
+        properties: {
+          address: { type: "string", description: "Adresse pour identifier le cluster" },
+        },
+        required: ["address"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compute_dcf_valuation",
+      description:
+        "Valorise un bien immobilier par méthode DCF (Discounted Cash Flow), " +
+        "comme une analyste corporate / fonds immobilier institutionnel. " +
+        "Cash-flows futurs actualisés au taux CAPM t_a, plus valeur terminale Gordon. " +
+        "Intègre une valorisation des extérieurs (terrasse +33%, balcon +25%, jardin +33%) " +
+        "selon les barèmes métier français. Renvoie une valeur DCF comparée à la " +
+        "médiane DVF cluster, et un diagnostic d'écart pour le pitch vendeur.",
+      parameters: {
+        type: "object",
+        properties: {
+          address: { type: "string", description: "Adresse complète" },
+          surface: { type: "number", description: "Surface Carrez en m²" },
+          loyer_mensuel_hc: {
+            type: "number",
+            description: "Loyer mensuel hors charges en €",
+          },
+          surface_terrasse: {
+            type: "number",
+            description: "Surface terrasse en m² (optionnel, valorisée à 33%)",
+          },
+          surface_balcon: {
+            type: "number",
+            description: "Surface balcon en m² (optionnel, valorisée à 25%)",
+          },
+          surface_jardin: {
+            type: "number",
+            description: "Surface jardin privatif en m² (optionnel, valorisée à 33%, cap 50% surface bati)",
+          },
+          horizon_annees: {
+            type: "number",
+            description: "Horizon d'investissement en années (défaut 15)",
+          },
+          inflation_loyers_pct: {
+            type: "number",
+            description: "Hypothèse inflation loyers annuelle en % (défaut 1.5)",
+          },
+        },
+        required: ["address", "surface", "loyer_mensuel_hc"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "compute_market_adjusted_price",
       description:
         "Calcule un prix de mise en vente AJUSTÉ au contexte macro actuel " +
@@ -653,6 +719,305 @@ async function handleMarketContext() {
   };
 }
 
+// ── Tool: compute_discount_rate ──────────────────────────────────────────────
+// CAPM appliqué à l'immobilier : t_a = t_sr + β × p_rm
+// Sources de données :
+//   - t_sr : fact_taux_oat10y (dernière valeur OAT 10y)
+//   - β   : fact_cluster_risk (composite σ × λ × ρ par cluster HDBSCAN)
+//   - p_rm : v_market_risk_premium (rendement immo France − OAT)
+async function handleDiscountRate(args: { address: string }) {
+  const { sb, top } = await geocode(args.address);
+
+  // 1) Identifier le cluster du point
+  const typeLocal = "Appartement"; // défaut, à override si l'agent précise
+  const { data: zones } = await sb
+    .from("dvf_hdbscan_zones")
+    .select("id, hull_coords, centroid_lat, centroid_lon")
+    .eq("code_commune", top.code_insee)
+    .eq("type_local", typeLocal);
+
+  let zone_id: string | null = null;
+  if (zones && zones.length > 0) {
+    const rows = zones as Array<{
+      id: string;
+      hull_coords: number[][] | null;
+      centroid_lat: number | null;
+      centroid_lon: number | null;
+    }>;
+    const point: [number, number] = [top.lat, top.lon];
+    const match = rows.find(
+      (z) => z.hull_coords && pointInPolygon(point, z.hull_coords),
+    );
+    if (match) zone_id = match.id;
+    else if (rows[0]) zone_id = rows[0].id; // fallback nearest
+  }
+
+  // 2) Récupère t_sr, β cluster, p_rm via la fonction Postgres
+  if (!zone_id) {
+    return {
+      available: false,
+      reason: "no_cluster_found",
+      details: "Aucun cluster HDBSCAN n'a pu être identifié pour cette adresse.",
+    };
+  }
+
+  try {
+    const { data: rate, error } = await sb
+      .rpc("compute_discount_rate", { p_zone_id: zone_id })
+      .single();
+
+    if (error || !rate) {
+      return {
+        available: false,
+        reason: "compute_failed",
+        details: error?.message ?? "fact_cluster_risk ou v_market_risk_premium peuvent ne pas être encore peuplées",
+      };
+    }
+
+    const r = rate as {
+      zone_id: string;
+      t_sr: number;
+      beta: number;
+      p_rm: number;
+      t_a: number;
+    };
+
+    // Composantes détaillées du β si disponibles
+    const { data: comps } = await sb
+      .from("fact_cluster_risk")
+      .select(
+        "sigma_qoq_pct, lambda_illiquidite, rho_rarete, n_obs_total, n_quarters, area_km2",
+      )
+      .eq("zone_id", zone_id)
+      .maybeSingle();
+
+    const components = comps as {
+      sigma_qoq_pct: number | null;
+      lambda_illiquidite: number | null;
+      rho_rarete: number | null;
+      n_obs_total: number | null;
+      n_quarters: number | null;
+      area_km2: number | null;
+    } | null;
+
+    return {
+      available: true,
+      address: top.label,
+      zone_id,
+      formule: "t_a = t_sr + β × p_rm (CAPM-Markowitz-Sharpe adapté à l'immobilier)",
+      taux_sans_risque_pct: round(r.t_sr, 4),
+      taux_sans_risque_source: "OAT 10y France (Eurostat / ECB SDW, dernière valeur)",
+      beta_cluster: round(r.beta, 4),
+      beta_interpretation:
+        r.beta > 1.3
+          ? "Micro-marché risqué (volatile + illiquide + rare)"
+          : r.beta > 1.0
+          ? "Micro-marché légèrement risqué (proche de la moyenne France)"
+          : r.beta > 0.7
+          ? "Micro-marché défensif (faible volatilité + bonne liquidité)"
+          : "Micro-marché premium (très défensif, type Paris 16e / Neuilly)",
+      beta_components: components
+        ? {
+            volatilite_qoq_pct: components.sigma_qoq_pct,
+            illiquidite_lambda: components.lambda_illiquidite,
+            rarete_rho: components.rho_rarete,
+            ventes_par_an: components.n_obs_total && components.n_quarters
+              ? round((components.n_obs_total / Math.max(components.n_quarters / 4, 1)), 2)
+              : null,
+            area_km2: components.area_km2,
+            note:
+              "β = w_σ × z(σ) + w_λ × z(λ) + w_ρ × z(ρ), pondérations 0.5/0.3/0.2, recentré médian=1.",
+          }
+        : null,
+      prime_risque_marche_pct: round(r.p_rm, 4),
+      prime_risque_source: "Rendement locatif médian France (OLAP/ANIL) − OAT 10y",
+      taux_actualisation_pct: round(r.t_a, 4),
+      methodologie:
+        "Modèle CAPM (Sharpe 1964, Lintner 1965). Application à l'immobilier inspirée " +
+        "des méthodes des fonds institutionnels (SCPI, OPCI). Sources : OAT Eurostat, " +
+        "rendements OLAP/ANIL, β calculé sur DVF (notaires) par cluster HDBSCAN DATAMERRY.",
+    };
+  } catch (err) {
+    return {
+      available: false,
+      reason: "rpc_error",
+      details: String(err),
+    };
+  }
+}
+
+// ── Tool: compute_dcf_valuation ──────────────────────────────────────────────
+async function handleDcfValuation(args: {
+  address: string;
+  surface: number;
+  loyer_mensuel_hc: number;
+  surface_terrasse?: number;
+  surface_balcon?: number;
+  surface_jardin?: number;
+  horizon_annees?: number;
+  inflation_loyers_pct?: number;
+}) {
+  // 1) Calcul du taux d'actualisation CAPM
+  const rateResult = await handleDiscountRate({ address: args.address });
+  if (!("available" in rateResult) || !rateResult.available) {
+    return {
+      available: false,
+      reason: "discount_rate_unavailable",
+      details: "Impossible de calculer t_a. Vérifie fact_cluster_risk et v_market_risk_premium.",
+    };
+  }
+  const r = rateResult as {
+    taux_actualisation_pct: number;
+    beta_cluster: number;
+    taux_sans_risque_pct: number;
+    prime_risque_marche_pct: number;
+    address: string;
+    zone_id: string;
+  };
+  const t_a = r.taux_actualisation_pct / 100;
+
+  // 2) Cash-flows annuels (loyers nets)
+  const VACANCE_PCT = 5;
+  const CHARGES_PCT = 15;
+  const TF_PCT = 8;
+  const NET_RATIO = 1 - (VACANCE_PCT + CHARGES_PCT + TF_PCT) / 100; // 0.72
+  const loyer_annuel_hc = args.loyer_mensuel_hc * 12;
+  const loyer_annuel_net = loyer_annuel_hc * NET_RATIO;
+
+  const horizon = args.horizon_annees ?? 15;
+  const inflation = (args.inflation_loyers_pct ?? 1.5) / 100;
+
+  // 3) Somme actualisée des cash-flows futurs n=1 à horizon
+  let sum_actualised = 0;
+  for (let n = 1; n <= horizon; n++) {
+    const cf_n = loyer_annuel_net * Math.pow(1 + inflation, n - 1);
+    sum_actualised += cf_n / Math.pow(1 + t_a, n);
+  }
+
+  // 4) Valeur terminale Gordon (n=horizon)
+  let terminal_value = 0;
+  let terminal_actualised = 0;
+  if (t_a > inflation) {
+    const cf_horizon_plus_1 = loyer_annuel_net * Math.pow(1 + inflation, horizon);
+    terminal_value = cf_horizon_plus_1 / (t_a - inflation);
+    terminal_actualised = terminal_value / Math.pow(1 + t_a, horizon);
+  }
+
+  const dcf_total_brut = sum_actualised + terminal_actualised;
+
+  // 5) Valorisation des extérieurs (barème métier français)
+  const surface_carrez = args.surface;
+  const TERRASSE_COEF = 0.33;
+  const BALCON_COEF = 0.25;
+  const JARDIN_COEF = 0.33;
+  const surf_terrasse_eq = (args.surface_terrasse ?? 0) * TERRASSE_COEF;
+  const surf_balcon_eq = (args.surface_balcon ?? 0) * BALCON_COEF;
+  const surf_jardin_eq = Math.min(
+    (args.surface_jardin ?? 0) * JARDIN_COEF,
+    surface_carrez * 0.5,
+  );
+  const surf_ext_eq_total = surf_terrasse_eq + surf_balcon_eq + surf_jardin_eq;
+  const ratio_ext = surf_ext_eq_total / Math.max(surface_carrez, 1);
+
+  // Pondération extérieurs sur le DCF (à la hausse)
+  const dcf_total_avec_exterieurs = Math.round(dcf_total_brut * (1 + ratio_ext));
+
+  // 6) Comparaison avec médiane DVF cluster pour calibrage
+  const sb = getSupabaseServerClient();
+  const { data: clusterStats } = await sb
+    .from("dvf_hdbscan_zones")
+    .select("prix_m2_median, count")
+    .eq("id", r.zone_id)
+    .maybeSingle();
+
+  const prix_m2_median = clusterStats
+    ? (clusterStats as { prix_m2_median: number }).prix_m2_median
+    : null;
+  const cluster_count = clusterStats ? (clusterStats as { count: number }).count : null;
+
+  const prix_cluster_brut = prix_m2_median ? Math.round(prix_m2_median * surface_carrez) : null;
+  const prix_cluster_avec_exterieurs = prix_m2_median
+    ? Math.round(prix_m2_median * surface_carrez * (1 + ratio_ext))
+    : null;
+
+  // 7) Recommandations opérationnelles
+  const ecart_dcf_vs_cluster_pct =
+    prix_cluster_avec_exterieurs && dcf_total_avec_exterieurs
+      ? round(
+          ((dcf_total_avec_exterieurs - prix_cluster_avec_exterieurs) /
+            prix_cluster_avec_exterieurs) *
+            100,
+          1,
+        )
+      : null;
+
+  // Rendement brut implicite à la valeur DCF
+  const rendement_brut_dcf =
+    dcf_total_avec_exterieurs > 0
+      ? round((loyer_annuel_hc / dcf_total_avec_exterieurs) * 100, 2)
+      : null;
+
+  return {
+    available: true,
+    address: r.address,
+    zone_id: r.zone_id,
+
+    // Inputs
+    surface_carrez,
+    surface_terrasse: args.surface_terrasse ?? 0,
+    surface_balcon: args.surface_balcon ?? 0,
+    surface_jardin: args.surface_jardin ?? 0,
+    surface_equivalente_totale_m2: round(surface_carrez + surf_ext_eq_total, 1),
+    loyer_mensuel_hc: args.loyer_mensuel_hc,
+    loyer_annuel_hc,
+    loyer_annuel_net: Math.round(loyer_annuel_net),
+    horizon_annees: horizon,
+    inflation_loyers_pct: args.inflation_loyers_pct ?? 1.5,
+
+    // Taux CAPM
+    taux_actualisation_pct: r.taux_actualisation_pct,
+    beta_cluster: r.beta_cluster,
+    taux_sans_risque_pct: r.taux_sans_risque_pct,
+    prime_risque_marche_pct: r.prime_risque_marche_pct,
+
+    // Valorisations
+    valeur_dcf_brute_eur: Math.round(dcf_total_brut),
+    valeur_dcf_avec_exterieurs_eur: dcf_total_avec_exterieurs,
+    valeur_terminale_gordon_eur: Math.round(terminal_value),
+    cash_flows_actualises_eur: Math.round(sum_actualised),
+
+    // Comparaisons
+    prix_cluster_brut_eur: prix_cluster_brut,
+    prix_cluster_avec_exterieurs_eur: prix_cluster_avec_exterieurs,
+    cluster_n_ventes: cluster_count,
+    ecart_dcf_vs_cluster_pct,
+    rendement_brut_implicite_dcf_pct: rendement_brut_dcf,
+
+    // Méthodologie
+    methodologie: {
+      formule_capm: "t_a = t_sr + β × p_rm (Sharpe 1964)",
+      formule_dcf: "Valeur = Σ(CF_n × (1+i)^(n-1) / (1+t_a)^n) + ValeurTerminale_Gordon",
+      formule_gordon: "VT = CF_(horizon+1) / (t_a − inflation)",
+      ratio_charges_vacance_tf: "Cash-flow net = loyer × 0.72 (vacance 5% + charges 15% + TF 8%)",
+      bareme_exterieurs: {
+        terrasse: "+33% de surface équivalente Carrez",
+        balcon: "+25% (< 15 m²)",
+        jardin: "+33% (capé à 50% du Carrez)",
+      },
+    },
+
+    // Recommandation
+    diagnostic:
+      ecart_dcf_vs_cluster_pct == null
+        ? "Calibration impossible (pas de prix cluster disponible)."
+        : ecart_dcf_vs_cluster_pct > 10
+        ? `Le DCF analyste (${dcf_total_avec_exterieurs} €) est SUPÉRIEUR de ${ecart_dcf_vs_cluster_pct}% à la médiane DVF cluster (${prix_cluster_avec_exterieurs} €). Signal d'un bien sous-coté pour un investisseur DCF, ou d'un loyer particulièrement élevé.`
+        : ecart_dcf_vs_cluster_pct < -10
+        ? `Le DCF analyste (${dcf_total_avec_exterieurs} €) est INFÉRIEUR de ${Math.abs(ecart_dcf_vs_cluster_pct)}% à la médiane DVF cluster (${prix_cluster_avec_exterieurs} €). Signal d'un loyer faible vs prix de marché, ou d'un β cluster trop élevé. Prix de mise en vente conservateur recommandé ≈ DCF.`
+        : `DCF (${dcf_total_avec_exterieurs} €) et médiane cluster (${prix_cluster_avec_exterieurs} €) convergent à ${ecart_dcf_vs_cluster_pct}% près. Valorisation cohérente.`,
+  };
+}
+
 // ── Tool: compute_market_adjusted_price ──────────────────────────────────────
 //
 // Modèle log-linéaire : log(prix) = α + β × taux_oat
@@ -873,6 +1238,14 @@ export async function executeTool(
       case "compute_market_adjusted_price":
         return await handleMarketAdjustedPrice(
           args as Parameters<typeof handleMarketAdjustedPrice>[0],
+        );
+      case "compute_discount_rate":
+        return await handleDiscountRate(
+          args as Parameters<typeof handleDiscountRate>[0],
+        );
+      case "compute_dcf_valuation":
+        return await handleDcfValuation(
+          args as Parameters<typeof handleDcfValuation>[0],
         );
       default:
         return { error: `unknown_tool: ${name}` };

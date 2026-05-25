@@ -473,34 +473,33 @@
 
   <!-- ═══════════ EXPLICATIONS INTÉGRATION 2-EN-1 ═══════════ -->
   <div class="annot">
-    <strong>🎯 Architecture 2-en-1 — comment Diara intègre les 2 widgets sur Collabimmo</strong>
+    <strong>🎯 Architecture 2-en-1 — les deux widgets sur Collabimmo</strong>
 
     <p style="margin-top:10px;">
-      <strong>1. Estimator</strong> sur la page publique de Collabimmo (ex <code>collabimmo.fr/estimer</code>) — capte les prospects vendeurs :
+      <strong>1. Estimator</strong> sur ta page publique (ex <code>collabimmo.fr/estimer</code>) — capte les prospects vendeurs :
     </p>
 <pre><code>&lt;script src="https://datamerry.com/estimator.js" async&gt;&lt;/script&gt;
 &lt;div data-datamerry-estimator
-     data-key="wdmk_live_..."
+     data-key="VOTRE_CLE_DATAMERRY"
      data-color="#c2410c"
-     data-cta-url="https://collabimmo.fr/contact"
-     data-cta-label="Demander un RDV gratuit"&gt;&lt;/div&gt;</code></pre>
+     data-cta-url="https://collabimmo.fr/contact"&gt;&lt;/div&gt;</code></pre>
 
     <p style="margin-top:10px;">
-      <strong>2. Chatbot</strong> dans l'espace pro de Diara (ex <code>app.collabimmo.fr/assistant</code>) — outil de travail expert :
+      <strong>2. Chatbot</strong> dans ton espace pro (ex <code>app.collabimmo.fr/assistant</code>) — outil de travail expert :
     </p>
 <pre><code>&lt;script src="https://datamerry.com/chatbot.js" async&gt;&lt;/script&gt;
 &lt;div data-datamerry-chatbot
-     data-key="wdmk_live_..."
+     data-key="VOTRE_CLE_DATAMERRY"
      data-cabinet="Collabimmo"
      data-color="#c2410c"&gt;&lt;/div&gt;</code></pre>
 
     <p style="margin-top:10px;">
-      <strong>Même clé widget pour les deux</strong> (un seul abonnement DATAMERRY 39€ TTC/mo couvre tout). Différenciés par leur composant côté DATAMERRY (estimator.js vs chatbot.js).
+      <strong>Une seule clé DATAMERRY pour les deux widgets</strong>. Un seul abonnement 39€ TTC/mois couvre tout.
     </p>
 
     <p style="margin-top:10px;">
-      <strong>Flow lead acquisition complet</strong> :
-      Visiteur tape adresse → estimation → CTA "RDV gratuit" → contact Collabimmo → Diara ouvre l'assistant IA pro pour préparer le RDV avec analyse complète du bien → estimation experte 2x plus précise → signature mandat.
+      <strong>Flow acquisition lead → mandat</strong> :
+      Visiteur tape son adresse → estimation instantanée → CTA "RDV gratuit" → contact Collabimmo capté → tu ouvres l'assistant IA pro pour préparer le RDV → analyse complète du bien (8 stratégies locatives, contexte taux, scores quartier) → signature mandat.
     </p>
   </div>
 

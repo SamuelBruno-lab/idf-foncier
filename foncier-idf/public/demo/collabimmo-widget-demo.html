@@ -248,17 +248,13 @@
     </div>
 
     <div class="annot">
-      <strong>📌 Comment Diara intègre ça sur son site Collabimmo</strong> — 4 lignes HTML :
+      <strong>📌 Intégration côté Collabimmo</strong> — 4 lignes HTML suffisent :
       <pre style="margin-top:8px; white-space:pre-wrap;"><code>&lt;script src="https://datamerry.com/widget.js" async&gt;&lt;/script&gt;
 &lt;div data-datamerry-report
-     data-key="wdmk_live_xxxxxxxx..."
-     data-address="10 rue de Rivoli 75001"
-     data-surface="62"
-     data-pieces="3"
+     data-key="VOTRE_CLE_DATAMERRY"
+     data-address="..."
      data-color="#c2410c"&gt;&lt;/div&gt;</code></pre>
-      Le widget appelle <code>/api/widget/render</code>, vérifie le domaine <code>collabimmo.fr</code>,
-      et injecte automatiquement le HTML stylé ci-dessus. La couleur (<code>data-color</code>) s'aligne
-      sur la charte du cabinet. Le rendu est intégral en SSR — pas de framework JS requis côté Collabimmo.
+      Aucun framework JS requis. La couleur (<code>data-color</code>) s'aligne sur la charte du cabinet. Données calculées par DATAMERRY à partir des sources officielles (DVF notaires, OLAP loyers, ADEME DPE, INSEE).
     </div>
 
   </div>

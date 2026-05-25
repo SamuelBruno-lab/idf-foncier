@@ -520,15 +520,13 @@
     </div>
 
     <div class="annot">
-      <strong>📌 Comment Diara intègre ça sur son site Collabimmo</strong> — 4 lignes HTML :
+      <strong>📌 Intégration côté Collabimmo</strong> — 4 lignes HTML suffisent :
       <pre style="margin-top:8px; white-space:pre-wrap;"><code>&lt;script src="https://datamerry.com/estimator.js" async&gt;&lt;/script&gt;
 &lt;div data-datamerry-estimator
-     data-key="wdmk_live_xxxxxxxx..."
+     data-key="VOTRE_CLE_DATAMERRY"
      data-color="#c2410c"
      data-cta-url="https://collabimmo.fr/contact"&gt;&lt;/div&gt;</code></pre>
-      Le widget appelle <code>/api/address/search</code> pour l'autocomplete adresse, puis <code>/api/property-report</code> pour l'estimation complète. Le visiteur saisit son adresse + surface, voit l'estimation en 3 secondes, et clique sur le CTA Collabimmo pour entrer en contact.
-      <br><br>
-      <strong>Différence vs widget statique actuel :</strong> au lieu d'afficher une seule adresse hardcodée, le visiteur saisit la SIENNE → vraie acquisition leads pour Collabimmo.
+      Le visiteur saisit son adresse + surface, voit l'estimation en 3 secondes, puis clique sur le bouton "Demander un RDV gratuit" qui le redirige vers le formulaire de contact Collabimmo. **Lead chaud capté automatiquement.**
     </div>
 
   </div>

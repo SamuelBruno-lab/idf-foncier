@@ -296,6 +296,10 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
   const lo = data.prix_m2_p10 != null && surface > 0 ? Math.round(data.prix_m2_p10 * surface) : null;
   const hi = data.prix_m2_p90 != null && surface > 0 ? Math.round(data.prix_m2_p90 * surface) : null;
 
+  // Catégorisation du contexte pour adapter le rendu et la note d'expert
+  const isTerrain = data.type_bien === "Terrain";
+  const hasEstimation = total != null && m2 != null;
+
   return (
     <Document
       title={`Estimation ${data.address} — ${data.cabinet_name}`}
@@ -319,37 +323,56 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
         </View>
 
         {/* Titre */}
-        <Text style={styles.title}>Estimation pour {data.address}</Text>
+        <Text style={styles.title}>
+          {hasEstimation
+            ? `Estimation pour ${data.address}`
+            : isTerrain
+              ? `Étude de terrain — ${data.address}`
+              : `Demande d'analyse — ${data.address}`}
+        </Text>
         <Text style={styles.subtitle}>
           {data.type_bien} {surface ? `· ${fmt(surface)} m²` : ""} · Préparé pour {data.visitor_name}
         </Text>
 
-        {/* Estimation card */}
-        <View style={styles.estimationCard}>
-          <Text style={styles.estimationLabel}>Estimation marché</Text>
-          <Text style={styles.estimationValue}>{fmt(total)} €</Text>
-          <Text style={styles.estimationSub}>
-            {fmt(m2)} €/m²
-            {data.nb_ventes ? ` · ${data.nb_ventes} ventes notariées DVF dans la zone` : ""}
-          </Text>
+        {/* Card : estimation chiffrée OU bloc "analyse spécifique requise" */}
+        {hasEstimation ? (
+          <View style={styles.estimationCard}>
+            <Text style={styles.estimationLabel}>Estimation marché</Text>
+            <Text style={styles.estimationValue}>{fmt(total)} €</Text>
+            <Text style={styles.estimationSub}>
+              {fmt(m2)} €/m²
+              {data.nb_ventes ? ` · ${data.nb_ventes} ventes notariées DVF dans la zone` : ""}
+            </Text>
 
-          {lo !== null && hi !== null && (
-            <View style={styles.rangeRow}>
-              <View style={styles.rangeStat}>
-                <Text style={styles.rangeStatLabel}>Plancher</Text>
-                <Text style={styles.rangeStatValue}>{fmt(lo)} €</Text>
+            {lo !== null && hi !== null && (
+              <View style={styles.rangeRow}>
+                <View style={styles.rangeStat}>
+                  <Text style={styles.rangeStatLabel}>Plancher</Text>
+                  <Text style={styles.rangeStatValue}>{fmt(lo)} €</Text>
+                </View>
+                <View style={styles.rangeStat}>
+                  <Text style={styles.rangeStatLabel}>Médiane</Text>
+                  <Text style={styles.rangeStatValue}>{fmt(total)} €</Text>
+                </View>
+                <View style={styles.rangeStat}>
+                  <Text style={styles.rangeStatLabel}>Plafond</Text>
+                  <Text style={styles.rangeStatValue}>{fmt(hi)} €</Text>
+                </View>
               </View>
-              <View style={styles.rangeStat}>
-                <Text style={styles.rangeStatLabel}>Médiane</Text>
-                <Text style={styles.rangeStatValue}>{fmt(total)} €</Text>
-              </View>
-              <View style={styles.rangeStat}>
-                <Text style={styles.rangeStatLabel}>Plafond</Text>
-                <Text style={styles.rangeStatValue}>{fmt(hi)} €</Text>
-              </View>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.estimationCard}>
+            <Text style={styles.estimationLabel}>
+              {isTerrain ? "Analyse spécifique requise" : "Estimation à personnaliser"}
+            </Text>
+            <Text style={{ fontSize: 13, color: "#475569", textAlign: "center", marginTop: 6, lineHeight: 1.5 }}>
+              {isTerrain
+                ? "Un terrain ne se valorise pas en €/m² des transactions DVF mais via la charge foncière (bilan promoteur). Ce calcul nécessite une étude dédiée."
+                : "Ce type de bien et/ou ce micro-marché nécessite une analyse personnalisée par un expert."}
+            </Text>
+          </View>
+        )}
 
         {/* Récap caractéristiques */}
         <Text style={styles.sectionTitle}>Caractéristiques renseignées</Text>
@@ -408,17 +431,50 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           )}
         </View>
 
-        {/* Note expert */}
+        {/* Note expert — adaptée selon le type de bien */}
         <View style={styles.expertNote}>
-          <Text style={styles.expertNoteTitle}>Note importante — ce rapport est indicatif</Text>
+          <Text style={styles.expertNoteTitle}>
+            {isTerrain
+              ? "Note importante — méthodologie spécifique au terrain"
+              : "Note importante — ce rapport est indicatif"}
+          </Text>
           <Text>
-            Cette estimation est calculée automatiquement à partir des ventes notariées DVF
-            du micro-marché et n&apos;intègre PAS les spécificités fines de votre bien (état réel,
-            étage exact, exposition, vue, charges, copropriété, prestations, vétusté…).
-            {"\n\n"}
-            Pour une estimation précise et exploitable en transaction, un expert {data.cabinet_name} vient
-            visiter votre bien gratuitement et vous remet un avis de valeur professionnel.
-            Vous serez recontacté(e) sous 24h ouvrées au {data.visitor_email}.
+            {isTerrain ? (
+              <>
+                L&apos;estimation d&apos;un terrain ne se réalise pas sur la base des
+                transactions DVF (qui concernent du bâti) mais via un{" "}
+                <Text style={{ fontWeight: 700 }}>bilan promoteur</Text> /{" "}
+                <Text style={{ fontWeight: 700 }}>charge foncière</Text>. Cela implique
+                de consulter le PLU/PLUi de la commune (constructibilité, COS/CES,
+                servitudes), d&apos;estimer les coûts construction locaux, d&apos;identifier
+                les promoteurs potentiels et de modéliser leur marge cible.
+                {"\n\n"}
+                Cette analyse demande une étude dédiée — un expert {data.cabinet_name}{" "}
+                vous recontacte sous 24h ouvrées au {data.visitor_email} pour discuter
+                de votre projet et des modalités d&apos;une telle expertise.
+              </>
+            ) : hasEstimation ? (
+              <>
+                Cette estimation est calculée automatiquement à partir des ventes notariées
+                DVF du micro-marché et n&apos;intègre PAS les spécificités fines de votre
+                bien (état réel, étage exact, exposition, vue, charges, copropriété,
+                prestations, vétusté…).
+                {"\n\n"}
+                Pour une estimation précise et exploitable en transaction, un expert{" "}
+                {data.cabinet_name} vient visiter votre bien gratuitement et vous remet un
+                avis de valeur professionnel. Vous serez recontacté(e) sous 24h ouvrées au{" "}
+                {data.visitor_email}.
+              </>
+            ) : (
+              <>
+                Ce type de bien ou ce micro-marché ne dispose pas de comparables suffisants
+                pour générer une estimation automatique fiable.
+                {"\n\n"}
+                Un expert {data.cabinet_name} vous recontacte sous 24h ouvrées au{" "}
+                {data.visitor_email} pour réaliser une analyse personnalisée tenant compte
+                des spécificités de votre bien.
+              </>
+            )}
           </Text>
         </View>
 

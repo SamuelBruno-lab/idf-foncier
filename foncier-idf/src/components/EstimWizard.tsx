@@ -1004,8 +1004,10 @@ function ResultCard({
             payer compte tenu du programme constructible (PLU, COS/CES), des coûts
             de construction locaux et de la marge cible.
             {"\n\n"}
-            Un expert <strong>{cabinetName}</strong> vous rappelle sous 24h ouvrées
-            pour réaliser cette analyse personnalisée gratuitement.
+            Cette analyse demande une étude dédiée (consultation PLU/PLUi, identification
+            des promoteurs potentiels, modélisation du bilan). Un expert{" "}
+            <strong>{cabinetName}</strong> vous rappelle sous 24h ouvrées pour
+            discuter de votre projet et des modalités d&apos;une telle expertise.
           </span>
         </ChatBubble>
       )}
@@ -1040,7 +1042,9 @@ function ResultCard({
               {cabinetName} vous recontactera <strong>sous 24h ouvrées</strong>
               {hasEstimation
                 ? " pour affiner gratuitement avec une visite physique (état réel, étage exact, exposition, prestations)."
-                : " avec une analyse personnalisée gratuite."}
+                : isTerrain
+                  ? " pour échanger sur votre projet de terrain et les modalités d'une expertise dédiée."
+                  : " avec une analyse personnalisée."}
             </span>
           </ChatBubble>
           <div style={{ paddingLeft: 36, marginTop: 12, marginBottom: 12 }}>

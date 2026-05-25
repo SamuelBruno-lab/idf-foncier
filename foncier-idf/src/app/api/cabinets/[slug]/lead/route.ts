@@ -212,31 +212,48 @@ export async function POST(
     const ctaLabel = cabinet.cta_contact_label ?? "En savoir plus";
 
     // ── EMAIL #1 : Au visiteur ──────────────────────────────────────────────
+    const isTerrainEmail = type_bien === "Terrain";
+    const hasEstimationEmail = estim.prix_total_median != null;
+
+    // Texte du paragraphe d'expertise adapté selon le type de bien
+    const expertParagraph = isTerrainEmail
+      ? `<p><strong>Un expert ${cabinetName} vous recontactera sous 24h ouvrées</strong> pour discuter de votre projet de terrain. L'estimation d'un terrain repose sur la <strong>charge foncière</strong> (bilan promoteur) et nécessite une étude dédiée (consultation PLU/PLUi, identification des promoteurs potentiels, modélisation du bilan promoteur).</p>`
+      : hasEstimationEmail
+        ? `<p><strong>Un expert ${cabinetName} vous recontactera sous 24h ouvrées</strong> pour affiner cette estimation avec une visite physique gratuite (état réel, étage exact, exposition, prestations) et vous accompagner dans votre projet.</p>`
+        : `<p><strong>Un expert ${cabinetName} vous recontactera sous 24h ouvrées</strong> pour réaliser une analyse personnalisée tenant compte des spécificités de votre bien.</p>`;
+
+    // Bloc disclaimer adapté également
+    const disclaimerHtml = isTerrainEmail
+      ? `Ce document est une <strong>fiche de synthèse de votre demande</strong>. L'estimation d'un terrain ne peut pas être automatisée — elle nécessite une étude charge foncière / bilan promoteur dédiée.`
+      : hasEstimationEmail
+        ? `Cette estimation est <strong>indicative</strong>, calculée à partir des ventes notariées DVF du micro-marché. Elle ne se substitue pas à un avis de valeur professionnel d'un expert immobilier.`
+        : `Pour ce type de bien ou ce micro-marché, une analyse personnalisée est nécessaire. Un expert vous contactera pour réaliser cette estimation.`;
+
     const visitorHtml = `
 <!DOCTYPE html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f8fafc; padding:20px;">
 <div style="max-width:560px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0;">
   <div style="background:${primary}; color:white; padding:24px;">
     <h1 style="margin:0; font-size:22px;">${cabinetName}</h1>
-    <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">Votre estimation immobilière</p>
+    <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">${isTerrainEmail ? "Votre demande d'étude de terrain" : "Votre estimation immobilière"}</p>
   </div>
   <div style="padding:24px; color:#0f172a;">
     <p>Bonjour <strong>${visitor_name}</strong>,</p>
-    <p>Merci pour votre demande d'estimation pour le bien situé <strong>${address}</strong>.</p>
-    ${estim.prix_total_median ? `
+    <p>Merci pour votre demande ${isTerrainEmail ? "d'étude" : "d'estimation"} pour le bien situé <strong>${address}</strong>.</p>
+    ${hasEstimationEmail ? `
     <div style="background:#f1f5f9; padding:16px; border-radius:8px; text-align:center; margin:16px 0; border:1px solid ${primary}40;">
       <div style="font-size:11px; text-transform:uppercase; color:${primary}; font-weight:700; letter-spacing:1px;">Estimation marché</div>
-      <div style="font-size:28px; font-weight:800; color:${primary}; margin-top:6px;">${new Intl.NumberFormat("fr-FR").format(estim.prix_total_median)} €</div>
+      <div style="font-size:28px; font-weight:800; color:${primary}; margin-top:6px;">${new Intl.NumberFormat("fr-FR").format(estim.prix_total_median!)} €</div>
       ${estim.prix_m2_median ? `<div style="font-size:12px; color:#475569; margin-top:4px;">${new Intl.NumberFormat("fr-FR").format(Math.round(estim.prix_m2_median))} €/m²</div>` : ""}
     </div>
     ` : ""}
-    <p>Vous trouverez ci-joint un rapport PDF récapitulant cette estimation indicative et les caractéristiques que vous nous avez communiquées.</p>
-    <p><strong>Un expert ${cabinetName} vous recontactera sous 24h ouvrées</strong> pour affiner cette estimation avec une visite physique (état réel, étage exact, exposition, prestations) et vous accompagner dans votre projet.</p>
+    <p>Vous trouverez ci-joint un rapport PDF récapitulant ${isTerrainEmail ? "votre demande et le contexte méthodologique" : hasEstimationEmail ? "cette estimation indicative" : "votre demande"} et les caractéristiques que vous nous avez communiquées.</p>
+    ${expertParagraph}
     <p style="margin-top:24px;">
       <a href="${ctaUrl}" style="display:inline-block; background:${primary}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700; font-size:14px;">${ctaLabel} →</a>
     </p>
     <p style="font-size:12px; color:#64748b; margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
-      Cette estimation est <strong>indicative</strong>, calculée à partir des ventes notariées DVF du micro-marché. Elle ne se substitue pas à un avis de valeur professionnel d'un expert immobilier.
+      ${disclaimerHtml}
     </p>
   </div>
   <div style="background:#f8fafc; padding:14px 24px; font-size:11px; color:#94a3b8; text-align:center; border-top:1px solid #e2e8f0;">

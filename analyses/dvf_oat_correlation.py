@@ -19,9 +19,21 @@ Méthodologie :
   5. Régression avec lag (effet décalé 3/6/12 mois)
   6. Régression avec fixed effects communes (isole l'effet macro pur)
 
-Hypothèse a priori (littérature française) :
-  β ≈ -8% à -12% par +100bp de taux OAT
-  (BdF Bulletin économique, OFCE, Crédit Foncier)
+Hypothèse a priori (benchmark littérature vérifié 2026-05-25) :
+  β ≈ -7% à -12% par +100bp de taux OAT
+
+Références :
+  - Antipa & Lecat (2013), "Bulle immobilière et politique d'octroi de crédits",
+    Revue de l'OFCE 128(2), p. 163-187. DOLS panel France 2003-2008.
+    Coef estimé : -7,1% par +1pt de taux BANCAIRE (significatif seuil 1%).
+    URL : https://www.cairn.info/revue-de-l-ofce-2013-2-page-189.htm
+  - Banque de France, Bulletin économique (mensuel) + Panorama prêts habitat.
+  - IGEDD (Jacques Friggit) — élasticité prix logements / nombre (offre/demande).
+
+Note : BNP Paribas Real Estate, CBRE France, Colliers France publient
+uniquement des notes qualitatives trimestrielles — pas d'étude économétrique
+chiffrée publique. DATAMERRY produit donc le PREMIER coefficient β à jour,
+par micro-marché HDBSCAN, sur 10 ans de DVF (2014-2025) et OAT 10y daily.
 
 Usage :
   python analyses/dvf_oat_correlation.py [--limit N] [--from YYYY-MM-DD]

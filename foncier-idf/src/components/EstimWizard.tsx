@@ -238,6 +238,15 @@ type Result = {
   nb_ventes?: number;
 };
 
+type LeadStatus =
+  | "wizard"          // wizard in progress
+  | "estimating"      // estimating in progress
+  | "result"          // estimation shown, awaiting lead form
+  | "lead-form"       // lead form open
+  | "lead-sending"    // POST /lead in flight
+  | "lead-sent"       // lead captured, email confirmation showed
+  | "lead-error";     // form error (network/db)
+
 export default function EstimWizard({
   slug,
   primaryColor,
@@ -252,6 +261,8 @@ export default function EstimWizard({
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
+  const [leadStatus, setLeadStatus] = useState<LeadStatus>("wizard");
+  const [leadError, setLeadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Détermine la prochaine question pertinente (en sautant les skipIf)
@@ -307,6 +318,7 @@ export default function EstimWizard({
 
   async function fetchEstimate(allAnswers: Answers) {
     setLoading(true);
+    setLeadStatus("estimating");
     try {
       const params = new URLSearchParams({
         address: String(allAnswers.address ?? ""),
@@ -323,13 +335,55 @@ export default function EstimWizard({
       });
       if (!res.ok) {
         setResult({ available: false });
+        setLeadStatus("result");
         return;
       }
       setResult((await res.json()) as Result);
+      setLeadStatus("result");
     } catch {
       setResult({ available: false });
+      setLeadStatus("result");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitLead(form: {
+    visitor_name: string;
+    visitor_email: string;
+    visitor_phone: string;
+    consentement: boolean;
+  }) {
+    if (!result) return;
+    setLeadStatus("lead-sending");
+    setLeadError(null);
+    try {
+      const res = await fetch(`/api/cabinets/${slug}/lead`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          wizard_answers: answers,
+          estimation: {
+            address: result.address,
+            prix_m2_median: result.prix_m2_median,
+            prix_m2_p10: result.prix_m2_p10,
+            prix_m2_p90: result.prix_m2_p90,
+            prix_total_median: result.prix_total_median,
+            nb_ventes: result.nb_ventes,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setLeadError(err.error ?? "send_failed");
+        setLeadStatus("lead-error");
+        return;
+      }
+      setLeadStatus("lead-sent");
+    } catch {
+      setLeadError("network_error");
+      setLeadStatus("lead-error");
     }
   }
 
@@ -340,6 +394,8 @@ export default function EstimWizard({
     setCurrentInput("");
     setCurrentMulti([]);
     setResult(null);
+    setLeadStatus("wizard");
+    setLeadError(null);
   }
 
   const fmt = (n: number | undefined | null) =>
@@ -470,7 +526,7 @@ export default function EstimWizard({
           </ChatBubble>
         )}
 
-        {/* Résultat final */}
+        {/* Résultat final + capture lead */}
         {isFinished && result && !loading && (
           <ResultCard
             result={result}
@@ -479,6 +535,9 @@ export default function EstimWizard({
             cabinetName={cabinetName}
             ctaUrl={ctaUrl}
             ctaLabel={ctaLabel}
+            leadStatus={leadStatus}
+            leadError={leadError}
+            onSubmitLead={submitLead}
             onReset={reset}
           />
         )}
@@ -750,6 +809,9 @@ function ResultCard({
   cabinetName,
   ctaUrl,
   ctaLabel,
+  leadStatus,
+  leadError,
+  onSubmitLead,
   onReset,
 }: {
   result: Result;
@@ -758,6 +820,14 @@ function ResultCard({
   cabinetName: string;
   ctaUrl: string;
   ctaLabel: string;
+  leadStatus: LeadStatus;
+  leadError: string | null;
+  onSubmitLead: (form: {
+    visitor_name: string;
+    visitor_email: string;
+    visitor_phone: string;
+    consentement: boolean;
+  }) => void;
   onReset: () => void;
 }) {
   const fmt = (n?: number | null) =>
@@ -765,10 +835,11 @@ function ResultCard({
       ? new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)
       : "—";
 
+  // Cas 1 — Pas d'estimation disponible : on propose direct le contact cabinet
   if (!result.available || !result.prix_m2_median) {
     return (
       <ChatBubble role="bot" primaryColor={primaryColor}>
-        Je n'ai pas pu estimer ce bien automatiquement.
+        Je n&apos;ai pas pu estimer ce bien automatiquement.
         <br />
         Contactez directement <strong>{cabinetName}</strong> pour une analyse
         personnalisée :
@@ -796,7 +867,7 @@ function ResultCard({
   return (
     <>
       <ChatBubble role="bot" primaryColor={primaryColor}>
-        Voici l'estimation pour <strong>{result.address}</strong> :
+        Voici l&apos;estimation pour <strong>{result.address}</strong> :
       </ChatBubble>
       <div
         style={{
@@ -828,15 +899,20 @@ function ResultCard({
           {result.nb_ventes ? ` · ${result.nb_ventes} ventes DVF` : ""}
         </div>
         {result.prix_m2_p10 && result.prix_m2_p90 && answers.surface ? (
-          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-around",
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: "1px solid rgba(0,0,0,0.05)",
+            }}
+          >
             <SmallStat
               label="Plancher"
               value={`${fmt(Math.round(result.prix_m2_p10 * Number(answers.surface)))} €`}
             />
-            <SmallStat
-              label="Médiane"
-              value={`${fmt(result.prix_total_median)} €`}
-            />
+            <SmallStat label="Médiane" value={`${fmt(result.prix_total_median)} €`} />
             <SmallStat
               label="Plafond"
               value={`${fmt(Math.round(result.prix_m2_p90 * Number(answers.surface)))} €`}
@@ -845,27 +921,280 @@ function ResultCard({
         ) : null}
       </div>
 
-      <ChatBubble role="bot" primaryColor={primaryColor}>
-        Cette estimation est <strong>indicative</strong>. Pour affiner avec l'état
-        réel du bien (visite, photos, comparables actuels), <strong>{cabinetName}</strong> vient gratuitement chez vous.
-      </ChatBubble>
+      {/* ───────────── État : lead-sent (succès, message confirmation) ───────────── */}
+      {leadStatus === "lead-sent" ? (
+        <>
+          <ChatBubble role="bot" primaryColor={primaryColor}>
+            ✅ <strong>Votre rapport détaillé vient d&apos;être envoyé par email.</strong>
+            <br />
+            <span style={{ fontSize: 13 }}>
+              {cabinetName} a également reçu votre estimation et vous recontactera{" "}
+              <strong>sous 24h ouvrées</strong> pour affiner gratuitement avec une visite
+              physique (état réel, étage exact, exposition, prestations).
+            </span>
+          </ChatBubble>
+          <div style={{ paddingLeft: 36, marginTop: 12, marginBottom: 12 }}>
+            <a
+              href={ctaUrl}
+              style={{
+                display: "inline-block",
+                background: primaryColor,
+                color: "white",
+                padding: "12px 22px",
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 14,
+                textDecoration: "none",
+              }}
+            >
+              Découvrir {cabinetName} →
+            </a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onReset();
+              }}
+              style={{
+                marginLeft: 12,
+                color: "#64748b",
+                fontSize: 12,
+                textDecoration: "underline",
+              }}
+            >
+              Nouvelle estimation
+            </a>
+          </div>
+        </>
+      ) : (
+        /* ───────────── État : result / lead-form / lead-sending / lead-error ───────────── */
+        <>
+          <ChatBubble role="bot" primaryColor={primaryColor}>
+            Cette estimation est <strong>indicative</strong>. Pour recevoir le{" "}
+            <strong>rapport détaillé par email</strong> et être recontacté(e) gratuitement
+            par un expert <strong>{cabinetName}</strong> sous 24h ouvrées, complétez vos
+            coordonnées :
+          </ChatBubble>
+          <LeadCaptureForm
+            primaryColor={primaryColor}
+            cabinetName={cabinetName}
+            disabled={leadStatus === "lead-sending"}
+            sending={leadStatus === "lead-sending"}
+            errorCode={leadStatus === "lead-error" ? leadError : null}
+            onSubmit={onSubmitLead}
+            onReset={onReset}
+          />
+        </>
+      )}
+    </>
+  );
+}
 
-      <div style={{ paddingLeft: 36, marginTop: 12, marginBottom: 12 }}>
-        <a
-          href={ctaUrl}
+// ──────────────────────────────────────────────────────────────────────────────
+// Formulaire capture lead
+// ──────────────────────────────────────────────────────────────────────────────
+
+function LeadCaptureForm({
+  primaryColor,
+  cabinetName,
+  disabled,
+  sending,
+  errorCode,
+  onSubmit,
+  onReset,
+}: {
+  primaryColor: string;
+  cabinetName: string;
+  disabled: boolean;
+  sending: boolean;
+  errorCode: string | null;
+  onSubmit: (form: {
+    visitor_name: string;
+    visitor_email: string;
+    visitor_phone: string;
+    consentement: boolean;
+  }) => void;
+  onReset: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [touched, setTouched] = useState(false);
+
+  const nameValid = name.trim().length >= 2;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canSubmit = nameValid && emailValid && consent && !disabled;
+
+  const errorMessage =
+    errorCode === "invalid_email"
+      ? "Email invalide."
+      : errorCode === "name_required"
+        ? "Nom requis."
+        : errorCode === "consent_required"
+          ? "Consentement RGPD requis."
+          : errorCode === "cabinet_not_found"
+            ? "Cabinet non trouvé."
+            : errorCode
+              ? "Impossible d'envoyer pour le moment. Réessayez."
+              : null;
+
+  return (
+    <div
+      style={{
+        marginLeft: 36,
+        marginTop: 12,
+        marginBottom: 16,
+        background: "white",
+        border: `1px solid ${primaryColor}30`,
+        borderRadius: 12,
+        padding: 16,
+      }}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setTouched(true);
+          if (!canSubmit) return;
+          onSubmit({
+            visitor_name: name.trim(),
+            visitor_email: email.trim(),
+            visitor_phone: phone.trim(),
+            consentement: consent,
+          });
+        }}
+        style={{ display: "flex", flexDirection: "column", gap: 10 }}
+      >
+        <FormField
+          label="Nom complet"
+          required
+          error={touched && !nameValid ? "Min. 2 caractères" : null}
+        >
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Jean Dupont"
+            autoComplete="name"
+            disabled={disabled}
+            style={inputBoxStyle(primaryColor)}
+          />
+        </FormField>
+
+        <FormField
+          label="Email"
+          required
+          error={touched && !emailValid ? "Email invalide" : null}
+        >
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="jean.dupont@email.com"
+            autoComplete="email"
+            disabled={disabled}
+            style={inputBoxStyle(primaryColor)}
+          />
+        </FormField>
+
+        <FormField label="Téléphone (optionnel)">
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="06 12 34 56 78"
+            autoComplete="tel"
+            disabled={disabled}
+            style={inputBoxStyle(primaryColor)}
+          />
+        </FormField>
+
+        <label
           style={{
-            display: "inline-block",
-            background: primaryColor,
-            color: "white",
-            padding: "12px 22px",
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: 14,
-            textDecoration: "none",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            fontSize: 12,
+            color: "#475569",
+            cursor: "pointer",
+            marginTop: 4,
+            lineHeight: 1.45,
           }}
         >
-          {ctaLabel} →
-        </a>
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            disabled={disabled}
+            style={{ marginTop: 2, accentColor: primaryColor }}
+          />
+          <span>
+            J&apos;accepte que <strong>{cabinetName}</strong> et DATAMERRY traitent mes
+            coordonnées pour me recontacter au sujet de mon estimation. Données conservées
+            36 mois max, droits d&apos;accès/suppression sur simple demande.{" "}
+            {touched && !consent && (
+              <span style={{ color: "#dc2626", fontWeight: 600 }}>(requis)</span>
+            )}
+          </span>
+        </label>
+
+        {errorMessage && (
+          <div
+            style={{
+              background: "#fef2f2",
+              color: "#991b1b",
+              padding: 10,
+              borderRadius: 8,
+              fontSize: 12,
+              border: "1px solid #fecaca",
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          style={{
+            background: canSubmit ? primaryColor : "#cbd5e1",
+            color: "white",
+            border: "none",
+            borderRadius: 10,
+            padding: "12px 22px",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            marginTop: 6,
+            fontFamily: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {sending ? (
+            <>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 14,
+                  height: 14,
+                  border: "2px solid rgba(255,255,255,0.4)",
+                  borderTopColor: "white",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              Envoi en cours…
+            </>
+          ) : (
+            <>Recevoir mon rapport →</>
+          )}
+        </button>
+      </form>
+
+      <div style={{ textAlign: "center", marginTop: 12 }}>
         <a
           href="#"
           onClick={(e) => {
@@ -873,17 +1202,68 @@ function ResultCard({
             onReset();
           }}
           style={{
-            marginLeft: 12,
-            color: "#64748b",
-            fontSize: 12,
+            color: "#94a3b8",
+            fontSize: 11,
             textDecoration: "underline",
           }}
         >
-          Nouvelle estimation
+          Recommencer une estimation
         </a>
       </div>
-    </>
+    </div>
   );
+}
+
+function FormField({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        style={{
+          display: "block",
+          fontSize: 11,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: "#64748b",
+          marginBottom: 5,
+        }}
+      >
+        {label}
+        {required && <span style={{ color: "#dc2626" }}> *</span>}
+      </label>
+      {children}
+      {error && (
+        <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>{error}</div>
+      )}
+    </div>
+  );
+}
+
+function inputBoxStyle(primary: string): React.CSSProperties {
+  return {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+    background: "white",
+    color: "#0f172a",
+    boxSizing: "border-box",
+    // focus géré via JS si on veut animation, sinon natif suffit
+    accentColor: primary,
+  };
 }
 
 function SmallStat({ label, value }: { label: string; value: string }) {

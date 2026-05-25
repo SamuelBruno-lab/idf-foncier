@@ -85,10 +85,12 @@ def fetch_eurostat(start: date | None = None) -> pd.DataFrame:
         params["startPeriod"] = start.isoformat()
 
     print(f"  → Eurostat : {EUROSTAT_URL}")
+    # Eurostat est strict sur les Accept headers — on accepte n'importe quoi
+    # (le format réel est négocié via query param `format=csvdata`).
     resp = requests.get(
         EUROSTAT_URL,
         params=params,
-        headers={"Accept": "text/csv"},
+        headers={"Accept": "*/*"},
         timeout=60,
     )
     if resp.status_code != 200:

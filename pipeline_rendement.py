@@ -302,7 +302,8 @@ def parse_anil_csv(url: str) -> dict[str, dict[tuple[str, str], float]]:
 
     print(f"    Téléchargement {fname} → {bucket_key}")
     try:
-        df = pd.read_csv(url, dtype=str, sep=None, engine="python", low_memory=False)
+        # Note: low_memory n'est pas supporté avec engine="python"
+        df = pd.read_csv(url, dtype=str, sep=None, engine="python")
     except Exception as e:
         print(f"    ⚠ Échec parse {fname}: {e}")
         return {}

@@ -107,7 +107,8 @@ def discover_zonage_csv() -> tuple[str, int] | None:
 
 def parse_zonage_csv(url: str) -> pd.DataFrame:
     """Charge le CSV zonage et retourne un DataFrame [code_insee, zone] normalisé."""
-    df = pd.read_csv(url, dtype=str, sep=None, engine="python", low_memory=False)
+    # Note: low_memory n'est pas supporté avec engine="python"
+    df = pd.read_csv(url, dtype=str, sep=None, engine="python")
     print(f"  → {len(df):,} lignes lues, colonnes : {list(df.columns)[:8]}...")
 
     # Détection souple des colonnes (les noms varient selon millésime)

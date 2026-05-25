@@ -95,23 +95,26 @@ def get_connection() -> "psycopg.Connection":
 
 def load_dvf(conn, limit: int | None = None, since: date | None = None) -> pd.DataFrame:
     """
-    Charge les transactions DVF depuis la table source (s'adapte au schéma
-    existant — modifie le nom de la table si différent dans ton Supabase).
+    Charge les transactions DVF depuis la table `dvf_points` Supabase.
 
-    Conventions attendues :
-      - colonne date : `date_mutation` (DATE)
-      - colonne prix : `valeur_fonciere` (NUMERIC)
-      - colonne surface : `surface_reelle_bati` (NUMERIC)
-      - colonne type : `type_local`
-      - colonne commune : `code_commune` (INSEE)
-      - colonnes lat/lon : `latitude`, `longitude` (OPTIONNEL — utilisé pour
-        joindre chaque transaction à son cluster HDBSCAN par point-in-polygon)
+    Schéma DATAMERRY (vérifié 2026-05-25) :
+      - date_mutation (DATE)
+      - valeur_fonciere (BIGINT)
+      - prix_m2 (INTEGER, déjà précalculé)
+      - surface (INTEGER)
+      - type_local (TEXT)
+      - code_commune (TEXT)
+      - lat, lon (DOUBLE PRECISION)
+
+    Note : la table n'a pas de colonne `nombre_pieces_principales`. La colonne
+    `pieces` est mise à NULL dans le DataFrame pour compatibilité.
     """
     where_clauses = [
         "valeur_fonciere > 10000",
         "valeur_fonciere < 5000000",
-        "surface_reelle_bati BETWEEN 8 AND 500",
+        "surface BETWEEN 8 AND 500",
         "type_local IN ('Appartement', 'Maison')",
+        "prix_m2 BETWEEN 500 AND 25000",  # filtrage prix/m² directement en SQL
     ]
     if since:
         where_clauses.append(f"date_mutation >= '{since.isoformat()}'")
@@ -122,35 +125,24 @@ def load_dvf(conn, limit: int | None = None, since: date | None = None) -> pd.Da
           code_commune,
           type_local,
           valeur_fonciere::float AS prix,
-          surface_reelle_bati::float AS surface,
-          nombre_pieces_principales::int AS pieces,
-          latitude::float AS lat,
-          longitude::float AS lon
-        FROM public.fact_dvf
+          surface::float AS surface,
+          prix_m2::float AS prix_m2,
+          lat::float AS lat,
+          lon::float AS lon
+        FROM public.dvf_points
         WHERE {where}
         ORDER BY date_mutation
     """
     if limit:
         sql += f" LIMIT {limit}"
-    print(f"▶ Chargement DVF depuis Supabase…")
-    try:
-        df = pd.read_sql(sql, conn)
-    except Exception as e:
-        # Fallback : pas de colonnes lat/lon — on retire et on continue sans
-        # le mapping cluster (on garde l'analyse par commune × type)
-        print(f"  ⚠️ lat/lon absentes ({e}). Fallback sans coordonnées GPS.")
-        sql_fallback = sql.replace(
-            "latitude::float AS lat,\n          longitude::float AS lon",
-            "NULL::float AS lat,\n          NULL::float AS lon",
-        )
-        df = pd.read_sql(sql_fallback, conn)
-    df["prix_m2"] = df["prix"] / df["surface"]
-    # Filtrage prix/m² réaliste
-    df = df[(df["prix_m2"] >= 500) & (df["prix_m2"] <= 25000)]
+    print(f"▶ Chargement DVF depuis public.dvf_points…")
+    df = pd.read_sql(sql, conn)
+    # Colonne pieces ajoutée à NULL pour compat avec le reste du script
+    df["pieces"] = None
     has_coords = df["lat"].notna().sum() > 0
     print(
         f"  ✅ {len(df):,} transactions chargées "
-        f"(coords GPS dispo : {has_coords})"
+        f"(coords GPS dispo sur {df['lat'].notna().sum():,} lignes)"
     )
     return df
 

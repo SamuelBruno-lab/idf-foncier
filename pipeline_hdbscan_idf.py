@@ -290,39 +290,52 @@ def compute_voronoi_hulls(
     all_pts: np.ndarray,
 ) -> list[list[list[float]] | None]:
     """
-    Pour un groupe de clusters partageant un même périmètre (commune × type),
-    calcule la tessellation Voronoi de leurs centroïdes, clippée par le
-    convex hull de tous les points → polygones NON CHEVAUCHANTS par
-    construction mathématique.
+    Pour un groupe de clusters partageant un même périmètre (commune × type) :
+    pour chaque cluster, retourne le polygone
+
+        zone = convex_hull(cluster.points)  ∩  voronoi_cell(cluster.centroid)
+
+    Le convex hull définit le PÉRIMÈTRE DES DONNÉES (jamais d'invention de
+    territoire vide). Voronoi sert seulement à COUPER les chevauchements entre
+    clusters voisins. Si un convex hull ne touche aucun voisin, sa zone reste
+    le convex hull intact.
 
     Args:
-        zones_with_centroids: liste de zones avec centroid_lat/centroid_lon
-        all_pts: array (N, 2) [lat, lon] de tous les points du commune × type
+        zones_with_centroids: liste de zones, chacune avec :
+          - 'centroid_lat'/'centroid_lon' (centroïde HDBSCAN)
+          - 'hull_coords' (convex hull du cluster déjà calculé par process_commune_type)
+        all_pts: array (N, 2) — utilisé seulement comme borne extérieure du
+                 diagramme Voronoi (sinon il s'étend à l'infini)
 
     Returns:
         Liste de polygones [[lat, lon], ...] dans l'ordre des zones_with_centroids.
-        None pour une zone si Voronoi a échoué (le caller gardera le hull initial).
+        None pour une zone si l'intersection a échoué (le caller gardera le
+        convex hull initial).
     """
     n = len(zones_with_centroids)
     if n == 0:
         return []
     if n == 1:
-        # 1 seul cluster : polygone = convex hull de tous les points
-        return [compute_hull(all_pts)]
+        # 1 seul cluster → pas de voisin → on garde le convex hull pur
+        return [zones_with_centroids[0].get("hull_coords")]
 
     try:
         from shapely.geometry import MultiPoint, Point, Polygon  # noqa: PLC0415
         from shapely.ops import voronoi_diagram  # noqa: PLC0415
 
-        centroids = [(float(z["centroid_lat"]), float(z["centroid_lon"])) for z in zones_with_centroids]
+        centroids = [
+            (float(z["centroid_lat"]), float(z["centroid_lon"]))
+            for z in zones_with_centroids
+        ]
         mp = MultiPoint(centroids)
 
-        # Enveloppe : convex hull de tous les points, buffered légèrement
+        # Envelope : on borne le Voronoi par le convex hull de tous les points
+        # buffered, sinon les cellules de bord vont à l'infini
         envelope = None
         if len(all_pts) >= 3:
             try:
                 ch = ConvexHull(all_pts)
-                envelope = Polygon([all_pts[v].tolist() for v in ch.vertices]).buffer(0.0005)
+                envelope = Polygon([all_pts[v].tolist() for v in ch.vertices]).buffer(0.001)
                 if envelope.is_empty:
                     envelope = None
             except Exception:
@@ -330,24 +343,43 @@ def compute_voronoi_hulls(
 
         voronoi = voronoi_diagram(mp, envelope=envelope)
 
-        # Matcher chaque polygone Voronoi à son centroïde (l'ordre n'est pas garanti)
+        # Convex hulls des clusters individuels (déjà calculés)
+        cluster_polys: list = [None] * n
+        for i, z in enumerate(zones_with_centroids):
+            hull_coords = z.get("hull_coords")
+            if hull_coords and len(hull_coords) >= 4:
+                try:
+                    cluster_polys[i] = Polygon(hull_coords)
+                except Exception:
+                    pass
+
+        # Pour chaque cellule Voronoi, trouver son centroïde, puis intersecter
+        # avec le convex hull du cluster correspondant
         result: list[list[list[float]] | None] = [None] * n
-        for poly in voronoi.geoms:
-            if poly.is_empty:
+        for vpoly in voronoi.geoms:
+            if vpoly.is_empty:
                 continue
-            # Le polygone contient exactement 1 centroïde → c'est sa cellule
             for i, (lat, lon) in enumerate(centroids):
                 if result[i] is not None:
-                    continue  # déjà assigné
-                if poly.covers(Point(lat, lon)):
-                    clipped = poly.intersection(envelope) if envelope is not None else poly
-                    if clipped.is_empty:
-                        continue
-                    if clipped.geom_type == "Polygon":
-                        ext = clipped.exterior
-                    elif clipped.geom_type == "MultiPolygon":
-                        # Prendre le plus gros morceau
-                        largest = max(clipped.geoms, key=lambda g: g.area)
+                    continue
+                if vpoly.covers(Point(lat, lon)):
+                    ch_poly = cluster_polys[i]
+                    if ch_poly is None or ch_poly.is_empty:
+                        # Pas de convex hull dispo → on tombe sur la cellule Voronoi pure
+                        intersected = vpoly
+                    else:
+                        # ⭐ Intersection convex hull ∩ Voronoi cell ⭐
+                        try:
+                            intersected = ch_poly.intersection(vpoly)
+                        except Exception:
+                            intersected = ch_poly
+                    if intersected.is_empty:
+                        # L'intersection est vide → fallback convex hull seul
+                        intersected = ch_poly if ch_poly is not None else vpoly
+                    if intersected.geom_type == "Polygon":
+                        ext = intersected.exterior
+                    elif intersected.geom_type == "MultiPolygon":
+                        largest = max(intersected.geoms, key=lambda g: g.area)
                         ext = largest.exterior
                     else:
                         continue

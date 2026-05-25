@@ -43,6 +43,8 @@ type ZoneRow = {
   type_local: string;
   count: number;
   hull_coords: number[][] | null;
+  centroid_lat: number | null;
+  centroid_lon: number | null;
   prix_m2_median: number | null;
   prix_m2_p10: number | null;
   prix_m2_p90: number | null;
@@ -53,15 +55,62 @@ type ZoneRow = {
   prix_m2_yoy_pct: number | null;
   prix_m2_volatility: number | null;
   prix_m2_history: { annee: number; median: number; n: number }[] | null;
+  surface_median: number | null;
+  surface_p25: number | null;
+  surface_p75: number | null;
+  surface_n: number | null;
 };
 
 const ZONE_COLUMNS = `
   id, code_commune, type_local, count, hull_coords,
+  centroid_lat, centroid_lon,
   prix_m2_median, prix_m2_p10, prix_m2_p90,
   window_annee_min, window_annee_max,
   duree_detention_median_mois, n_reventes_observees,
-  prix_m2_yoy_pct, prix_m2_volatility, prix_m2_history
+  prix_m2_yoy_pct, prix_m2_volatility, prix_m2_history,
+  surface_median, surface_p25, surface_p75, surface_n
 `;
+
+/**
+ * Renvoie un avertissement à destination du LLM/front quand la surface
+ * demandée s'éloigne fortement de la médiane du cluster (les grandes
+ * surfaces se vendent moins cher au m², les studios plus cher).
+ */
+function buildSurfaceContext(
+  surface: number | null,
+  zone: { surface_median: number | null; surface_p25: number | null; surface_p75: number | null; surface_n: number | null },
+) {
+  if (!zone.surface_median || !zone.surface_n) return null;
+  const ratio = surface ? surface / zone.surface_median : null;
+  let warning: string | null = null;
+  let suggested_correction_pct: number | null = null;
+  if (ratio !== null) {
+    if (ratio > 1.8) {
+      // 250m² vs médiane 100m² → typiquement -15 à -25% sur le €/m²
+      const excess = ratio - 1.0;
+      suggested_correction_pct = Math.round(-Math.min(25, 10 + excess * 8));
+      warning = `Surface demandée (${surface}m²) >>>> médiane du quartier (${zone.surface_median}m²). Les grandes surfaces se vendent généralement ${Math.abs(suggested_correction_pct!)}% moins cher au m². Décote à appliquer.`;
+    } else if (ratio < 0.6) {
+      // Studio dans un quartier de T3 → prime
+      suggested_correction_pct = Math.round(Math.min(15, (0.6 / Math.max(ratio, 0.1)) * 5));
+      warning = `Surface demandée (${surface}m²) << médiane du quartier (${zone.surface_median}m²). Les petites surfaces se vendent généralement +${suggested_correction_pct}% au m².`;
+    }
+  }
+  return {
+    surface_median_zone: zone.surface_median,
+    surface_p25_zone: zone.surface_p25,
+    surface_p75_zone: zone.surface_p75,
+    n_transactions_avec_surface: zone.surface_n,
+    surface_demandee: surface,
+    ratio_surface: ratio ? Math.round(ratio * 100) / 100 : null,
+    suggested_correction_pct,
+    warning,
+  };
+}
+
+function distSq(a: [number, number], b: [number, number]): number {
+  return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
+}
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -137,12 +186,32 @@ export async function GET(req: NextRequest) {
 
   // ── 3. Point-in-polygon : trouver le cluster du point ──────────────
   const point: [number, number] = [top.lat, top.lon];
-  const matchedZone = (zones as ZoneRow[]).find(
+  const typedZones = zones as ZoneRow[];
+  let matchedZone = typedZones.find(
     (z) =>
       z.hull_coords !== null &&
       z.hull_coords.length >= 3 &&
       pointInPolygon(point, z.hull_coords),
   );
+  let matchMode: "polygon" | "nearest-centroid" = "polygon";
+
+  // ── 3b. Fallback Voronoi : si l'adresse est hors de tous les convex hulls
+  // (par ex. à la lisière d'une zone résidentielle), on snap au cluster
+  // dont le CENTROÏDE est le plus proche. L'adresse hérite alors des stats
+  // du micro-marché le plus probable.
+  if (!matchedZone) {
+    const withCentroid = typedZones.filter(
+      (z) => z.centroid_lat != null && z.centroid_lon != null,
+    );
+    if (withCentroid.length > 0) {
+      matchedZone = withCentroid.reduce((best, z) => {
+        const d = distSq(point, [z.centroid_lat!, z.centroid_lon!]);
+        const dBest = distSq(point, [best.centroid_lat!, best.centroid_lon!]);
+        return d < dBest ? z : best;
+      });
+      matchMode = "nearest-centroid";
+    }
+  }
 
   // ── 4. Construction de la réponse ──────────────────────────────────
   if (matchedZone && (matchedZone.count ?? 0) >= CLUSTER_MIN_N) {
@@ -154,7 +223,7 @@ export async function GET(req: NextRequest) {
         surface,
       ),
       zone: {
-        source: "cluster" as const,
+        source: matchMode === "polygon" ? ("cluster" as const) : ("cluster-snap" as const),
         cluster_id: matchedZone.id,
         n_transactions: matchedZone.count,
         window: formatWindow(
@@ -162,7 +231,11 @@ export async function GET(req: NextRequest) {
           matchedZone.window_annee_max,
         ),
         confidence:
-          matchedZone.count >= CLUSTER_HIGH_CONFIDENCE_N ? "high" : "medium",
+          matchMode === "nearest-centroid"
+            ? ("medium" as const)
+            : matchedZone.count >= CLUSTER_HIGH_CONFIDENCE_N
+              ? ("high" as const)
+              : ("medium" as const),
         duree_detention_median_mois:
           matchedZone.duree_detention_median_mois,
         n_reventes_observees: matchedZone.n_reventes_observees,
@@ -170,14 +243,16 @@ export async function GET(req: NextRequest) {
         prix_m2_volatility: matchedZone.prix_m2_volatility,
         prix_m2_history: matchedZone.prix_m2_history,
       },
+      surface_context: buildSurfaceContext(surface, matchedZone),
       address: addressPayload(top),
       geocode_meta: geocode.meta,
       precision,
+      match_mode: matchMode,
     });
   }
 
   // Fallback commune : moyenne pondérée par count sur tous les clusters
-  const fallback = buildCommuneFallback(zones as ZoneRow[]);
+  const fallback = buildCommuneFallback(typedZones);
   return NextResponse.json({
     estimation: buildEstimation(
       fallback.prix_m2_median,
@@ -197,9 +272,11 @@ export async function GET(req: NextRequest) {
       prix_m2_volatility: null,
       prix_m2_history: null,
     },
+    surface_context: null,
     address: addressPayload(top),
     geocode_meta: geocode.meta,
     precision,
+    match_mode: "commune-fallback",
   });
 }
 

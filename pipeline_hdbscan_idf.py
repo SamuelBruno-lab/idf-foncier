@@ -531,6 +531,21 @@ def process_commune_type(
         # Volatilité et historique annuel
         yoy_pct, volatility, history = compute_volatility(grp)
 
+        # Stats de surface (pour décote/prime à appliquer hors médiane)
+        surface_vals = (
+            grp["surface_reelle_bati"].dropna().values
+            if "surface_reelle_bati" in grp.columns
+            else np.array([])
+        )
+        surface_vals = surface_vals[surface_vals > 0]
+        if len(surface_vals) > 0:
+            surface_median = int(np.median(surface_vals))
+            surface_p25 = int(np.percentile(surface_vals, 25))
+            surface_p75 = int(np.percentile(surface_vals, 75))
+            surface_n = int(len(surface_vals))
+        else:
+            surface_median = surface_p25 = surface_p75 = surface_n = None
+
         # Nettoyage du nom de type pour ID
         type_slug = (
             type_local.replace(" ", "_").replace(".", "").replace(",", "")[:30]
@@ -551,6 +566,10 @@ def process_commune_type(
             "prix_m2_p75": int(np.percentile(prix_m2_vals, 75)) if len(prix_m2_vals) > 0 else None,
             "prix_m2_p90": int(np.percentile(prix_m2_vals, 90)) if len(prix_m2_vals) > 0 else None,
             "prix_median": int(grp["valeur_fonciere"].median()) if grp["valeur_fonciere"].notna().any() else None,
+            "surface_median": surface_median,
+            "surface_p25": surface_p25,
+            "surface_p75": surface_p75,
+            "surface_n": surface_n,
             "hull_coords": hull_coords,
             "centroid_lat": float(centroid[0]),
             "centroid_lon": float(centroid[1]),

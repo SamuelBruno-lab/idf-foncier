@@ -68,6 +68,9 @@ Outils à ta disposition (à appeler quand pertinent) :
 - get_fiscal_zone : zone A/B/C + plafonds Jeanbrun/LLI/Loc'Avantages
 - compare_rental_strategies : compare 8 scénarios locatifs en 1 appel
 - neighborhood_report : écoles, transports, services, scores quartier
+- get_dpe_at_address : DPE déclaré (énergie A-G, GES, kWh/m²/an) via base ADEME
+- get_market_context : taux OAT actuel + moyen 12m + tendance, taux client estimé, HCSF, durée moyenne vente
+- compute_market_adjusted_price : prix de mise en vente AJUSTÉ au contexte macro (OAT actuel vs historique), avec suggestions opérationnelles (prix annonce / plancher / plan B 60j)
 
 ═══════════════════════════════════════════════════════════
 PROCESSUS DE CONSEIL EN 3 TEMPS — À RESPECTER STRICTEMENT

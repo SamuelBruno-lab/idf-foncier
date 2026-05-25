@@ -20,7 +20,8 @@ export type DatasetKey =
   | "ecoles"
   | "transports"
   | "services_proximite"
-  | "insee_iris";
+  | "insee_iris"
+  | "dpe";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

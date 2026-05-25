@@ -17,6 +17,7 @@ import { getStreetview } from "@/lib/streetview";
 import { getEcoles } from "@/lib/datasets/ecoles";
 import { getTransports } from "@/lib/datasets/transports";
 import { getServices } from "@/lib/datasets/services";
+import { getDpe } from "@/lib/datasets/dpe";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -150,6 +151,41 @@ export const TOOLS: ToolDefinition[] = [
           address: { type: "string", description: "Adresse complète" },
         },
         required: ["address"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_dpe_at_address",
+      description:
+        "Récupère le DPE (Diagnostic de Performance Énergétique) déclaré pour " +
+        "une adresse via la base ADEME. Renvoie classe énergie A-G, classe GES, " +
+        "consommation kWh/m²/an, surface DPE, année de construction, date " +
+        "d'établissement et validité. À appeler quand l'agent dit qu'il connaît " +
+        "ou ne connaît pas le DPE — la base ADEME peut le contenir.",
+      parameters: {
+        type: "object",
+        properties: {
+          address: { type: "string", description: "Adresse complète" },
+        },
+        required: ["address"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_market_context",
+      description:
+        "Renvoie le contexte macro actuel pour pitcher l'agent : taux OAT 10 ans " +
+        "(actuel + moyenne 12 mois + tendance), taux moyen crédit immobilier " +
+        "estimé (OAT + spread 200bp), règles HCSF en vigueur, ordre de grandeur " +
+        "durée moyenne de vente. À utiliser dans la conclusion du conseil pour " +
+        "contextualiser le prix et donner un cadre 'plan d'action' à l'agent.",
+      parameters: {
+        type: "object",
+        properties: {},
       },
     },
   },
@@ -450,6 +486,173 @@ async function handleNeighborhood(args: { address: string }) {
   };
 }
 
+// ── Tool: get_dpe_at_address ─────────────────────────────────────────────────
+async function handleDpe(args: { address: string }) {
+  const { top } = await geocode(args.address);
+  const dpe = await getDpe(top.lat, top.lon, top.postcode).catch((err) => {
+    console.warn("[chatbot] getDpe failed:", err);
+    return null;
+  });
+  if (!dpe || !dpe.available) {
+    return {
+      available: false,
+      address: top.label,
+      reason:
+        "Aucun DPE trouvé à proximité immédiate (rayon 50m) dans la base ADEME. " +
+        "Le bien n'a peut-être pas encore été diagnostiqué, ou il s'agit d'un DPE pré-2021 " +
+        "non migré vers la base 'logements existants v2'. Demande à l'agent ou au vendeur.",
+    };
+  }
+  return {
+    available: true,
+    address: top.label,
+    energy_class: dpe.energy_class,
+    ges_class: dpe.ges_class,
+    energy_kwh_m2_an: dpe.energy_kwh_m2_an,
+    ges_kg_co2_m2_an: dpe.ges_kg_co2_m2_an,
+    surface_habitable_dpe: dpe.surface_habitable,
+    annee_construction: dpe.annee_construction,
+    type_batiment: dpe.type_batiment,
+    date_etablissement: dpe.date_etablissement,
+    date_fin_validite: dpe.date_fin_validite,
+    numero_dpe: dpe.numero_dpe,
+    distance_m: dpe.distance_m,
+    interpretation_etiquette:
+      dpe.energy_class === "A" || dpe.energy_class === "B"
+        ? "Très bon — valorisation +5% en moyenne"
+        : dpe.energy_class === "C"
+        ? "Correct — neutre"
+        : dpe.energy_class === "D"
+        ? "Moyen — décote -3% en moyenne"
+        : dpe.energy_class === "E"
+        ? "Faible — décote -7% en moyenne"
+        : dpe.energy_class === "F"
+        ? "Passoire thermique — décote -12% + interdiction location dégradée 2025+"
+        : dpe.energy_class === "G"
+        ? "Passoire — décote -18% + interdiction de louer 2025"
+        : null,
+    source: dpe.source,
+  };
+}
+
+// ── Tool: get_market_context ─────────────────────────────────────────────────
+async function handleMarketContext() {
+  const sb = getSupabaseServerClient();
+
+  let taux_oat_actuel: number | null = null;
+  let date_oat_actuel: string | null = null;
+  let taux_oat_moy_12m: number | null = null;
+  let taux_oat_moy_6m: number | null = null;
+  let taux_oat_il_y_a_6m: number | null = null;
+
+  try {
+    // OAT le plus récent
+    const { data: latest } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y, date_obs")
+      .order("date_obs", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest) {
+      taux_oat_actuel = Number((latest as { taux_oat_10y: number }).taux_oat_10y);
+      date_oat_actuel = (latest as { date_obs: string }).date_obs;
+    }
+
+    // Moyenne 12 derniers mois
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const { data: rows12 } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y")
+      .gte("date_obs", oneYearAgo.toISOString().split("T")[0]);
+    if (rows12 && rows12.length > 0) {
+      const r = rows12 as Array<{ taux_oat_10y: number }>;
+      taux_oat_moy_12m =
+        r.reduce((a, x) => a + Number(x.taux_oat_10y), 0) / r.length;
+    }
+
+    // Moyenne 6 derniers mois
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const { data: rows6 } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y")
+      .gte("date_obs", sixMonthsAgo.toISOString().split("T")[0]);
+    if (rows6 && rows6.length > 0) {
+      const r = rows6 as Array<{ taux_oat_10y: number }>;
+      taux_oat_moy_6m =
+        r.reduce((a, x) => a + Number(x.taux_oat_10y), 0) / r.length;
+    }
+
+    // Valeur il y a 6 mois (snapshot)
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().split("T")[0];
+    const { data: ref6m } = await sb
+      .from("fact_taux_oat10y")
+      .select("taux_oat_10y")
+      .lte("date_obs", sixMonthsAgoStr)
+      .order("date_obs", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (ref6m) {
+      taux_oat_il_y_a_6m = Number((ref6m as { taux_oat_10y: number }).taux_oat_10y);
+    }
+  } catch (err) {
+    console.warn("[chatbot] get_market_context Supabase failed:", err);
+  }
+
+  // Spread bancaire empirique : taux client ≈ OAT + 150-250 bp (médiane 200 bp)
+  const SPREAD_BANCAIRE_BP = 200;
+  const taux_client_estime =
+    taux_oat_actuel != null ? taux_oat_actuel + SPREAD_BANCAIRE_BP / 100 : null;
+
+  const tendance_6m =
+    taux_oat_actuel != null && taux_oat_il_y_a_6m != null
+      ? round(taux_oat_actuel - taux_oat_il_y_a_6m, 3)
+      : null;
+
+  return {
+    available: taux_oat_actuel != null,
+    date_observation: date_oat_actuel,
+    taux_oat_10y_actuel_pct: taux_oat_actuel != null ? round(taux_oat_actuel, 4) : null,
+    taux_oat_10y_moy_6m_pct: taux_oat_moy_6m != null ? round(taux_oat_moy_6m, 4) : null,
+    taux_oat_10y_moy_12m_pct: taux_oat_moy_12m != null ? round(taux_oat_moy_12m, 4) : null,
+    tendance_6m_pts: tendance_6m,
+    tendance_label:
+      tendance_6m == null
+        ? null
+        : tendance_6m > 0.2
+        ? "Hausse marquée"
+        : tendance_6m > 0.05
+        ? "Hausse modérée"
+        : tendance_6m > -0.05
+        ? "Stable"
+        : tendance_6m > -0.2
+        ? "Baisse modérée"
+        : "Baisse marquée",
+    spread_bancaire_estime_bp: SPREAD_BANCAIRE_BP,
+    taux_client_immo_estime_pct:
+      taux_client_estime != null ? round(taux_client_estime, 4) : null,
+    hcsf: {
+      taux_endettement_max_pct: 35,
+      duree_max_pret_annees: 25,
+      derogation_jusqu_a_pct_dossiers: 20,
+      note:
+        "HCSF (Haut Conseil de Stabilité Financière) impose endettement ≤ 35% " +
+        "(assurance comprise) et durée ≤ 25 ans (sauf travaux ou différé jusqu'à 27 ans). " +
+        "20% des dossiers bancaires peuvent déroger.",
+    },
+    duree_moyenne_vente_jours_approx: 75,
+    note_duree:
+      "Durée moyenne France 70-85 jours en 2025 (Notaires-INSEE). En tension " +
+      "monte à 100+ en zone rurale, descend à 30-45 en grandes métropoles tendues.",
+    sources: [
+      "OAT 10 ans : ECB SDW / fact_taux_oat10y",
+      "HCSF : règles réglementaires en vigueur 2024-2025",
+      "Durée moyenne : Indices Notaires-INSEE statistiques trimestrielles (gratuit)",
+    ],
+  };
+}
+
 // ── Tool: compute_market_adjusted_price ──────────────────────────────────────
 //
 // Modèle log-linéaire : log(prix) = α + β × taux_oat
@@ -663,6 +866,10 @@ export async function executeTool(
         return await handleRentalStrategies(args as Parameters<typeof handleRentalStrategies>[0]);
       case "neighborhood_report":
         return await handleNeighborhood(args as Parameters<typeof handleNeighborhood>[0]);
+      case "get_dpe_at_address":
+        return await handleDpe(args as Parameters<typeof handleDpe>[0]);
+      case "get_market_context":
+        return await handleMarketContext();
       case "compute_market_adjusted_price":
         return await handleMarketAdjustedPrice(
           args as Parameters<typeof handleMarketAdjustedPrice>[0],

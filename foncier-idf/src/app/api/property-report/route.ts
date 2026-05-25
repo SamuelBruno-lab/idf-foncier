@@ -29,6 +29,9 @@ import { getStreetview, type StreetviewResult } from "@/lib/streetview";
 import { getEcoles } from "@/lib/datasets/ecoles";
 import { getTransports } from "@/lib/datasets/transports";
 import { getServices } from "@/lib/datasets/services";
+import { getDpe } from "@/lib/datasets/dpe";
+import { getParcelle } from "@/lib/datasets/cadastre";
+import { getInseeIris } from "@/lib/datasets/insee";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { pointInPolygon } from "@/lib/geo";
 
@@ -56,7 +59,8 @@ type IncludeKey =
   | "ecoles"
   | "transports"
   | "services"
-  | "insee";
+  | "insee"
+  | "dpe";
 
 const ALL_INCLUDE: IncludeKey[] = [
   "streetview",
@@ -66,6 +70,7 @@ const ALL_INCLUDE: IncludeKey[] = [
   "transports",
   "services",
   "insee",
+  "dpe",
 ];
 
 function parseInclude(raw: string | null): Set<IncludeKey> {
@@ -195,26 +200,16 @@ async function fetchPlafonds(codeInsee: string) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Datasets externes — Phase 10B (écoles, transports, services BRANCHÉS ; cadastre,
-// permis, INSEE en stubs jusqu'à Phase 10C).
+// Datasets externes — Phase 10B + 10C branchés.
+// Permis Sit@del2 : encore stub (nécessite pipeline d'ingestion CSV mensuel).
 // ──────────────────────────────────────────────────────────────────────────────
 
-async function fetchCadastre(_lat: number, _lon: number) {
-  return {
-    available: false as const,
-    todo: "Phase 10C — api.cadastre.gouv.fr / api-carto",
-  };
-}
 async function fetchPermis(_codeInsee: string) {
   return {
     available: false as const,
-    todo: "Phase 10C — Sit@del2 open data",
-  };
-}
-async function fetchInsee(_codeInsee: string) {
-  return {
-    available: false as const,
-    todo: "Phase 10C — INSEE Filosofi par IRIS (revenu médian, CSP+, etc.)",
+    todo:
+      "Sit@del2 — pipeline d'ingestion CSV mensuel à implémenter " +
+      "(téléchargement statistiques.developpement-durable.gouv.fr → table fact_permis_construire).",
   };
 }
 
@@ -268,7 +263,7 @@ async function handlePropertyReport(
   const codeInsee = top.code_insee;
 
   // 2) Sub-agrégats — exécutés en parallèle
-  const [estimation, rendement, plafonds, streetview, cadastre, permis, ecoles, transports, services, insee] =
+  const [estimation, rendement, plafonds, streetview, cadastre, permis, ecoles, transports, services, insee, dpe] =
     await Promise.all([
       fetchEstimation(lat, lon, codeInsee, typeLocal, surface, precision as "fresh" | "deep"),
       fetchRendement(codeInsee, typeLocal, pieces),
@@ -285,12 +280,13 @@ async function handlePropertyReport(
             cached: false,
             cost_eur: 0,
           }),
-      include.has("cadastre") ? fetchCadastre(lat, lon) : Promise.resolve(null),
+      include.has("cadastre") ? getParcelle(lat, lon) : Promise.resolve(null),
       include.has("permis") ? fetchPermis(codeInsee) : Promise.resolve(null),
       include.has("ecoles") ? getEcoles(lat, lon) : Promise.resolve(null),
       include.has("transports") ? getTransports(lat, lon) : Promise.resolve(null),
       include.has("services") ? getServices(lat, lon) : Promise.resolve(null),
-      include.has("insee") ? fetchInsee(codeInsee) : Promise.resolve(null),
+      include.has("insee") ? getInseeIris(lat, lon, codeInsee) : Promise.resolve(null),
+      include.has("dpe") ? getDpe(lat, lon, top.postcode) : Promise.resolve(null),
     ]);
 
   // 3) Réponse
@@ -320,8 +316,9 @@ async function handlePropertyReport(
     transports,
     services_proximite: services,
     insee_iris: insee,
+    dpe,
     geocode_meta: geocode.meta as GeocodeMeta,
-    api_version: "1.0",
+    api_version: "1.1",
     bundle: "DATAMERRY all-in — 39€ TTC/mo, 1er mois offert",
   });
 }

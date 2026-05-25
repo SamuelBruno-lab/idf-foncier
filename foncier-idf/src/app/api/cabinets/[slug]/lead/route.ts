@@ -97,6 +97,15 @@ export async function POST(
   const wizard = (body.wizard_answers ?? {}) as Record<string, unknown>;
   const estim = body.estimation ?? {};
 
+  // Helper pour lire les réponses du wizard en string safe (évite les erreurs
+  // d'interpolation TS sur unknown dans les template literals des emails HTML)
+  const w = (key: string): string => {
+    const v = wizard[key];
+    if (v == null) return "";
+    if (Array.isArray(v)) return v.map(String).join(", ");
+    return String(v);
+  };
+
   if (visitor_name.length < 2) {
     return NextResponse.json({ error: "name_required" }, { status: 400 });
   }
@@ -263,25 +272,26 @@ export async function POST(
 </div>
 </body></html>`;
 
+    // Payload typé en Record<string, unknown> pour éviter les divergences de
+    // types entre versions du SDK Resend (replyTo vs reply_to, signature
+    // d'attachments…). À runtime la lib accepte n'importe quoi de bien formé.
+    const visitorPayload: Record<string, unknown> = {
+      from: `${cabinetName} <no-reply@datamerry.com>`,
+      to: visitor_email,
+      subject: `Votre estimation pour ${address} — ${cabinetName}`,
+      html: visitorHtml,
+    };
+    if (pdfBase64) {
+      visitorPayload.attachments = [{ filename: pdfFilename, content: pdfBase64 }];
+    }
+
     const visitorSend = await resend.emails
-      .send({
-        from: `${cabinetName} <no-reply@datamerry.com>`,
-        to: visitor_email,
-        subject: `Votre estimation pour ${address} — ${cabinetName}`,
-        html: visitorHtml,
-        ...(pdfBase64
-          ? {
-              attachments: [
-                { filename: pdfFilename, content: pdfBase64 },
-              ],
-            }
-          : {}),
-      })
+      .send(visitorPayload as Parameters<typeof resend.emails.send>[0])
       .catch((err: unknown) => {
         console.error("[/api/cabinets/lead] visitor email failed:", err);
         return null;
       });
-    if (visitorSend && !("error" in visitorSend && visitorSend.error)) {
+    if (visitorSend && !(visitorSend as { error?: unknown }).error) {
       updates.email_to_visitor_sent = true;
     }
 
@@ -314,12 +324,12 @@ export async function POST(
       <tr><td style="padding:6px 0; color:#64748b;">Adresse</td><td style="padding:6px 0; font-weight:700;">${address}</td></tr>
       <tr><td style="padding:6px 0; color:#64748b;">Type</td><td style="padding:6px 0;">${type_bien}</td></tr>
       ${insertPayload.surface ? `<tr><td style="padding:6px 0; color:#64748b;">Surface</td><td style="padding:6px 0;">${insertPayload.surface} m²</td></tr>` : ""}
-      ${wizard.pieces ? `<tr><td style="padding:6px 0; color:#64748b;">Pièces</td><td style="padding:6px 0;">T${wizard.pieces}</td></tr>` : ""}
-      ${wizard.etage ? `<tr><td style="padding:6px 0; color:#64748b;">Étage</td><td style="padding:6px 0;">${wizard.etage}</td></tr>` : ""}
-      ${wizard.annee_construction ? `<tr><td style="padding:6px 0; color:#64748b;">Année</td><td style="padding:6px 0;">${wizard.annee_construction}</td></tr>` : ""}
-      ${wizard.dpe && wizard.dpe !== "inconnu" ? `<tr><td style="padding:6px 0; color:#64748b;">DPE</td><td style="padding:6px 0;">Classe ${String(wizard.dpe).toUpperCase()}</td></tr>` : ""}
-      ${wizard.etat ? `<tr><td style="padding:6px 0; color:#64748b;">État</td><td style="padding:6px 0;">${wizard.etat}</td></tr>` : ""}
-      ${Array.isArray(wizard.exterieurs) && wizard.exterieurs.length ? `<tr><td style="padding:6px 0; color:#64748b;">Extérieurs</td><td style="padding:6px 0;">${(wizard.exterieurs as string[]).join(", ")}</td></tr>` : ""}
+      ${w("pieces") ? `<tr><td style="padding:6px 0; color:#64748b;">Pièces</td><td style="padding:6px 0;">T${w("pieces")}</td></tr>` : ""}
+      ${w("etage") ? `<tr><td style="padding:6px 0; color:#64748b;">Étage</td><td style="padding:6px 0;">${w("etage")}</td></tr>` : ""}
+      ${w("annee_construction") ? `<tr><td style="padding:6px 0; color:#64748b;">Année</td><td style="padding:6px 0;">${w("annee_construction")}</td></tr>` : ""}
+      ${w("dpe") && w("dpe") !== "inconnu" ? `<tr><td style="padding:6px 0; color:#64748b;">DPE</td><td style="padding:6px 0;">Classe ${w("dpe").toUpperCase()}</td></tr>` : ""}
+      ${w("etat") ? `<tr><td style="padding:6px 0; color:#64748b;">État</td><td style="padding:6px 0;">${w("etat")}</td></tr>` : ""}
+      ${w("exterieurs") ? `<tr><td style="padding:6px 0; color:#64748b;">Extérieurs</td><td style="padding:6px 0;">${w("exterieurs")}</td></tr>` : ""}
     </table>
 
     ${estim.prix_total_median ? `
@@ -342,26 +352,24 @@ export async function POST(
 </div>
 </body></html>`;
 
+      const cabinetPayload: Record<string, unknown> = {
+        from: `DATAMERRY <no-reply@datamerry.com>`,
+        to: cabinet.contact_email,
+        replyTo: visitor_email, // Diara peut répondre directement au visiteur
+        subject: `🎯 Nouveau lead ${cabinetName} · ${visitor_name} · ${address}`,
+        html: cabinetHtml,
+      };
+      if (pdfBase64) {
+        cabinetPayload.attachments = [{ filename: pdfFilename, content: pdfBase64 }];
+      }
+
       const cabinetSend = await resend.emails
-        .send({
-          from: `DATAMERRY <no-reply@datamerry.com>`,
-          to: cabinet.contact_email,
-          replyTo: visitor_email, // Diara peut répondre direct au visiteur
-          subject: `🎯 Nouveau lead ${cabinetName} · ${visitor_name} · ${address}`,
-          html: cabinetHtml,
-          ...(pdfBase64
-            ? {
-                attachments: [
-                  { filename: pdfFilename, content: pdfBase64 },
-                ],
-              }
-            : {}),
-        })
+        .send(cabinetPayload as Parameters<typeof resend.emails.send>[0])
         .catch((err: unknown) => {
           console.error("[/api/cabinets/lead] cabinet email failed:", err);
           return null;
         });
-      if (cabinetSend && !("error" in cabinetSend && cabinetSend.error)) {
+      if (cabinetSend && !(cabinetSend as { error?: unknown }).error) {
         updates.email_to_cabinet_sent = true;
       }
     }

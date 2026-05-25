@@ -7,3 +7,17 @@ vlg-foncier/
 # Generated HTML maps (large files - published directly to GitHub Pages repos)
 maps_*/
 maps_*/
+
+# Local backups of API keys (clear values — NEVER commit)
+foncier-idf/.collabimmo-keys-backup.txt
+foncier-idf/.*-keys-backup.txt
+
+# Local env files
+foncier-idf/.env
+foncier-idf/.env.local
+foncier-idf/.env.*.local
+.env
+.env.local
+
+# Analysis outputs (peuvent contenir des données sensibles)
+analyses/output/

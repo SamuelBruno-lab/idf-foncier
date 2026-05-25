@@ -285,6 +285,109 @@ def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float
         return None
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Clip à la limite communale officielle (geo.api.gouv.fr)
+# Fix bug Vitry-sur-Seine 'Commerce' : convex hull débordant sur Ivry/Villejuif
+# ─────────────────────────────────────────────────────────────────────────────
+
+_commune_polygon_cache: dict[str, "object | None"] = {}
+
+
+def fetch_commune_polygon(code_insee: str):
+    """
+    Récupère le contour officiel de la commune via geo.api.gouv.fr (gratuit).
+    Renvoie un shapely Polygon en convention (lat, lon) — cohérent avec hull_coords.
+    Cache en mémoire (1 seul fetch par commune × run).
+    """
+    if code_insee in _commune_polygon_cache:
+        return _commune_polygon_cache[code_insee]
+
+    try:
+        from shapely.geometry import Polygon  # noqa: PLC0415
+
+        resp = requests.get(
+            f"https://geo.api.gouv.fr/communes/{code_insee}",
+            params={"fields": "contour", "format": "geojson", "geometry": "contour"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            _commune_polygon_cache[code_insee] = None
+            return None
+        geojson = resp.json()
+        geom = geojson.get("geometry")
+        if not geom:
+            _commune_polygon_cache[code_insee] = None
+            return None
+
+        # GeoJSON utilise [lon, lat] ; on convertit en (lat, lon) pour cohérence
+        # avec la convention hull_coords du projet.
+        def ring_to_latlon(ring):
+            return [[float(c[1]), float(c[0])] for c in ring]
+
+        if geom["type"] == "Polygon":
+            rings = [ring_to_latlon(r) for r in geom["coordinates"]]
+            polygon = Polygon(rings[0], holes=rings[1:])
+        elif geom["type"] == "MultiPolygon":
+            # Prendre le polygone le plus grand (commune principale,
+            # enclaves/exclaves ignorées — acceptable pour le scope DVF)
+            polys = []
+            for poly_coords in geom["coordinates"]:
+                rings = [ring_to_latlon(r) for r in poly_coords]
+                polys.append(Polygon(rings[0], holes=rings[1:]))
+            polygon = max(polys, key=lambda p: p.area) if polys else None
+        else:
+            polygon = None
+
+        _commune_polygon_cache[code_insee] = polygon
+        return polygon
+    except Exception as e:
+        print(f"  ⚠️ fetch_commune_polygon({code_insee}) failed: {e}")
+        _commune_polygon_cache[code_insee] = None
+        return None
+
+
+def clip_hull_to_commune(
+    hull_coords: list[list[float]] | None,
+    commune_polygon,
+) -> list[list[float]] | None:
+    """
+    Intersecte un hull (convex ou Voronoi-clipped) avec le contour officiel
+    de la commune. Empêche le polygone de déborder géographiquement sur les
+    communes voisines (bug Vitry/Ivry/Villejuif identifié 2026-05-25).
+
+    Retourne :
+      - hull clippé si l'intersection est non-vide
+      - hull original sinon (fallback safe)
+    """
+    if commune_polygon is None or commune_polygon.is_empty:
+        return hull_coords
+    if not hull_coords or len(hull_coords) < 4:
+        return hull_coords
+    try:
+        from shapely.geometry import Polygon  # noqa: PLC0415
+
+        hull_poly = Polygon(hull_coords)
+        if hull_poly.is_empty:
+            return hull_coords
+        intersected = hull_poly.intersection(commune_polygon)
+        if intersected.is_empty:
+            return hull_coords  # fallback : meilleure approximation = hull original
+        if intersected.geom_type == "Polygon":
+            ext = intersected.exterior
+        elif intersected.geom_type == "MultiPolygon":
+            largest = max(intersected.geoms, key=lambda g: g.area)
+            ext = largest.exterior
+        else:
+            return hull_coords
+        clipped = [[float(x), float(y)] for x, y in ext.coords]
+        if len(clipped) >= 4:
+            return clipped
+        return hull_coords
+    except Exception as e:
+        print(f"  ⚠️ clip_hull_to_commune failed: {e}")
+        return hull_coords
+
+
 def compute_voronoi_hulls(
     zones_with_centroids: list[dict],
     all_pts: np.ndarray,
@@ -676,6 +779,18 @@ def run_hdbscan_all(
                     if vh is not None:
                         z["hull_coords"] = vh
                     # Sinon on garde le convex hull initial comme fallback
+
+            # Clip à la limite communale officielle (geo.api.gouv.fr).
+            # Évite que le hull déborde sur les communes voisines, même quand
+            # Voronoi n'a pas matière à clipper (ex: 1 seul cluster Commerce
+            # qui contient des transactions Vitry mais dont le convex hull
+            # s'étend sur Ivry/Villejuif).
+            commune_polygon = fetch_commune_polygon(code_commune)
+            if commune_polygon is not None:
+                for z in zones:
+                    clipped = clip_hull_to_commune(z.get("hull_coords"), commune_polygon)
+                    if clipped is not None:
+                        z["hull_coords"] = clipped
 
             commune_zones.extend(zones)
 

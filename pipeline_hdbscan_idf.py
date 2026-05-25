@@ -269,75 +269,21 @@ def compute_volatility(
 
 def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float]] | None:
     """
-    Calcule l'enveloppe géométrique d'un nuage de points avec alpha shape
-    (concave hull) — épouse la forme réelle du cluster, donc PAS de
-    chevauchement entre clusters HDBSCAN distincts (qui sont séparés
-    spatialement par construction de l'algo density-based).
+    Enveloppe d'un cluster. Pour le MVP, on reste sur convex hull (stable,
+    pas de deps externes). Alpha shape sera réintroduit en Phase ultérieure
+    avec un setup plus robuste (libgeos-dev system + tests sur cluster réel).
 
-    Alpha auto-tuné si non spécifié : on essaie plusieurs valeurs croissantes
-    (de plus en plus serrées) et on garde la plus serrée qui produit un
-    polygone valide. À l'échelle commune en lat/lon, les points sont espacés
-    de ~50m = ~0.0005°, donc alpha ~ 2000-5000 donne de bons concave hulls.
-
-    Fallback sur convex hull si alpha shape échoue partout.
-
-    Args:
-        pts: array shape (N, 2) de coordonnées [lat, lon]
-        alpha: si None → auto-tune, sinon valeur fixe
-
-    Returns:
-        Liste fermée [[lat, lon], ...] (premier = dernier) ou None si <3 points.
+    Returns list fermée [[lat, lon], ...] ou None si <3 points.
     """
     if len(pts) < 3:
         return None
-
-    try:
-        import alphashape
-        from shapely.geometry import MultiPolygon, Polygon
-
-        coords = [(float(p[0]), float(p[1])) for p in pts]
-
-        # Liste de valeurs alpha à essayer (de la plus serrée à la plus relâchée).
-        # On préfère l'enveloppe la plus serrée qui reste un polygone valide.
-        if alpha is not None:
-            alphas_to_try = [alpha]
-        else:
-            alphas_to_try = [5000.0, 2500.0, 1500.0, 800.0, 400.0, 200.0]
-
-        best_poly = None
-        for a in alphas_to_try:
-            try:
-                shape = alphashape.alphashape(coords, a)
-            except Exception:
-                continue
-            if shape is None or shape.is_empty:
-                continue
-            if isinstance(shape, Polygon):
-                poly = shape
-            elif isinstance(shape, MultiPolygon):
-                # alpha trop élevé → cluster splité en plusieurs morceaux
-                # On garde le plus gros mais on signale qu'on devrait baisser alpha
-                poly = max(shape.geoms, key=lambda g: g.area)
-            else:
-                continue
-            # On prend la 1re alpha qui marche (la plus serrée valide)
-            best_poly = poly
-            break
-
-        if best_poly is not None and not best_poly.is_empty:
-            hull_pts = [[float(x), float(y)] for x, y in best_poly.exterior.coords]
-            if len(hull_pts) >= 4:
-                return hull_pts
-    except Exception:
-        pass
-
-    # Fallback : convex hull (peut chevaucher mais reste valide)
     try:
         hull = ConvexHull(pts)
         hull_pts = pts[hull.vertices].tolist()
-        hull_pts.append(hull_pts[0])
+        hull_pts.append(hull_pts[0])  # fermer le polygone
         return hull_pts
-    except Exception:
+    except Exception as e:
+        print(f"    ⚠ ConvexHull échec ({e}), zone sans polygone")
         return None
 
 
@@ -611,26 +557,6 @@ def upsert_zones(
     }
     url = f"{supabase_url}/rest/v1/{table_name}?on_conflict=id"
     total = len(zones)
-
-    # ── DELETE des anciennes lignes pour les communes qu'on update ──────
-    communes_to_clean = sorted(set(z["code_commune"] for z in zones))
-    if communes_to_clean:
-        print(f"  DELETE des anciennes zones pour {len(communes_to_clean)} commune(s)...")
-        delete_headers = {
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}",
-            "Prefer": "return=minimal",
-        }
-        with httpx.Client(timeout=90) as client:
-            # PostgREST supporte le filtre `in` : code_commune=in.(75056,75057,...)
-            in_list = ",".join(communes_to_clean)
-            del_url = f"{supabase_url}/rest/v1/{table_name}?code_commune=in.({in_list})"
-            resp = client.delete(del_url, headers=delete_headers)
-            if resp.status_code not in (200, 204):
-                print(f"    ⚠ DELETE échoué ({resp.status_code}): {resp.text[:200]}")
-                print(f"    Continuation quand même (upsert va overwrite par id)")
-            else:
-                print(f"    Anciennes lignes supprimées ✓")
 
     def clean(v):
         if v is None:

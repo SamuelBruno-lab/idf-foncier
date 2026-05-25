@@ -177,8 +177,13 @@ export async function GET(req: NextRequest) {
   const locSoc = plafonds.get("loc_avantages_social") ?? null;
   const locVS = plafonds.get("loc_avantages_tres_social") ?? null;
   const deno = plafonds.get("denormandie") ?? null;
+  const jeanInt = plafonds.get("jeanbrun_intermediaire") ?? null;
+  const jeanSoc = plafonds.get("jeanbrun_social") ?? null;
+  const jeanVS = plafonds.get("jeanbrun_tres_social") ?? null;
 
   const lliApplicable = lli !== null && zone !== "C";
+  // Jeanbrun couvre toutes les zones y compris C (contrairement à Pinel/LLI)
+  const jeanbrunApplicable = jeanInt !== null;
 
   let calculLLI = null;
   if (lliApplicable && surface && lli) {
@@ -192,6 +197,32 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // Jeanbrun a une formule légèrement différente : le coefficient est plafonné à 1.2
+  // (vs sans cap pour LLI). Cf. arrêté du 6 janvier 2026.
+  let calculJeanbrun = null;
+  if (jeanbrunApplicable && surface && jeanInt) {
+    const coeff = Math.min(0.7 + 19 / surface, 1.2);
+    const buildLevel = (
+      row: { loyer_max_m2: number; source: string | null } | null,
+    ) =>
+      row == null
+        ? null
+        : {
+            loyer_m2_zone: row.loyer_max_m2,
+            loyer_m2_max_pour_ce_logement: round2(row.loyer_max_m2 * coeff),
+            loyer_mensuel_max_eur: Math.round(row.loyer_max_m2 * coeff * surface),
+          };
+    calculJeanbrun = {
+      surface_utile_m2: surface,
+      coefficient: round2(coeff),
+      formule: "LMZONE × min(0.7 + 19 / surface_utile ; 1.2)",
+      source_juridique: jeanInt.source ?? "Arrêté du 6 janvier 2026",
+      intermediaire: buildLevel(jeanInt),
+      social: buildLevel(jeanSoc),
+      tres_social: buildLevel(jeanVS),
+    };
+  }
+
   const ecartMarchePct =
     lliApplicable && lli && loyerMarche
       ? round1(((lli.loyer_max_m2 - loyerMarche) / loyerMarche) * 100)
@@ -201,20 +232,25 @@ export async function GET(req: NextRequest) {
     zone_abc: zone,
     annee_reference: CURRENT_YEAR,
     eligibilites: {
+      jeanbrun: jeanbrunApplicable,             // toutes zones France
       lli: lliApplicable,
       loc_avantages: locInt !== null,           // toutes zones
       denormandie: denormandieEligible && deno !== null,
       acv,
       ort: programmes.has("ort"),
-      pinel: false,                             // dispositif clos
+      pinel: false,                             // dispositif clos 31/12/2024
     },
     plafonds_loyer_m2: {
+      jeanbrun_intermediaire: jeanInt?.loyer_max_m2 ?? null,
+      jeanbrun_social: jeanSoc?.loyer_max_m2 ?? null,
+      jeanbrun_tres_social: jeanVS?.loyer_max_m2 ?? null,
       lli: lli?.loyer_max_m2 ?? null,
       loc_avantages_intermediaire: locInt?.loyer_max_m2 ?? null,
       loc_avantages_social: locSoc?.loyer_max_m2 ?? null,
       loc_avantages_tres_social: locVS?.loyer_max_m2 ?? null,
       denormandie: denormandieEligible ? (deno?.loyer_max_m2 ?? null) : null,
     },
+    calcul_jeanbrun_pour_logement: calculJeanbrun,
     calcul_lli_pour_logement: calculLLI,
     marche: loyerMarche
       ? {
@@ -223,8 +259,13 @@ export async function GET(req: NextRequest) {
           quality: marcheData?.loyer_quality ?? null,
         }
       : null,
-    ecart_lli_vs_marche_pct: ecartMarchePct,    // négatif = marché plus cher que LLI
-    pinel_note: "Dispositif clos depuis le 31/12/2024 — non éligible aux nouvelles opérations",
+    ecart_lli_vs_marche_pct: ecartMarchePct,
+    notes: {
+      pinel: "Dispositif clos depuis le 31/12/2024 — non éligible aux nouvelles opérations",
+      jeanbrun:
+        "Successeur du Pinel depuis 2025. Réduction d'IR -30 à -45% sur 9 ans. " +
+        "Couvre toute la France métropolitaine + DOM. 3 niveaux de loyer (intermédiaire/social/très social).",
+    },
     address: addressPayload,
     geocode_meta: geocodeMeta,
   });

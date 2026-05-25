@@ -164,10 +164,12 @@ def load_csv_dept(dept: str, csv_path: Path) -> pd.DataFrame:
     if "code_departement" not in df.columns or df["code_departement"].isna().all():
         df["code_departement"] = df["code_commune"].astype(str).str[:2]
 
-    # Filtrer sur IDF uniquement
-    df = df[df["code_departement"].astype(str).isin(IDF_DEPTS)]
+    # Filtrer sur le département en cours uniquement (defensif si DVF mixe les codes).
+    # Note: l'ancien code filtrait sur IDF_DEPTS hardcodé, ce qui empêchait
+    # l'utilisation pour France entière (pipeline_hdbscan_dept.py).
+    df = df[df["code_departement"].astype(str).str.zfill(2) == str(dept).zfill(2)]
 
-    print(f"    → {len(df):,} transactions IDF valides (dept {dept})")
+    print(f"    → {len(df):,} transactions valides (dept {dept})")
     return df
 
 

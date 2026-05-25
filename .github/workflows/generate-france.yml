@@ -1,0 +1,83 @@
+name: Generate France entière (HDBSCAN tous départements)
+
+# Lance un job par département métropolitain en parallèle (matrix strategy).
+# ~10 min par job, max-parallel 10 → wall time ~1h30 pour les 96 départements.
+# Total CPU-min : ~960 min (sur les 2000 min/mois du free tier).
+
+on:
+  workflow_dispatch:
+    inputs:
+      single_dept:
+        description: "Lancer un seul département (vide = tous les 96)"
+        required: false
+        default: ""
+      target_table:
+        description: "Table cible Supabase"
+        required: true
+        default: "dvf_hdbscan_zones"
+        type: choice
+        options:
+          - dvf_hdbscan_zones
+          - dvf_hdbscan_zones_5y
+      force_window_years:
+        description: "Forcer la fenêtre (vide = adaptive ; 5 = mode précis)"
+        required: false
+        default: ""
+      skip_ventilation:
+        description: "Désactiver la ventilation (debug rapide)"
+        type: boolean
+        default: false
+
+jobs:
+  list-departements:
+    runs-on: ubuntu-latest
+    outputs:
+      depts: ${{ steps.depts.outputs.matrix }}
+    steps:
+      - id: depts
+        run: |
+          if [ -n "${{ inputs.single_dept }}" ]; then
+            echo "matrix=[\"${{ inputs.single_dept }}\"]" >> $GITHUB_OUTPUT
+          else
+            # 96 départements métropolitains (Corse = 2A et 2B)
+            echo 'matrix=["01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","2A","2B","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51","52","53","54","55","56","57","58","59","60","61","62","63","64","65","66","67","68","69","70","71","72","73","74","75","76","77","78","79","80","81","82","83","84","85","86","87","88","89","90","91","92","93","94","95"]' >> $GITHUB_OUTPUT
+          fi
+
+  hdbscan-dept:
+    needs: list-departements
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false        # une dept qui plante ne tue pas les autres
+      max-parallel: 10        # respecter data.gouv.fr (et le free tier GitHub)
+      matrix:
+        dept: ${{ fromJson(needs.list-departements.outputs.depts) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv
+
+      - name: Run pipeline for dept ${{ matrix.dept }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p /tmp/dvf
+          FLAGS="--download --csv-dir /tmp/dvf"
+          FLAGS="$FLAGS --target-table ${{ inputs.target_table }}"
+          if [ -n "${{ inputs.force_window_years }}" ]; then
+            FLAGS="$FLAGS --force-window-years ${{ inputs.force_window_years }}"
+          fi
+          if [ "${{ inputs.skip_ventilation }}" == "true" ]; then
+            FLAGS="$FLAGS --skip-ventilation"
+          fi
+          python pipeline_hdbscan_dept.py --dept ${{ matrix.dept }} $FLAGS

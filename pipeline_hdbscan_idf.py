@@ -177,15 +177,17 @@ def adaptive_window(
     df: pd.DataFrame,
     target_n: int = 50,
     max_lookback: int = 6,
+    force_years: int | None = None,
 ) -> tuple[int, int, int] | None:
     """
     Choisit la fenêtre temporelle la plus récente contenant ≥target_n transactions.
     Floor : 1 an (cas Paris × Appartement où une seule année suffit).
     Plafond : `max_lookback` ans (au-delà, les prix anciens polluent la médiane).
 
+    Si `force_years` est passé, on force cette fenêtre (utilisé pour le dataset
+    "5 ans précis" qui veut des micro-marchés fins peu importe le volume).
+
     Returns (annee_min, annee_max, n_in_window) ou None si df est vide.
-    Si même `max_lookback` ans ne suffisent pas, retourne la fenêtre maximale
-    avec le n disponible — la stat sera moins fiable mais on garde la donnée.
     """
     if "annee" not in df.columns or df.empty:
         return None
@@ -193,6 +195,12 @@ def adaptive_window(
     if annees.empty:
         return None
     annee_max = int(annees.max())
+
+    if force_years is not None and force_years > 0:
+        annee_min = annee_max - force_years + 1
+        n = int((df["annee"] >= annee_min).sum())
+        return annee_min, annee_max, n
+
     for window_size in range(1, max_lookback + 1):
         annee_min = annee_max - window_size + 1
         n = int((df["annee"] >= annee_min).sum())
@@ -427,6 +435,7 @@ def run_hdbscan_all(
     commune_filter: str | None = None,
     target_n_window: int = 50,
     max_lookback_years: int = 6,
+    force_window_years: int | None = None,
 ) -> list[dict]:
     """
     Applique HDBSCAN pour toutes les communes × types dans le DataFrame, avec
@@ -470,9 +479,13 @@ def run_hdbscan_all(
             if len(sub) < 5:
                 continue
 
-            # Fenêtre adaptative : on prend la plus petite fenêtre récente
-            # avec ≥target_n transactions (floor 1 an, plafond max_lookback ans).
-            window = adaptive_window(sub, target_n=target_n_window, max_lookback=max_lookback_years)
+            # Fenêtre adaptative (ou forcée si force_window_years).
+            window = adaptive_window(
+                sub,
+                target_n=target_n_window,
+                max_lookback=max_lookback_years,
+                force_years=force_window_years,
+            )
             if window is None:
                 continue
             window_min, window_max, n_in_window = window
@@ -504,7 +517,13 @@ def run_hdbscan_all(
 
 # ── Upload Supabase ──────────────────────────────────────────────────────────
 
-def upsert_zones(zones: list[dict], supabase_url: str, supabase_key: str, batch_size: int = 200):
+def upsert_zones(
+    zones: list[dict],
+    supabase_url: str,
+    supabase_key: str,
+    batch_size: int = 200,
+    table_name: str = "dvf_hdbscan_zones",
+):
     """Upsert les zones HDBSCAN dans Supabase par lots."""
     headers = {
         "apikey": supabase_key,
@@ -512,7 +531,7 @@ def upsert_zones(zones: list[dict], supabase_url: str, supabase_key: str, batch_
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
     }
-    url = f"{supabase_url}/rest/v1/dvf_hdbscan_zones?on_conflict=id"
+    url = f"{supabase_url}/rest/v1/{table_name}?on_conflict=id"
     total = len(zones)
 
     def clean(v):

@@ -69,6 +69,11 @@ export async function GET(req: NextRequest) {
   const typeLocal = resolveTypeLocal(sp.get("type"));
   const surfaceRaw = sp.get("surface");
   const surface = surfaceRaw ? Number(surfaceRaw) : null;
+  // ?precision=deep → utilise le dataset 5-ans (micro-marchés fins) au lieu du
+  // dataset adaptive (fraîcheur). Trade-off à choisir côté client.
+  const precision = sp.get("precision") === "deep" ? "deep" : "fresh";
+  const tableName =
+    precision === "deep" ? "dvf_hdbscan_zones_5y" : "dvf_hdbscan_zones";
 
   if (address.length < 3) {
     return NextResponse.json(
@@ -107,7 +112,7 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Récupération des clusters de la commune × type ──────────────
   const { data: zones, error: zonesErr } = await supabase
-    .from("dvf_hdbscan_zones")
+    .from(tableName)
     .select(ZONE_COLUMNS)
     .eq("code_commune", top.code_insee)
     .eq("type_local", typeLocal);
@@ -167,6 +172,7 @@ export async function GET(req: NextRequest) {
       },
       address: addressPayload(top),
       geocode_meta: geocode.meta,
+      precision,
     });
   }
 
@@ -193,6 +199,7 @@ export async function GET(req: NextRequest) {
     },
     address: addressPayload(top),
     geocode_meta: geocode.meta,
+    precision,
   });
 }
 

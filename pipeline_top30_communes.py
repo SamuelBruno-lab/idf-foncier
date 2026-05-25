@@ -75,6 +75,17 @@ def main():
     parser.add_argument("--skip-upload", action="store_true", help="Calcul sans upload")
     parser.add_argument("--dry-run", action="store_true", help="Afficher les communes cibles")
     parser.add_argument("--csv-dir", default=str(DATA_DIR), help="Dossier CSV")
+    parser.add_argument(
+        "--target-table",
+        default="dvf_hdbscan_zones",
+        help="Table cible Supabase (par défaut dvf_hdbscan_zones, utiliser dvf_hdbscan_zones_5y pour le mode précision)",
+    )
+    parser.add_argument(
+        "--force-window-years",
+        type=int,
+        default=None,
+        help="Forcer la fenêtre temporelle (override adaptive). Ex: 5 pour les micro-marchés précis.",
+    )
     args = parser.parse_args()
 
     csv_dir = Path(args.csv_dir)
@@ -132,8 +143,11 @@ def main():
 
     # ── 4. HDBSCAN ───────────────────────────────────────────────────────
     print("\n[3] Calcul HDBSCAN...")
+    if args.force_window_years:
+        print(f"  ⚙ Mode fenêtre forcée à {args.force_window_years} ans (override adaptive)")
+    print(f"  ⚙ Table cible Supabase: {args.target_table}")
     t0 = time.time()
-    all_zones = run_hdbscan_all(data)
+    all_zones = run_hdbscan_all(data, force_window_years=args.force_window_years)
     elapsed = time.time() - t0
     print(f"\n  {len(all_zones)} zones en {elapsed:.0f}s")
 
@@ -173,7 +187,7 @@ def main():
         print(f"  ERREUR: {e}")
         sys.exit(1)
 
-    success = upsert_zones(all_zones, supabase_url, supabase_key)
+    success = upsert_zones(all_zones, supabase_url, supabase_key, table_name=args.target_table)
 
     if success:
         print(f"\n✅ {len(all_zones)} zones HDBSCAN pour {len(commune_counts)} communes")

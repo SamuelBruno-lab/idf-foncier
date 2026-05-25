@@ -1,0 +1,43 @@
+name: Generate Top 30 commune maps (5 ans précis)
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Skip DVF download (use cached data)"
+        type: boolean
+        default: false
+  # Pas de cron — déclenché manuellement, complémentaire du workflow adaptive
+
+jobs:
+  generate-hdbscan-5y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas numpy hdbscan scipy httpx python-dotenv requests tqdm
+
+      - name: Run HDBSCAN pipeline 5 ans (table dvf_hdbscan_zones_5y)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p /tmp/dvf
+          DOWNLOAD_FLAG=""
+          if [ "${{ inputs.skip_download }}" != "true" ]; then
+            DOWNLOAD_FLAG="--download"
+          fi
+          python pipeline_top30_communes.py $DOWNLOAD_FLAG \
+            --csv-dir /tmp/dvf \
+            --target-table dvf_hdbscan_zones_5y \
+            --force-window-years 5

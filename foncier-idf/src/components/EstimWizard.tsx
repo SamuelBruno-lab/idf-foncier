@@ -63,12 +63,16 @@ const QUESTIONS: Question[] = [
     label: "De quel type de bien s'agit-il ?",
     type: "single-choice",
     required: true,
+    // NB — On limite volontairement aux types résidentiels :
+    //  - Terrain : se valorise en charge foncière (bilan promoteur) ≠ €/m² DVF.
+    //              De plus le volume IDF est très faible.
+    //  - Commerce / Tertiaire : se valorisent par capitalisation des loyers,
+    //              valeur du droit au bail et notation emplacement (n°1/2/3).
+    //              Pas du €/m² DVF non plus.
+    // Ces types seront réintroduits avec une méthodologie adaptée (cf. roadmap).
     options: [
       { value: "Appartement", label: "Appartement", emoji: "🏢" },
       { value: "Maison", label: "Maison", emoji: "🏡" },
-      { value: "Terrain", label: "Terrain", emoji: "🌳" },
-      { value: "Commerce", label: "Commerce", emoji: "🏪" },
-      { value: "Tertiaire", label: "Bureaux / Entrepôt", emoji: "🏬" },
     ],
   },
   {
@@ -80,12 +84,12 @@ const QUESTIONS: Question[] = [
   },
   {
     id: "surface",
-    label: "Quelle est la surface (en m²) ?",
+    label: "Quelle est la surface habitable (en m²) ?",
     type: "number",
     placeholder: "62",
     unit: "m²",
     min: 8,
-    max: 50000, // élargi pour terrains
+    max: 5000,
     required: true,
   },
   {
@@ -127,8 +131,6 @@ const QUESTIONS: Question[] = [
       { value: "pre-1900", label: "Haussmannien / pierre (avant 1900)", emoji: "🏛️" },
       { value: "inconnu", label: "Je ne sais pas" },
     ],
-    // Un terrain nu n'a pas d'année de construction
-    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
   {
     id: "dpe",
@@ -144,8 +146,6 @@ const QUESTIONS: Question[] = [
       { value: "G", label: "G — Passoire", emoji: "🔴" },
       { value: "inconnu", label: "Je ne sais pas" },
     ],
-    // Pas de DPE pour un terrain (et DPE tertiaire trop rare pour l'usage grand public)
-    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
   {
     id: "etat",
@@ -157,7 +157,6 @@ const QUESTIONS: Question[] = [
       { value: "correct", label: "Correct, quelques travaux", emoji: "🛠️" },
       { value: "renover", label: "À rénover", emoji: "🪚" },
     ],
-    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
   {
     id: "exterieurs",
@@ -171,9 +170,7 @@ const QUESTIONS: Question[] = [
       { value: "cave", label: "Cave", emoji: "🍷" },
       { value: "aucun", label: "Aucun", emoji: "—" },
     ],
-    skipIf: (a) => String(a.type_bien) === "Terrain",
   },
-  // ─────────────── Usage : 3 variantes selon le type de bien ───────────────
   {
     id: "usage",
     label: "Le bien est destiné à être :",
@@ -184,35 +181,6 @@ const QUESTIONS: Question[] = [
       { value: "residence-secondaire", label: "Résidence secondaire", emoji: "🏖️" },
       { value: "vente-occupe", label: "Vente occupée (locataire en place)", emoji: "🔒" },
     ],
-    // Uniquement pour les biens résidentiels
-    skipIf: (a) => !["Appartement", "Maison"].includes(String(a.type_bien)),
-  },
-  {
-    id: "usage_pro",
-    label: "Quel type d'activité dans le local ?",
-    type: "single-choice",
-    options: [
-      { value: "vente-detail", label: "Vente / commerce de détail", emoji: "🛍️" },
-      { value: "restauration", label: "Restauration / bar", emoji: "🍽️" },
-      { value: "bureau", label: "Bureau / profession libérale", emoji: "💼" },
-      { value: "medical", label: "Médical / paramédical", emoji: "🩺" },
-      { value: "atelier-stockage", label: "Atelier / stockage / logistique", emoji: "📦" },
-      { value: "autre", label: "Autre activité", emoji: "—" },
-    ],
-    skipIf: (a) => !["Commerce", "Tertiaire"].includes(String(a.type_bien)),
-  },
-  {
-    id: "usage_terrain",
-    label: "Quel projet envisagez-vous pour ce terrain ?",
-    type: "single-choice",
-    options: [
-      { value: "maison-individuelle", label: "Construction maison individuelle", emoji: "🏡" },
-      { value: "collectif", label: "Construction collectif / immeuble", emoji: "🏢" },
-      { value: "amenagement", label: "Aménagement / lotissement", emoji: "🌳" },
-      { value: "agricole", label: "Usage agricole / naturel", emoji: "🌾" },
-      { value: "inconnu", label: "Je ne sais pas encore", emoji: "❔" },
-    ],
-    skipIf: (a) => String(a.type_bien) !== "Terrain",
   },
 ];
 

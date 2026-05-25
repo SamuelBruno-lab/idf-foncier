@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DATAMERRY — Démo Estimator Collabimmo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .page { max-width: 1100px; margin: 0 auto; }
+
+    /* Mock site Collabimmo */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: #ffffff;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+    }
+    .nav__brand { font-size: 20px; font-weight: 800; color: #c2410c; }
+    .nav__links { display: flex; gap: 24px; font-size: 14px; color: #475569; }
+
+    .hero {
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+      border-radius: 16px;
+      padding: 48px 32px;
+      text-align: center;
+      margin-bottom: 24px;
+      border: 1px solid #fed7aa;
+    }
+    .hero h1 {
+      font-size: 32px;
+      margin-bottom: 12px;
+      color: #9a3412;
+    }
+    .hero p {
+      color: #c2410c;
+      font-size: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* === WIDGET ESTIMATOR DATAMERRY === */
+    .est {
+      --primary: #c2410c;
+      --primary-dark: #9a3412;
+      --bg: #ffffff;
+      --border: #e2e8f0;
+      --muted: #64748b;
+
+      background: var(--bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 24px rgba(0,0,0,.04);
+      overflow: hidden;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .est__hdr {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .est__title { font-weight: 700; font-size: 16px; }
+    .est__powered { font-size: 10px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Formulaire */
+    .est__form {
+      padding: 32px 24px;
+    }
+    .est__form h2 {
+      font-size: 22px;
+      text-align: center;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+    .est__form .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .est__field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 16px;
+    }
+    .est__field label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .est__field input, .est__field select {
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      background: white;
+      transition: border-color 0.15s;
+    }
+    .est__field input:focus, .est__field select:focus {
+      border-color: var(--primary);
+    }
+    .est__row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .est__row > .est__field { margin-bottom: 0; }
+    .est__submit {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .est__submit:hover { background: var(--primary-dark); }
+    .est__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Suggestions adresses */
+    .est__suggestions {
+      list-style: none;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 4px;
+      position: absolute;
+      width: calc(100% - 48px);
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    .est__suggestion {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .est__suggestion:hover { background: #fff7ed; color: var(--primary-dark); }
+    .est__suggestion:last-child { border-bottom: none; }
+    .est__field--address { position: relative; }
+
+    /* Loader */
+    .est__loading {
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .est__spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #fed7aa;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Résultats */
+    .est__result {
+      padding: 32px 24px;
+    }
+    .est__result h2 {
+      font-size: 18px;
+      margin-bottom: 4px;
+      color: #0f172a;
+    }
+    .est__result .address-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .est__bigprice {
+      text-align: center;
+      padding: 32px;
+      background: linear-gradient(135deg, #fff7ed, #ffedd5);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #fed7aa;
+    }
+    .est__bigprice__label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary-dark);
+      margin-bottom: 8px;
+    }
+    .est__bigprice__value {
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+    }
+    .est__bigprice__sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .est__range {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding: 0 20px;
+    }
+    .est__range__item { text-align: center; }
+    .est__range__label { font-size: 10px; text-transform: uppercase; color: var(--muted); }
+    .est__range__value { font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+
+    .est__cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .est__card {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid var(--border);
+    }
+    .est__card__lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .est__card__val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .est__card__sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .est__quartier {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .est__quartier h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .est__scores {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .est__score { text-align: center; }
+    .est__score__val { font-size: 22px; font-weight: 700; color: var(--primary); }
+    .est__score__max { font-size: 12px; color: var(--muted); font-weight: 400; }
+    .est__score__lbl { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* CTA Collabimmo */
+    .est__cta {
+      background: linear-gradient(135deg, #1f3a8a 0%, #1e40af 100%);
+      color: white;
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .est__cta h3 { font-size: 18px; margin-bottom: 6px; }
+    .est__cta p { font-size: 13px; opacity: 0.9; margin-bottom: 16px; }
+    .est__cta__btn {
+      display: inline-block;
+      background: white;
+      color: #1e40af;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+    }
+    .est__cta__btn:hover { background: #f1f5f9; }
+
+    .est__back {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .est__ftr {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Annotation */
+    .annot {
+      max-width: 720px;
+      margin: 24px auto 0;
+      padding: 16px;
+      background: #fffbeb;
+      border: 1px dashed #f59e0b;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #92400e;
+    }
+    .annot code {
+      background: #fef3c7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "Menlo", "Monaco", monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Faux site Collabimmo -->
+    <header class="nav">
+      <span class="nav__brand">COLLABIMMO</span>
+      <nav class="nav__links">
+        <span>Acheter</span>
+        <span>Vendre</span>
+        <span>Estimer</span>
+        <span>Contact</span>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h1>Combien vaut votre bien ?</h1>
+      <p>Estimation gratuite et instantanée propulsée par les données officielles DVF (Notaires) et OLAP. Sans inscription. Sans engagement.</p>
+    </section>
+
+    <!-- === WIDGET ESTIMATOR === -->
+    <div class="est" id="est">
+      <header class="est__hdr">
+        <span class="est__title">Estimation de votre bien</span>
+        <span class="est__powered">propulsé par DATAMERRY</span>
+      </header>
+
+      <!-- État 1 : Formulaire -->
+      <div class="est__form" id="form-view">
+        <h2>Renseignez votre bien</h2>
+        <p class="subtitle">Données 100% gratuites · résultats en 3 secondes</p>
+
+        <div class="est__field est__field--address">
+          <label for="addr">Adresse complète</label>
+          <input
+            id="addr"
+            type="text"
+            placeholder="ex: 10 rue de la Paix 75002 Paris"
+            autocomplete="off"
+          >
+          <ul class="est__suggestions" id="suggestions" style="display:none;"></ul>
+        </div>
+
+        <div class="est__row">
+          <div class="est__field">
+            <label for="surface">Surface (m²)</label>
+            <input id="surface" type="number" placeholder="62" min="8" max="500" value="62">
+          </div>
+          <div class="est__field">
+            <label for="type">Type de bien</label>
+            <select id="type">
+              <option>Appartement</option>
+              <option>Maison</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="est__row">
+          <div class="est__field">
+            <label for="pieces">Nombre de pièces</label>
+            <select id="pieces">
+              <option value="1">T1</option>
+              <option value="2">T2</option>
+              <option value="3" selected>T3</option>
+              <option value="4">T4</option>
+              <option value="5">T5+</option>
+            </select>
+          </div>
+          <div class="est__field">
+            <label for="dpe">DPE (optionnel)</label>
+            <select id="dpe">
+              <option value="">Inconnu</option>
+              <option value="A">A — Très performant</option>
+              <option value="B">B</option>
+              <option value="C" selected>C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F — Passoire</option>
+              <option value="G">G — Passoire</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="est__submit" id="submit-btn" onclick="estimate()">
+          Estimer mon bien
+        </button>
+      </div>
+
+      <!-- État 2 : Loading -->
+      <div class="est__loading" id="loading-view" style="display:none;">
+        <div class="est__spinner"></div>
+        <p>Analyse de votre bien en cours...</p>
+        <p style="font-size:11px; color:#94a3b8; margin-top:8px;">
+          Géocodage · Cluster HDBSCAN · Rendement OLAP · Plafonds fiscaux · Quartier
+        </p>
+      </div>
+
+      <!-- État 3 : Résultats -->
+      <div class="est__result" id="result-view" style="display:none;">
+        <h2 id="result-address">10 rue de Rivoli, 75001 Paris</h2>
+        <p class="address-meta" id="result-meta">62 m² · T3 · Appartement · DPE C</p>
+
+        <div class="est__bigprice">
+          <div class="est__bigprice__label">Estimation marché</div>
+          <div class="est__bigprice__value">823 460 €</div>
+          <div class="est__bigprice__sub">13 282 €/m² · Basé sur 187 ventes DVF dans la zone</div>
+
+          <div class="est__range">
+            <div class="est__range__item">
+              <div class="est__range__label">Plancher (p10)</div>
+              <div class="est__range__value">762 000 €</div>
+            </div>
+            <div class="est__range__item">
+              <div class="est__range__label">Médiane</div>
+              <div class="est__range__value">823 460 €</div>
+            </div>
+            <div class="est__range__item">
+              <div class="est__range__label">Plafond (p90)</div>
+              <div class="est__range__value">891 000 €</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="est__cards">
+          <div class="est__card">
+            <div class="est__card__lbl">Rendement locatif</div>
+            <div class="est__card__val">3,2 %</div>
+            <div class="est__card__sub">Loyer 35 €/m² · Net 2,4%</div>
+          </div>
+          <div class="est__card">
+            <div class="est__card__lbl">Zone fiscale</div>
+            <div class="est__card__val">Abis</div>
+            <div class="est__card__sub">Éligible Jeanbrun · LLI</div>
+          </div>
+          <div class="est__card">
+            <div class="est__card__lbl">Contexte taux</div>
+            <div class="est__card__val">3,1 %</div>
+            <div class="est__card__sub">OAT 10y · −12% prix vs 2021</div>
+          </div>
+        </div>
+
+        <div class="est__quartier">
+          <h3>Quartier</h3>
+          <div class="est__scores">
+            <div class="est__score">
+              <span class="est__score__val">94<span class="est__score__max">/100</span></span>
+              <span class="est__score__lbl">Transports</span>
+            </div>
+            <div class="est__score">
+              <span class="est__score__val">88<span class="est__score__max">/100</span></span>
+              <span class="est__score__lbl">Ville à 15 min</span>
+            </div>
+            <div class="est__score">
+              <span class="est__score__val">7</span>
+              <span class="est__score__lbl">Écoles &lt; 1,5 km</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="est__cta">
+          <h3>📞 Affinez avec Collabimmo</h3>
+          <p>Une estimation précise prend en compte l'état, l'étage, l'expo, le marché local. Nos agents Collabimmo viennent gratuitement chez vous pour un avis d'expert humain.</p>
+          <button class="est__cta__btn" onclick="alert('Mock — en prod ouvre un formulaire de contact')">
+            Demander un rendez-vous gratuit
+          </button>
+        </div>
+
+        <a class="est__back" onclick="resetView()">← Nouvelle estimation</a>
+      </div>
+
+      <footer class="est__ftr">
+        Sources : DVF (Notaires), OLAP, ANIL, ADEME, INSEE, OpenStreetMap · 25/05/2026
+      </footer>
+    </div>
+
+    <div class="annot">
+      <strong>📌 Comment Diara intègre ça sur son site Collabimmo</strong> — 4 lignes HTML :
+      <pre style="margin-top:8px; white-space:pre-wrap;"><code>&lt;script src="https://datamerry.com/estimator.js" async&gt;&lt;/script&gt;
+&lt;div data-datamerry-estimator
+     data-key="wdmk_live_xxxxxxxx..."
+     data-color="#c2410c"
+     data-cta-url="https://collabimmo.fr/contact"&gt;&lt;/div&gt;</code></pre>
+      Le widget appelle <code>/api/address/search</code> pour l'autocomplete adresse, puis <code>/api/property-report</code> pour l'estimation complète. Le visiteur saisit son adresse + surface, voit l'estimation en 3 secondes, et clique sur le CTA Collabimmo pour entrer en contact.
+      <br><br>
+      <strong>Différence vs widget statique actuel :</strong> au lieu d'afficher une seule adresse hardcodée, le visiteur saisit la SIENNE → vraie acquisition leads pour Collabimmo.
+    </div>
+
+  </div>
+
+  <script>
+    // Mock UX : simule autocomplete + estimation sans appel API réel
+    const addresses = [
+      "10 rue de Rivoli, 75001 Paris",
+      "10 rue de Rivoli, 92160 Antony",
+      "10 avenue Édouard Vaillant, 92100 Boulogne-Billancourt",
+      "2 rue Ambroise Croizat, 93700 Drancy",
+      "15 rue de la Roquette, 75011 Paris",
+    ];
+
+    const addrInput = document.getElementById('addr');
+    const suggestions = document.getElementById('suggestions');
+
+    addrInput.addEventListener('input', () => {
+      const val = addrInput.value.toLowerCase().trim();
+      if (val.length < 3) {
+        suggestions.style.display = 'none';
+        return;
+      }
+      const matches = addresses.filter(a => a.toLowerCase().includes(val));
+      if (matches.length === 0) {
+        suggestions.style.display = 'none';
+        return;
+      }
+      suggestions.innerHTML = matches
+        .map(a => `<li class="est__suggestion" onclick="selectAddress('${a}')">${a}</li>`)
+        .join('');
+      suggestions.style.display = 'block';
+    });
+
+    function selectAddress(addr) {
+      addrInput.value = addr;
+      suggestions.style.display = 'none';
+    }
+
+    function estimate() {
+      if (!addrInput.value.trim()) {
+        alert('Saisissez une adresse');
+        return;
+      }
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('loading-view').style.display = 'block';
+
+      // Simule un délai d'API
+      setTimeout(() => {
+        document.getElementById('loading-view').style.display = 'none';
+        document.getElementById('result-view').style.display = 'block';
+        document.getElementById('result-address').textContent = addrInput.value;
+        const surface = document.getElementById('surface').value;
+        const type = document.getElementById('type').value;
+        const pieces = document.getElementById('pieces').options[document.getElementById('pieces').selectedIndex].text;
+        const dpe = document.getElementById('dpe').value;
+        document.getElementById('result-meta').textContent =
+          `${surface} m² · ${pieces} · ${type}` + (dpe ? ` · DPE ${dpe}` : '');
+      }, 1800);
+    }
+
+    function resetView() {
+      document.getElementById('result-view').style.display = 'none';
+      document.getElementById('form-view').style.display = 'block';
+    }
+
+    // Cache les suggestions si clic ailleurs
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.est__field--address')) {
+        suggestions.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

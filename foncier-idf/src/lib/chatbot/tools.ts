@@ -233,7 +233,7 @@ export const TOOLS: ToolDefinition[] = [
           },
           horizon_annees: {
             type: "number",
-            description: "Horizon d'investissement en années (défaut 15)",
+            description: "Horizon d'investissement en années (défaut 10, recommandation Charte Expertise 6e éd. 2025 : 5-10 ans)",
           },
           inflation_loyers_pct: {
             type: "number",
@@ -874,7 +874,7 @@ async function handleDcfValuation(args: {
   const loyer_annuel_hc = args.loyer_mensuel_hc * 12;
   const loyer_annuel_net = loyer_annuel_hc * NET_RATIO;
 
-  const horizon = args.horizon_annees ?? 15;
+  const horizon = args.horizon_annees ?? 10; // Recommandation Charte Expertise 6e éd. 2025 : 5-10 ans
   const inflation = (args.inflation_loyers_pct ?? 1.5) / 100;
 
   // 3) Somme actualisée des cash-flows futurs n=1 à horizon

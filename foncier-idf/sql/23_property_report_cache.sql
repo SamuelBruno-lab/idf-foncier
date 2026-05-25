@@ -54,9 +54,10 @@ CREATE TABLE IF NOT EXISTS public.property_report_cache (
 
 CREATE INDEX IF NOT EXISTS idx_property_report_cache_lookup
   ON public.property_report_cache (address_hash, dataset_key, expires_at);
-CREATE INDEX IF NOT EXISTS idx_property_report_cache_expired
-  ON public.property_report_cache (expires_at)
-  WHERE expires_at < now();
+-- Index sur expires_at (sans WHERE clause car now() est STABLE, pas IMMUTABLE,
+-- et Postgres refuse les fonctions non-immutables dans un index predicate)
+CREATE INDEX IF NOT EXISTS idx_property_report_cache_expires_at
+  ON public.property_report_cache (expires_at);
 CREATE INDEX IF NOT EXISTS idx_property_report_cache_geo
   ON public.property_report_cache (lat, lon);
 

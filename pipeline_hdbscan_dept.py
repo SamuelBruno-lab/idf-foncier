@@ -79,6 +79,16 @@ def main():
     dept = str(args.dept).zfill(2) if args.dept.isdigit() else args.dept
     csv_dir = Path(args.csv_dir)
 
+    # Départements sans données DVF (juridique, pas un bug) :
+    # 57 Moselle, 67 Bas-Rhin, 68 Haut-Rhin → Livre Foncier (Grundbuch) hérité
+    # du droit allemand au lieu du système notarial français. DVF n'existe pas
+    # pour ces 3 départements, toutes sources confondues.
+    ALSACE_MOSELLE = {"57", "67", "68"}
+    if dept in ALSACE_MOSELLE:
+        print(f"⚠ Dept {dept} (Alsace-Moselle) — pas de DVF (Livre Foncier).")
+        print(f"  Skip propre (exit 0).")
+        return
+
     print("=" * 70)
     print(f"Pipeline HDBSCAN — Département {dept} (France entière)")
     print("=" * 70)
@@ -100,8 +110,13 @@ def main():
         print(f"[1] (--download non spécifié) Utilisation CSV local: {csv_path}")
 
     if not csv_path.exists():
-        print(f"❌ CSV manquant : {csv_path} (relancer avec --download)")
-        sys.exit(1)
+        # Cas où DVF data.gouv.fr n'expose rien pour ce département (DOM-TOM
+        # partiels, départements expérimentaux, etc.). On exit proprement
+        # avec un avertissement plutôt qu'une erreur — laisser les autres
+        # jobs du matrix se finir tranquillement.
+        print(f"⚠ Aucun CSV DVF récupéré pour dept {dept} (peut-être pas couvert par data.gouv.fr).")
+        print(f"  Skip propre (exit 0).")
+        return
 
     # ── 2. Chargement ──────────────────────────────────────────────────────
     print(f"\n[2] Chargement CSV...")

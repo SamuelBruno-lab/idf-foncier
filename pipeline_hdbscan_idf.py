@@ -305,7 +305,8 @@ def fetch_commune_polygon(code_insee: str):
     try:
         from shapely.geometry import Polygon  # noqa: PLC0415
 
-        resp = requests.get(
+        # On utilise httpx (déjà importé en haut du fichier) au lieu de requests
+        resp = httpx.get(
             f"https://geo.api.gouv.fr/communes/{code_insee}",
             params={"fields": "contour", "format": "geojson", "geometry": "contour"},
             timeout=10,

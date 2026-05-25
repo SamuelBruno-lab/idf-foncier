@@ -7,17 +7,24 @@ immobiliers historiques DVF. Produit un coefficient d'élasticité β empirique
 qui sera ensuite utilisé par le tool chatbot `compute_market_adjusted_price`.
 
 Sortie :
-  analyses/output/dvf_oat_report.html           — rapport visuel
-  analyses/output/dvf_oat_coefficients.csv      — β par segment (commune, type, pièce)
-  analyses/output/dvf_oat_summary.json          — coefficients globaux + tests stats
+  analyses/output/dvf_oat_report.html                              — rapport visuel
+  analyses/output/dvf_oat_coefficients_by_commune_type.csv         — β par (commune, type)
+  analyses/output/dvf_oat_coefficients_by_hdbscan_cluster.csv      — β par cluster HDBSCAN (micro-marché)
+  analyses/output/price_variations_yoy_by_cluster.csv              — variation annuelle prix par cluster
+  analyses/output/price_variations_qoq_by_cluster.csv              — variation trimestrielle + volatilité par cluster
+  analyses/output/dvf_oat_summary.json                             — coefficients globaux + tests stats
 
 Méthodologie :
-  1. Charge DVF (depuis Supabase ou CSV local) + OAT 10 ans
-  2. Joint sur date de mutation
-  3. Pearson + Spearman (correlation rank robuste aux outliers)
-  4. Régression linéaire log(prix_m2) = α + β × taux_oat + ε
-  5. Régression avec lag (effet décalé 3/6/12 mois)
-  6. Régression avec fixed effects communes (isole l'effet macro pur)
+  1. Charge DVF (depuis Supabase) + OAT 10 ans + clusters HDBSCAN
+  2. Joint DVF × OAT sur date de mutation
+  3. Map chaque transaction à son cluster HDBSCAN via point-in-polygon (si coords GPS dispo)
+  4. Pearson + Spearman (correlation rank robuste aux outliers)
+  5. Régression linéaire log(prix_m2) = α + β × taux_oat + ε
+  6. Régression avec lag (effet décalé 3/6/12 mois)
+  7. β par segment (commune × type) — granularité moyenne
+  8. β par cluster HDBSCAN — granularité micro-marché (Q1 Samuel)
+  9. Variations annuelles (YoY) prix médian par cluster (Q2a Samuel)
+  10. Variations trimestrielles (QoQ) + volatilité prix par cluster (Q2b Samuel)
 
 Hypothèse a priori (benchmark littérature vérifié 2026-05-25) :
   β ≈ -7% à -12% par +100bp de taux OAT
@@ -97,6 +104,8 @@ def load_dvf(conn, limit: int | None = None, since: date | None = None) -> pd.Da
       - colonne surface : `surface_reelle_bati` (NUMERIC)
       - colonne type : `type_local`
       - colonne commune : `code_commune` (INSEE)
+      - colonnes lat/lon : `latitude`, `longitude` (OPTIONNEL — utilisé pour
+        joindre chaque transaction à son cluster HDBSCAN par point-in-polygon)
     """
     where_clauses = [
         "valeur_fonciere > 10000",
@@ -114,7 +123,9 @@ def load_dvf(conn, limit: int | None = None, since: date | None = None) -> pd.Da
           type_local,
           valeur_fonciere::float AS prix,
           surface_reelle_bati::float AS surface,
-          nombre_pieces_principales::int AS pieces
+          nombre_pieces_principales::int AS pieces,
+          latitude::float AS lat,
+          longitude::float AS lon
         FROM public.fact_dvf
         WHERE {where}
         ORDER BY date_mutation
@@ -122,12 +133,52 @@ def load_dvf(conn, limit: int | None = None, since: date | None = None) -> pd.Da
     if limit:
         sql += f" LIMIT {limit}"
     print(f"▶ Chargement DVF depuis Supabase…")
-    df = pd.read_sql(sql, conn)
+    try:
+        df = pd.read_sql(sql, conn)
+    except Exception as e:
+        # Fallback : pas de colonnes lat/lon — on retire et on continue sans
+        # le mapping cluster (on garde l'analyse par commune × type)
+        print(f"  ⚠️ lat/lon absentes ({e}). Fallback sans coordonnées GPS.")
+        sql_fallback = sql.replace(
+            "latitude::float AS lat,\n          longitude::float AS lon",
+            "NULL::float AS lat,\n          NULL::float AS lon",
+        )
+        df = pd.read_sql(sql_fallback, conn)
     df["prix_m2"] = df["prix"] / df["surface"]
     # Filtrage prix/m² réaliste
     df = df[(df["prix_m2"] >= 500) & (df["prix_m2"] <= 25000)]
-    print(f"  ✅ {len(df):,} transactions chargées (filtres qualité appliqués)")
+    has_coords = df["lat"].notna().sum() > 0
+    print(
+        f"  ✅ {len(df):,} transactions chargées "
+        f"(coords GPS dispo : {has_coords})"
+    )
     return df
+
+
+def load_hdbscan_zones(conn) -> pd.DataFrame:
+    """
+    Charge les clusters HDBSCAN existants pour map transaction → cluster.
+    Tente dvf_hdbscan_zones (adaptive) en priorité, puis dvf_hdbscan_zones_5y.
+    """
+    print(f"▶ Chargement clusters HDBSCAN…")
+    for table in ("dvf_hdbscan_zones", "dvf_hdbscan_zones_5y"):
+        try:
+            df = pd.read_sql(
+                f"""
+                SELECT id AS zone_id, code_commune, type_local, count,
+                       hull_coords, centroid_lat, centroid_lon, prix_m2_median
+                FROM public.{table}
+                WHERE hull_coords IS NOT NULL
+                """,
+                conn,
+            )
+            if len(df) > 0:
+                print(f"  ✅ {len(df):,} clusters depuis {table}")
+                return df
+        except Exception as e:
+            print(f"  ⚠️ {table} indisponible : {e}")
+    print("  ⚠️ Aucune table HDBSCAN trouvée — l'analyse cluster sera skip")
+    return pd.DataFrame()
 
 
 def load_oat(conn) -> pd.DataFrame:
@@ -319,6 +370,219 @@ def beta_by_segment(merged: pd.DataFrame, min_obs: int = 200) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Mapping transaction DVF → cluster HDBSCAN (point-in-polygon)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _point_in_polygon(point: tuple[float, float], polygon: list[list[float]]) -> bool:
+    """Ray casting. Convention hull_coords = [[lat, lon], ...]"""
+    if len(polygon) < 3:
+        return False
+    x, y = point
+    inside = False
+    j = len(polygon) - 1
+    for i in range(len(polygon)):
+        xi, yi = polygon[i][0], polygon[i][1]
+        xj, yj = polygon[j][0], polygon[j][1]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def assign_clusters(merged: pd.DataFrame, zones: pd.DataFrame) -> pd.DataFrame:
+    """
+    Pour chaque transaction DVF, trouve le cluster HDBSCAN qui contient le point
+    (commune × type × hull). Ajoute la colonne `zone_id` au DataFrame.
+
+    Si les coords GPS ne sont pas disponibles ou si aucune zone n'est chargée,
+    retourne le DataFrame tel quel (zone_id = NaN).
+    """
+    if zones.empty or merged["lat"].notna().sum() == 0:
+        print("▶ Mapping cluster HDBSCAN : skip (coords ou zones indisponibles)")
+        merged["zone_id"] = None
+        return merged
+
+    print(f"▶ Mapping transactions → clusters HDBSCAN (point-in-polygon)…")
+
+    # Pré-indexer les zones par (commune, type) pour accélérer la recherche
+    zones_by_key: dict[tuple[str, str], list[tuple[str, list]]] = {}
+    for z in zones.itertuples(index=False):
+        key = (z.code_commune, z.type_local)
+        zones_by_key.setdefault(key, []).append((z.zone_id, z.hull_coords))
+
+    zone_ids = []
+    matched = 0
+    for row in merged.itertuples(index=False):
+        if pd.isna(row.lat) or pd.isna(row.lon):
+            zone_ids.append(None)
+            continue
+        candidates = zones_by_key.get((row.code_commune, row.type_local), [])
+        point = (float(row.lat), float(row.lon))
+        match_id = None
+        for zid, hull in candidates:
+            if _point_in_polygon(point, hull):
+                match_id = zid
+                break
+        if match_id:
+            matched += 1
+        zone_ids.append(match_id)
+
+    merged = merged.copy()
+    merged["zone_id"] = zone_ids
+    pct = (matched / len(merged) * 100) if len(merged) > 0 else 0
+    print(f"  ✅ {matched:,}/{len(merged):,} transactions assignées à un cluster ({pct:.1f}%)")
+    return merged
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# β par cluster HDBSCAN (question 1 de Samuel)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def beta_by_hdbscan_cluster(merged: pd.DataFrame, min_obs: int = 50) -> pd.DataFrame:
+    """
+    Coefficient d'élasticité prix/OAT calculé pour chaque cluster HDBSCAN
+    individuel (vs par commune×type). Granularité = micro-marché réel.
+    """
+    if "zone_id" not in merged.columns or merged["zone_id"].isna().all():
+        print("\n▶ β par cluster HDBSCAN : skip (zone_id non assigné)")
+        return pd.DataFrame()
+
+    print(f"\n▶ β par cluster HDBSCAN (min {min_obs} obs/cluster)…")
+    rows = []
+    for zone_id, g in merged.groupby("zone_id"):
+        if zone_id is None or pd.isna(zone_id):
+            continue
+        if len(g) < min_obs:
+            continue
+        if g["taux_oat_10y"].std() < 0.1:
+            continue
+        y = np.log(g["prix_m2"])
+        X = sm.add_constant(g["taux_oat_10y"])
+        try:
+            m = sm.OLS(y, X).fit()
+            rows.append({
+                "zone_id": zone_id,
+                "code_commune": g["code_commune"].iloc[0],
+                "type_local": g["type_local"].iloc[0],
+                "n_obs": len(g),
+                "prix_m2_median_cluster": float(g["prix_m2"].median()),
+                "beta": float(m.params["taux_oat_10y"]),
+                "elasticity_per_100bp_pct": float((np.exp(m.params["taux_oat_10y"]) - 1) * 100),
+                "r_squared": float(m.rsquared),
+                "p_value": float(m.pvalues["taux_oat_10y"]),
+            })
+        except Exception:
+            continue
+    df = pd.DataFrame(rows).sort_values("n_obs", ascending=False)
+    if not df.empty:
+        print(f"  ✅ {len(df):,} clusters analysés")
+        print(f"  β médian : {df['beta'].median():.4f}")
+        print(f"  Élasticité médiane : {df['elasticity_per_100bp_pct'].median():+.2f}% / +100bp")
+        print(f"  Hétérogénéité (p25-p75) : "
+              f"{df['elasticity_per_100bp_pct'].quantile(0.25):+.2f}% à "
+              f"{df['elasticity_per_100bp_pct'].quantile(0.75):+.2f}%")
+    return df
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Variations YoY et QoQ par cluster (question 2 de Samuel)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def price_variation_yoy_by_cluster(merged: pd.DataFrame, min_obs_per_year: int = 5) -> pd.DataFrame:
+    """
+    Variation annuelle du prix médian par cluster HDBSCAN.
+    Renvoie un DataFrame long : 1 ligne par (cluster, année).
+    Calcule YoY% vs année précédente du même cluster.
+    """
+    if "zone_id" not in merged.columns or merged["zone_id"].isna().all():
+        print("\n▶ Variations YoY par cluster : skip (zone_id non assigné)")
+        return pd.DataFrame()
+
+    print(f"\n▶ Variations annuelles (YoY) par cluster HDBSCAN…")
+    m = merged.dropna(subset=["zone_id"]).copy()
+    m["year"] = pd.to_datetime(m["date_mutation"]).dt.year
+
+    agg = (
+        m.groupby(["zone_id", "year"])
+        .agg(
+            prix_m2_median=("prix_m2", "median"),
+            prix_m2_mean=("prix_m2", "mean"),
+            n_obs=("prix_m2", "size"),
+            code_commune=("code_commune", "first"),
+            type_local=("type_local", "first"),
+        )
+        .reset_index()
+    )
+    agg = agg[agg["n_obs"] >= min_obs_per_year]
+    agg = agg.sort_values(["zone_id", "year"])
+    agg["prix_m2_median_prev"] = agg.groupby("zone_id")["prix_m2_median"].shift(1)
+    agg["yoy_pct"] = (
+        (agg["prix_m2_median"] / agg["prix_m2_median_prev"] - 1) * 100
+    ).round(2)
+
+    # Petit récap textuel
+    yoy_stats = agg.groupby("year")["yoy_pct"].describe()
+    print(f"  Distribution YoY par année (toutes zones confondues) :")
+    print(yoy_stats[["count", "mean", "50%", "std"]].to_string())
+
+    return agg
+
+
+def price_variation_qoq_by_cluster(merged: pd.DataFrame, min_obs_per_quarter: int = 3) -> pd.DataFrame:
+    """
+    Variation trimestrielle du prix médian par cluster + volatilité QoQ.
+    """
+    if "zone_id" not in merged.columns or merged["zone_id"].isna().all():
+        print("\n▶ Variations QoQ par cluster : skip (zone_id non assigné)")
+        return pd.DataFrame()
+
+    print(f"\n▶ Variations trimestrielles (QoQ) par cluster HDBSCAN…")
+    m = merged.dropna(subset=["zone_id"]).copy()
+    m["date_mutation"] = pd.to_datetime(m["date_mutation"])
+    m["year"] = m["date_mutation"].dt.year
+    m["quarter"] = m["date_mutation"].dt.quarter
+    m["year_quarter"] = m["year"].astype(str) + "Q" + m["quarter"].astype(str)
+
+    agg = (
+        m.groupby(["zone_id", "year", "quarter"])
+        .agg(
+            prix_m2_median=("prix_m2", "median"),
+            n_obs=("prix_m2", "size"),
+            code_commune=("code_commune", "first"),
+            type_local=("type_local", "first"),
+        )
+        .reset_index()
+    )
+    agg = agg[agg["n_obs"] >= min_obs_per_quarter]
+    agg = agg.sort_values(["zone_id", "year", "quarter"])
+    agg["prix_m2_median_prev_q"] = agg.groupby("zone_id")["prix_m2_median"].shift(1)
+    agg["qoq_pct"] = (
+        (agg["prix_m2_median"] / agg["prix_m2_median_prev_q"] - 1) * 100
+    ).round(2)
+
+    # Volatilité par cluster = écart-type des QoQ%
+    volatility = (
+        agg.groupby("zone_id")["qoq_pct"]
+        .agg(["std", "mean", "count"])
+        .rename(columns={"std": "qoq_volatility_pct", "mean": "qoq_mean_pct", "count": "n_quarters"})
+        .reset_index()
+    )
+    volatility = volatility[volatility["n_quarters"] >= 4]
+
+    if not volatility.empty:
+        print(f"  ✅ {len(volatility):,} clusters avec ≥4 trimestres")
+        print(f"  Volatilité QoQ médiane : {volatility['qoq_volatility_pct'].median():.2f}%")
+        print(f"  Clusters les plus volatils (top 5) :")
+        print(
+            volatility.nlargest(5, "qoq_volatility_pct")[
+                ["zone_id", "qoq_volatility_pct", "qoq_mean_pct"]
+            ].to_string(index=False)
+        )
+
+    return agg
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Visualisations
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -496,6 +760,7 @@ def main() -> None:
     try:
         dvf = load_dvf(conn, limit=args.limit, since=since)
         oat = load_oat(conn)
+        zones = load_hdbscan_zones(conn)
         oat["date_oat"] = pd.to_datetime(oat["date_oat"])
         dvf["date_mutation"] = pd.to_datetime(dvf["date_mutation"])
 
@@ -504,15 +769,39 @@ def main() -> None:
             print(f"\n❌ Trop peu d'observations jointes ({len(merged)}). Lance d'abord pipeline_oat10y.py --bootstrap.")
             sys.exit(1)
 
+        # Map transactions → cluster HDBSCAN (point-in-polygon)
+        merged = assign_clusters(merged, zones)
+
         d = descriptive(merged)
         c = compute_correlations(merged)
         r = regression_simple(merged)
         lr = regression_with_lag(merged, oat)
         seg = beta_by_segment(merged)
 
-        seg_csv = OUT_DIR / "dvf_oat_coefficients.csv"
+        # NOUVEAU — Questions Samuel :
+        # Q1 : β élasticité par cluster HDBSCAN (granularité micro-marché réel)
+        cluster_beta = beta_by_hdbscan_cluster(merged, min_obs=50)
+        # Q2a : variation annuelle prix par cluster
+        yoy = price_variation_yoy_by_cluster(merged)
+        # Q2b : variation trimestrielle prix par cluster + volatilité
+        qoq = price_variation_qoq_by_cluster(merged)
+
+        # Sauvegardes CSV
+        seg_csv = OUT_DIR / "dvf_oat_coefficients_by_commune_type.csv"
         seg.to_csv(seg_csv, index=False)
         print(f"\n💾 {seg_csv}")
+        if not cluster_beta.empty:
+            cb_csv = OUT_DIR / "dvf_oat_coefficients_by_hdbscan_cluster.csv"
+            cluster_beta.to_csv(cb_csv, index=False)
+            print(f"💾 {cb_csv}")
+        if not yoy.empty:
+            yoy_csv = OUT_DIR / "price_variations_yoy_by_cluster.csv"
+            yoy.to_csv(yoy_csv, index=False)
+            print(f"💾 {yoy_csv}")
+        if not qoq.empty:
+            qoq_csv = OUT_DIR / "price_variations_qoq_by_cluster.csv"
+            qoq.to_csv(qoq_csv, index=False)
+            print(f"💾 {qoq_csv}")
 
         plots = make_plots(merged, seg)
         report = write_report(d, c, r, lr, seg, plots)
@@ -525,10 +814,25 @@ def main() -> None:
             "regression_lag": lr,
             "segments_summary": {
                 "n_segments": int(len(seg)),
-                "median_beta": float(seg["beta"].median()),
-                "median_elasticity_per_100bp_pct": float(seg["elasticity_per_100bp_pct"].median()),
-                "p25_elasticity": float(seg["elasticity_per_100bp_pct"].quantile(0.25)),
-                "p75_elasticity": float(seg["elasticity_per_100bp_pct"].quantile(0.75)),
+                "median_beta": float(seg["beta"].median()) if not seg.empty else None,
+                "median_elasticity_per_100bp_pct": float(seg["elasticity_per_100bp_pct"].median()) if not seg.empty else None,
+                "p25_elasticity": float(seg["elasticity_per_100bp_pct"].quantile(0.25)) if not seg.empty else None,
+                "p75_elasticity": float(seg["elasticity_per_100bp_pct"].quantile(0.75)) if not seg.empty else None,
+            },
+            "hdbscan_cluster_summary": {
+                "n_clusters": int(len(cluster_beta)),
+                "median_beta": float(cluster_beta["beta"].median()) if not cluster_beta.empty else None,
+                "median_elasticity_per_100bp_pct": float(cluster_beta["elasticity_per_100bp_pct"].median()) if not cluster_beta.empty else None,
+                "p25_elasticity": float(cluster_beta["elasticity_per_100bp_pct"].quantile(0.25)) if not cluster_beta.empty else None,
+                "p75_elasticity": float(cluster_beta["elasticity_per_100bp_pct"].quantile(0.75)) if not cluster_beta.empty else None,
+            },
+            "yoy_summary": {
+                "n_zone_year_observations": int(len(yoy)),
+                "median_yoy_pct_all_years": float(yoy["yoy_pct"].median()) if not yoy.empty and "yoy_pct" in yoy.columns else None,
+            },
+            "qoq_summary": {
+                "n_zone_quarter_observations": int(len(qoq)),
+                "median_qoq_pct_all_quarters": float(qoq["qoq_pct"].median()) if not qoq.empty and "qoq_pct" in qoq.columns else None,
             },
         }
         summary_path = OUT_DIR / "dvf_oat_summary.json"
@@ -537,6 +841,11 @@ def main() -> None:
 
         print(f"\n✅ Rapport disponible : {report}")
         print(f"   Ouvre-le dans un navigateur pour visualiser.\n")
+        print(f"📊 Outputs additionnels (analyses cluster-level) :")
+        print(f"   - dvf_oat_coefficients_by_hdbscan_cluster.csv : β par micro-marché")
+        print(f"   - price_variations_yoy_by_cluster.csv : variation annuelle prix par cluster")
+        print(f"   - price_variations_qoq_by_cluster.csv : variation trimestrielle + volatilité")
+        print()
     finally:
         conn.close()
 

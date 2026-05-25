@@ -20,8 +20,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createElement } from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { createElement, type ReactElement } from "react";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 
 import { geocodeAddress } from "@/lib/geocode";
 import { withApiKey, type ApiKeyRecord } from "@/lib/auth/apiKey";
@@ -161,9 +161,12 @@ async function handlePropertyReportPdf(
   // 4) Rendu PDF en buffer puis envoi
   let pdfBuffer: Buffer;
   try {
-    // createElement plutôt que JSX pour rester dans un fichier .ts
+    // createElement plutôt que JSX pour rester dans un fichier .ts.
+    // Cast vers ReactElement<DocumentProps> car renderToBuffer attend
+    // un <Document> au top level — ce que PropertyReportPDF rend bien à
+    // runtime, mais TS ne peut pas l'inférer depuis la signature du composant.
     pdfBuffer = await renderToBuffer(
-      createElement(PropertyReportPDF, { data: reportData, branding }),
+      createElement(PropertyReportPDF, { data: reportData, branding }) as unknown as ReactElement<DocumentProps>,
     );
   } catch (err) {
     console.error("[/api/property-report/pdf] render failed:", err);

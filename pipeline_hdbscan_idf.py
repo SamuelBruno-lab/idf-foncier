@@ -269,44 +269,15 @@ def compute_volatility(
 
 def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float]] | None:
     """
-    Enveloppe d'un cluster : alpha shape (concave hull) si possible,
-    fallback convex hull. Auto-tune alpha si non spécifié.
+    Convex hull simple. L'alpha shape (concave hull) demande un tuning
+    par cluster qu'on ne maîtrise pas encore — quand on l'a essayé avec
+    alpha=5000, ça donnait des triangles dégénérés. À reprendre proprement
+    avec optimizealpha() ou Voronoi clipping en Phase ultérieure.
 
     Returns list fermée [[lat, lon], ...] ou None si <3 points.
     """
     if len(pts) < 3:
         return None
-
-    # Tentative alpha shape (défensif : si lib manque ou erreur, on retombe sur convex)
-    try:
-        import alphashape  # noqa: PLC0415
-        from shapely.geometry import MultiPolygon, Polygon  # noqa: PLC0415
-
-        coords = [(float(p[0]), float(p[1])) for p in pts]
-        alphas = [alpha] if alpha is not None else [5000.0, 2500.0, 1500.0, 800.0, 400.0, 200.0]
-
-        for a in alphas:
-            try:
-                shape = alphashape.alphashape(coords, a)
-            except Exception:
-                continue
-            if shape is None or getattr(shape, "is_empty", True):
-                continue
-            poly = None
-            if isinstance(shape, Polygon):
-                poly = shape
-            elif isinstance(shape, MultiPolygon):
-                poly = max(shape.geoms, key=lambda g: g.area)
-            if poly is not None and not poly.is_empty:
-                hull_pts = [[float(x), float(y)] for x, y in poly.exterior.coords]
-                if len(hull_pts) >= 4:
-                    return hull_pts
-    except ImportError:
-        pass  # alphashape/shapely pas installé → fallback silencieux convex
-    except Exception as e:
-        print(f"    ⚠ alpha shape inattendu : {type(e).__name__} {e}")
-
-    # Fallback convex hull
     try:
         hull = ConvexHull(pts)
         hull_pts = pts[hull.vertices].tolist()

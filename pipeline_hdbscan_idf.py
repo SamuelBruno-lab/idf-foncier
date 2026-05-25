@@ -447,38 +447,24 @@ def process_commune_type(
         return []
 
     sub = sub.copy()
-    sub["hdbscan_cluster"] = labels
+    sub["cluster"] = labels
 
-    # Calcul des centroïdes HDBSCAN (clusters non-bruit)
+    # Calcul des centroïdes HDBSCAN (utilisés pour la tessellation Voronoi
+    # côté run_hdbscan_all). On itère ensuite les clusters HDBSCAN purs pour
+    # préserver la précision des micro-marchés (pas de réaffectation Voronoi
+    # qui mélangerait les prix de clusters voisins).
     centroids: dict[int, np.ndarray] = {}
     for cid in sorted(set(labels)):
-        if cid < 0:
+        if cid < 0:  # bruit HDBSCAN — exclu des stats (outliers)
             continue
-        c_pts = sub[sub["hdbscan_cluster"] == cid][["latitude", "longitude"]].values
+        c_pts = sub[sub["cluster"] == cid][["latitude", "longitude"]].values
         if len(c_pts) > 0:
             centroids[cid] = c_pts.mean(axis=0)
     if not centroids:
         return []
 
-    # RÉASSIGNATION VORONOI : chaque transaction → centroïde le plus proche.
-    # Garantit que les stats par zone matchent EXACTEMENT ce qu'on voit sur la carte
-    # (les points dans le territoire Voronoi de la zone X comptent pour la zone X).
-    # Les anciens "noise" HDBSCAN sont aussi réaffectés (au centroïde le plus proche).
-    centroid_ids = list(centroids.keys())
-    centroid_arr = np.array([centroids[cid] for cid in centroid_ids])
-    try:
-        from scipy.spatial import cKDTree  # noqa: PLC0415
-
-        tree = cKDTree(centroid_arr)
-        all_pts_xy = sub[["latitude", "longitude"]].values
-        _, nearest_idx = tree.query(all_pts_xy, k=1)
-        sub["cluster"] = [centroid_ids[i] for i in nearest_idx]
-    except Exception:
-        # Fallback : on garde l'assignation HDBSCAN initiale
-        sub["cluster"] = sub["hdbscan_cluster"]
-
     zones = []
-    for cid in centroid_ids:
+    for cid in sorted(centroids.keys()):
         grp = sub[sub["cluster"] == cid]
         pts = grp[["latitude", "longitude"]].values
         if len(pts) == 0:

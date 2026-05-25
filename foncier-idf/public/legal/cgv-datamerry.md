@@ -34,21 +34,55 @@ Les présentes CGV régissent la fourniture au Client d'un accès au Service DAT
 - Rapports propriété agrégés (JSON / HTML widget / PDF brandé)
 - Widget embarquable sur le site Internet du Client
 
-**Le Service est une prestation de service numérique B2B**, fournie aux professionnels de l'immobilier dans le cadre de leur activité commerciale. Il **ne constitue pas** :
+**Le Service est une prestation de service numérique B2B**, fournie aux professionnels de l'immobilier dans le cadre de leur activité commerciale. 
+
+**DATAMERRY est un Modèle Automatisé d'Évaluation (AVM — Automated Valuation Model)** au sens du Chapitre 6 du Titre I de la **Charte de l'Expertise en Évaluation Immobilière, 6e édition (novembre 2025)**, référentiel professionnel français de l'expertise (charteexpertiseimmo.org).
+
+Conformément à cette Charte (page 29) :
+> "Les Modèles Automatisés d'Évaluation (AVM) [...] ne doivent être considérés que comme des outils d'aide à la décision. [...] L'expert évaluateur conserve la responsabilité pleine et entière de l'évaluation qu'il produit."
+
+Le Service **ne constitue pas** :
+- Une expertise en évaluation immobilière au sens de la Charte précitée (réservée aux experts membres d'organisations signataires : FNAIM, IFEI, CEIF, AFIE, SNPI, etc.)
 - Un avis d'expert immobilier au sens des articles L.541-1 et suivants du Code de commerce
 - Un conseil en investissement immobilier au sens du Code monétaire et financier
 - Une expertise judiciaire ou amiable
 - Une consultation juridique ou fiscale individualisée
 
-## 4. Caractère indicatif des données
+L'Éditeur ne se prévaut pas de la qualité d'expert évaluateur ni de la conformité de ses sorties à la Charte de l'Expertise en Évaluation Immobilière. Pour une évaluation opposable judiciairement, fiscalement ou réglementairement (crédit hypothécaire, SCPI, OPCI, expropriation, succession, divorce, etc.), le Client est tenu de consulter un expert membre d'une organisation signataire de la Charte.
 
-Les estimations, rendements, plafonds fiscaux et indicateurs fournis par le Service sont calculés **à titre purement indicatif et automatisé**, à partir de sources publiques (DVF, OLAP, ANIL, INSEE, OpenStreetMap, etc.) dont l'exactitude, l'exhaustivité et la mise à jour sont sous la responsabilité des producteurs publics, pas de l'Éditeur.
+## 4. Caractère indicatif des données et méthodologies utilisées
+
+### 4.1 Caractère indicatif
+
+Les estimations, rendements, plafonds fiscaux et indicateurs fournis par le Service sont calculés **à titre purement indicatif et automatisé**, à partir de sources publiques (DVF, OLAP, ANIL, INSEE, Eurostat, ADEME, OpenStreetMap, etc.) dont l'exactitude, l'exhaustivité et la mise à jour sont sous la responsabilité des producteurs publics, pas de l'Éditeur.
+
+### 4.2 Méthodologies appliquées
+
+DATAMERRY met en œuvre les méthodologies suivantes, **alignées avec les principes** de la Charte de l'Expertise en Évaluation Immobilière 6e édition (Titre III) et des standards internationaux IVS 2024, RICS Red Book 2025, TEGOVA EVS 2025 :
+- **Méthode par comparaison** : clusters géo-statistiques HDBSCAN sur transactions notariées DVF
+- **Méthode par le revenu / capitalisation directe** : Valeur = Revenus / taux de rendement
+- **Méthode des flux de trésorerie actualisés (DCF)** : horizon 5-10 ans, valeur terminale Gordon-Shapiro
+- **Modèle CAPM appliqué à l'immobilier** : taux d'actualisation t_a = t_sr + β × p_rm, où t_sr est le taux sans risque (OAT 10 ans), β un composite de risque par micro-marché (volatilité × illiquidité × rareté), et p_rm la prime de risque marché immobilier
+
+L'Éditeur **n'utilise PAS** les méthodes indiciaires pures, fortement déconseillées par la Charte 6e édition (page 80) pour l'évaluation de la valeur vénale.
+
+### 4.3 Définition de la valeur vénale
+
+Lorsque le Service mentionne une "valeur", "estimation" ou "prix de mise en vente", celle-ci s'entend au sens de la **valeur vénale** telle que définie par la Charte 6e édition (page 50, alignée IVS / RICS / TEGOVA) :
+> "La valeur vénale est la somme d'argent évaluée contre laquelle des biens et droits immobiliers seraient échangés à la date de l'évaluation entre un acquéreur consentant et un vendeur consentant, dans une transaction équilibrée, après une commercialisation adéquate, et où les parties ont, l'une et l'autre, agi en toute connaissance, prudemment et sans pression."
+
+### 4.4 Reconnaissance des limites
 
 Le Client reconnaît que :
-- Les estimations ne se substituent **en aucun cas** à une expertise professionnelle individualisée
+- Les estimations ne se substituent **en aucun cas** à une expertise individualisée
 - Les transactions DVF présentent un délai d'intégration de 4 à 6 mois et ne couvrent pas l'Alsace-Moselle (Livre Foncier)
-- Les indicateurs sont calculés par algorithmes statistiques (notamment HDBSCAN, regroupements géographiques, percentiles) dont la précision dépend du volume de données disponibles dans la zone concernée
+- Les indicateurs sont calculés par algorithmes statistiques (HDBSCAN, percentiles, CAPM) dont la précision dépend du volume de données disponibles dans la zone concernée
+- Le Service ne capture pas certaines caractéristiques individuelles du bien (état précis, étage, exposition, vue, qualité finitions, surfaces extérieures privatives non déclarées) que seule l'expertise terrain d'un agent immobilier ou d'un expert évaluateur peut intégrer
 - Le Client conserve l'entière responsabilité de l'usage qu'il fait des Données dans ses missions d'agent immobilier, de promoteur ou d'investisseur
+
+### 4.5 Information du Client final (RGPD + transparence Charte)
+
+Conformément à la recommandation de la Charte 6e édition (page 30) sur la transparence d'utilisation des solutions automatisées, le Client s'engage à informer ses propres clients finaux (vendeurs, acheteurs, locataires) du recours à un AVM dans son processus d'estimation, lorsqu'il les communique en interaction client final.
 
 ## 5. Souscription et accès au Service
 

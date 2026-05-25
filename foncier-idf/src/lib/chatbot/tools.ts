@@ -215,32 +215,21 @@ export const TOOLS: ToolDefinition[] = [
     function: {
       name: "compute_dcf_valuation",
       description:
-        "Valorise un bien immobilier par méthode DCF (Discounted Cash Flow), " +
-        "comme une analyste corporate / fonds immobilier institutionnel. " +
+        "Valorise un bien immobilier par méthode DCF (Discounted Cash Flow) PURE, " +
+        "comme un analyste corporate / fonds immobilier institutionnel. " +
         "Cash-flows futurs actualisés au taux CAPM t_a, plus valeur terminale Gordon. " +
-        "Intègre une valorisation des extérieurs (terrasse +33%, balcon +25%, jardin +33%) " +
-        "selon les barèmes métier français. Renvoie une valeur DCF comparée à la " +
-        "médiane DVF cluster, et un diagnostic d'écart pour le pitch vendeur.",
+        "AUCUNE hypothèse arbitraire sur les extérieurs (terrasse, balcon, etc.) — " +
+        "leur valeur est déjà capturée implicitement par le loyer observable. " +
+        "Renvoie la valeur DCF comparée à la médiane DVF cluster, et un diagnostic " +
+        "d'écart pour le pitch vendeur. Méthode défendable scientifiquement.",
       parameters: {
         type: "object",
         properties: {
           address: { type: "string", description: "Adresse complète" },
-          surface: { type: "number", description: "Surface Carrez en m²" },
+          surface: { type: "number", description: "Surface Carrez en m² (référence seulement)" },
           loyer_mensuel_hc: {
             type: "number",
-            description: "Loyer mensuel hors charges en €",
-          },
-          surface_terrasse: {
-            type: "number",
-            description: "Surface terrasse en m² (optionnel, valorisée à 33%)",
-          },
-          surface_balcon: {
-            type: "number",
-            description: "Surface balcon en m² (optionnel, valorisée à 25%)",
-          },
-          surface_jardin: {
-            type: "number",
-            description: "Surface jardin privatif en m² (optionnel, valorisée à 33%, cap 50% surface bati)",
+            description: "Loyer mensuel hors charges en € (capture implicitement la valeur des extérieurs)",
           },
           horizon_annees: {
             type: "number",
@@ -847,13 +836,14 @@ async function handleDiscountRate(args: { address: string }) {
 }
 
 // ── Tool: compute_dcf_valuation ──────────────────────────────────────────────
+// DCF PUR : actualisation des cash-flows futurs observables (loyers).
+// Aucune hypothèse arbitraire sur les caractéristiques physiques du bien
+// (terrasse, balcon, jardin) — leur valeur est déjà capturée implicitement
+// par le loyer de marché observable.
 async function handleDcfValuation(args: {
   address: string;
   surface: number;
   loyer_mensuel_hc: number;
-  surface_terrasse?: number;
-  surface_balcon?: number;
-  surface_jardin?: number;
   horizon_annees?: number;
   inflation_loyers_pct?: number;
 }) {
@@ -876,7 +866,7 @@ async function handleDcfValuation(args: {
   };
   const t_a = r.taux_actualisation_pct / 100;
 
-  // 2) Cash-flows annuels (loyers nets)
+  // 2) Cash-flows annuels nets (loyers observables × ratio standard charges/vacance/TF)
   const VACANCE_PCT = 5;
   const CHARGES_PCT = 15;
   const TF_PCT = 8;
@@ -903,26 +893,10 @@ async function handleDcfValuation(args: {
     terminal_actualised = terminal_value / Math.pow(1 + t_a, horizon);
   }
 
-  const dcf_total_brut = sum_actualised + terminal_actualised;
+  // 5) Valeur DCF totale — pure, sans hypothèse arbitraire
+  const dcf_total = Math.round(sum_actualised + terminal_actualised);
 
-  // 5) Valorisation des extérieurs (barème métier français)
-  const surface_carrez = args.surface;
-  const TERRASSE_COEF = 0.33;
-  const BALCON_COEF = 0.25;
-  const JARDIN_COEF = 0.33;
-  const surf_terrasse_eq = (args.surface_terrasse ?? 0) * TERRASSE_COEF;
-  const surf_balcon_eq = (args.surface_balcon ?? 0) * BALCON_COEF;
-  const surf_jardin_eq = Math.min(
-    (args.surface_jardin ?? 0) * JARDIN_COEF,
-    surface_carrez * 0.5,
-  );
-  const surf_ext_eq_total = surf_terrasse_eq + surf_balcon_eq + surf_jardin_eq;
-  const ratio_ext = surf_ext_eq_total / Math.max(surface_carrez, 1);
-
-  // Pondération extérieurs sur le DCF (à la hausse)
-  const dcf_total_avec_exterieurs = Math.round(dcf_total_brut * (1 + ratio_ext));
-
-  // 6) Comparaison avec médiane DVF cluster pour calibrage
+  // 6) Comparaison avec médiane DVF cluster (sans coef extérieurs — référence brute)
   const sb = getSupabaseServerClient();
   const { data: clusterStats } = await sb
     .from("dvf_hdbscan_zones")
@@ -930,32 +904,21 @@ async function handleDcfValuation(args: {
     .eq("id", r.zone_id)
     .maybeSingle();
 
+  const surface_carrez = args.surface;
   const prix_m2_median = clusterStats
     ? (clusterStats as { prix_m2_median: number }).prix_m2_median
     : null;
   const cluster_count = clusterStats ? (clusterStats as { count: number }).count : null;
+  const prix_cluster = prix_m2_median ? Math.round(prix_m2_median * surface_carrez) : null;
 
-  const prix_cluster_brut = prix_m2_median ? Math.round(prix_m2_median * surface_carrez) : null;
-  const prix_cluster_avec_exterieurs = prix_m2_median
-    ? Math.round(prix_m2_median * surface_carrez * (1 + ratio_ext))
-    : null;
-
-  // 7) Recommandations opérationnelles
   const ecart_dcf_vs_cluster_pct =
-    prix_cluster_avec_exterieurs && dcf_total_avec_exterieurs
-      ? round(
-          ((dcf_total_avec_exterieurs - prix_cluster_avec_exterieurs) /
-            prix_cluster_avec_exterieurs) *
-            100,
-          1,
-        )
+    prix_cluster && dcf_total
+      ? round(((dcf_total - prix_cluster) / prix_cluster) * 100, 1)
       : null;
 
   // Rendement brut implicite à la valeur DCF
   const rendement_brut_dcf =
-    dcf_total_avec_exterieurs > 0
-      ? round((loyer_annuel_hc / dcf_total_avec_exterieurs) * 100, 2)
-      : null;
+    dcf_total > 0 ? round((loyer_annuel_hc / dcf_total) * 100, 2) : null;
 
   return {
     available: true,
@@ -964,10 +927,6 @@ async function handleDcfValuation(args: {
 
     // Inputs
     surface_carrez,
-    surface_terrasse: args.surface_terrasse ?? 0,
-    surface_balcon: args.surface_balcon ?? 0,
-    surface_jardin: args.surface_jardin ?? 0,
-    surface_equivalente_totale_m2: round(surface_carrez + surf_ext_eq_total, 1),
     loyer_mensuel_hc: args.loyer_mensuel_hc,
     loyer_annuel_hc,
     loyer_annuel_net: Math.round(loyer_annuel_net),
@@ -981,40 +940,40 @@ async function handleDcfValuation(args: {
     prime_risque_marche_pct: r.prime_risque_marche_pct,
 
     // Valorisations
-    valeur_dcf_brute_eur: Math.round(dcf_total_brut),
-    valeur_dcf_avec_exterieurs_eur: dcf_total_avec_exterieurs,
+    valeur_dcf_eur: dcf_total,
     valeur_terminale_gordon_eur: Math.round(terminal_value),
     cash_flows_actualises_eur: Math.round(sum_actualised),
 
     // Comparaisons
-    prix_cluster_brut_eur: prix_cluster_brut,
-    prix_cluster_avec_exterieurs_eur: prix_cluster_avec_exterieurs,
+    prix_cluster_eur: prix_cluster,
     cluster_n_ventes: cluster_count,
     ecart_dcf_vs_cluster_pct,
     rendement_brut_implicite_dcf_pct: rendement_brut_dcf,
 
-    // Méthodologie
+    // Méthodologie — TRANSPARENTE et MINIMALISTE
     methodologie: {
       formule_capm: "t_a = t_sr + β × p_rm (Sharpe 1964)",
       formule_dcf: "Valeur = Σ(CF_n × (1+i)^(n-1) / (1+t_a)^n) + ValeurTerminale_Gordon",
       formule_gordon: "VT = CF_(horizon+1) / (t_a − inflation)",
       ratio_charges_vacance_tf: "Cash-flow net = loyer × 0.72 (vacance 5% + charges 15% + TF 8%)",
-      bareme_exterieurs: {
-        terrasse: "+33% de surface équivalente Carrez",
-        balcon: "+25% (< 15 m²)",
-        jardin: "+33% (capé à 50% du Carrez)",
-      },
+      note_exterieurs:
+        "AUCUNE hypothèse arbitraire sur terrasse/balcon/jardin. " +
+        "La valeur de ces extérieurs est déjà capturée implicitement par le " +
+        "loyer observable. Le locataire paie un loyer plus élevé pour un bien " +
+        "avec terrasse → le DCF reflète automatiquement cette valeur ajoutée " +
+        "via les cash-flows. Méthode défendable scientifiquement, sans " +
+        "double comptabilisation.",
     },
 
-    // Recommandation
+    // Diagnostic
     diagnostic:
       ecart_dcf_vs_cluster_pct == null
         ? "Calibration impossible (pas de prix cluster disponible)."
         : ecart_dcf_vs_cluster_pct > 10
-        ? `Le DCF analyste (${dcf_total_avec_exterieurs} €) est SUPÉRIEUR de ${ecart_dcf_vs_cluster_pct}% à la médiane DVF cluster (${prix_cluster_avec_exterieurs} €). Signal d'un bien sous-coté pour un investisseur DCF, ou d'un loyer particulièrement élevé.`
+        ? `Le DCF (${dcf_total.toLocaleString("fr-FR")} €) est SUPÉRIEUR de ${ecart_dcf_vs_cluster_pct}% à la médiane DVF cluster (${prix_cluster?.toLocaleString("fr-FR")} €). Signal d'un loyer locatif élevé pour cette zone → bien attractif pour investisseur DCF.`
         : ecart_dcf_vs_cluster_pct < -10
-        ? `Le DCF analyste (${dcf_total_avec_exterieurs} €) est INFÉRIEUR de ${Math.abs(ecart_dcf_vs_cluster_pct)}% à la médiane DVF cluster (${prix_cluster_avec_exterieurs} €). Signal d'un loyer faible vs prix de marché, ou d'un β cluster trop élevé. Prix de mise en vente conservateur recommandé ≈ DCF.`
-        : `DCF (${dcf_total_avec_exterieurs} €) et médiane cluster (${prix_cluster_avec_exterieurs} €) convergent à ${ecart_dcf_vs_cluster_pct}% près. Valorisation cohérente.`,
+        ? `Le DCF (${dcf_total.toLocaleString("fr-FR")} €) est INFÉRIEUR de ${Math.abs(ecart_dcf_vs_cluster_pct)}% à la médiane DVF cluster (${prix_cluster?.toLocaleString("fr-FR")} €). Signal d'un loyer locatif faible vs prix de marché, ou d'un β cluster trop élevé. Le marché vente est plus cher que ce que le rendement locatif justifie.`
+        : `DCF (${dcf_total.toLocaleString("fr-FR")} €) et médiane cluster (${prix_cluster?.toLocaleString("fr-FR")} €) convergent à ${ecart_dcf_vs_cluster_pct}% près. Valorisation cohérente.`,
   };
 }
 

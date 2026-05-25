@@ -269,12 +269,10 @@ def compute_volatility(
 
 def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float]] | None:
     """
-    Convex hull simple. L'alpha shape (concave hull) demande un tuning
-    par cluster qu'on ne maîtrise pas encore — quand on l'a essayé avec
-    alpha=5000, ça donnait des triangles dégénérés. À reprendre proprement
-    avec optimizealpha() ou Voronoi clipping en Phase ultérieure.
-
-    Returns list fermée [[lat, lon], ...] ou None si <3 points.
+    Convex hull simple — utilisé comme fallback. La géométrie finale des
+    zones est ensuite remplacée par compute_voronoi_hulls() dans
+    run_hdbscan_all (Voronoi clippé par convex hull commune → pas de
+    chevauchement entre clusters voisins).
     """
     if len(pts) < 3:
         return None
@@ -285,6 +283,85 @@ def compute_hull(pts: np.ndarray, alpha: float | None = None) -> list[list[float
         return hull_pts
     except Exception:
         return None
+
+
+def compute_voronoi_hulls(
+    zones_with_centroids: list[dict],
+    all_pts: np.ndarray,
+) -> list[list[list[float]] | None]:
+    """
+    Pour un groupe de clusters partageant un même périmètre (commune × type),
+    calcule la tessellation Voronoi de leurs centroïdes, clippée par le
+    convex hull de tous les points → polygones NON CHEVAUCHANTS par
+    construction mathématique.
+
+    Args:
+        zones_with_centroids: liste de zones avec centroid_lat/centroid_lon
+        all_pts: array (N, 2) [lat, lon] de tous les points du commune × type
+
+    Returns:
+        Liste de polygones [[lat, lon], ...] dans l'ordre des zones_with_centroids.
+        None pour une zone si Voronoi a échoué (le caller gardera le hull initial).
+    """
+    n = len(zones_with_centroids)
+    if n == 0:
+        return []
+    if n == 1:
+        # 1 seul cluster : polygone = convex hull de tous les points
+        return [compute_hull(all_pts)]
+
+    try:
+        from shapely.geometry import MultiPoint, Point, Polygon  # noqa: PLC0415
+        from shapely.ops import voronoi_diagram  # noqa: PLC0415
+
+        centroids = [(float(z["centroid_lat"]), float(z["centroid_lon"])) for z in zones_with_centroids]
+        mp = MultiPoint(centroids)
+
+        # Enveloppe : convex hull de tous les points, buffered légèrement
+        envelope = None
+        if len(all_pts) >= 3:
+            try:
+                ch = ConvexHull(all_pts)
+                envelope = Polygon([all_pts[v].tolist() for v in ch.vertices]).buffer(0.0005)
+                if envelope.is_empty:
+                    envelope = None
+            except Exception:
+                envelope = None
+
+        voronoi = voronoi_diagram(mp, envelope=envelope)
+
+        # Matcher chaque polygone Voronoi à son centroïde (l'ordre n'est pas garanti)
+        result: list[list[list[float]] | None] = [None] * n
+        for poly in voronoi.geoms:
+            if poly.is_empty:
+                continue
+            # Le polygone contient exactement 1 centroïde → c'est sa cellule
+            for i, (lat, lon) in enumerate(centroids):
+                if result[i] is not None:
+                    continue  # déjà assigné
+                if poly.covers(Point(lat, lon)):
+                    clipped = poly.intersection(envelope) if envelope is not None else poly
+                    if clipped.is_empty:
+                        continue
+                    if clipped.geom_type == "Polygon":
+                        ext = clipped.exterior
+                    elif clipped.geom_type == "MultiPolygon":
+                        # Prendre le plus gros morceau
+                        largest = max(clipped.geoms, key=lambda g: g.area)
+                        ext = largest.exterior
+                    else:
+                        continue
+                    hull_pts = [[float(x), float(y)] for x, y in ext.coords]
+                    if len(hull_pts) >= 4:
+                        result[i] = hull_pts
+                    break
+        return result
+
+    except ImportError:
+        return [None] * n
+    except Exception as e:
+        print(f"    ⚠ Voronoi failed: {type(e).__name__}: {e}")
+        return [None] * n
 
 
 def hdbscan_params(n: int, type_local: str = "") -> dict | None:
@@ -521,6 +598,18 @@ def run_hdbscan_all(
                 window_annee_max=window_max,
                 holdings_lookup=holdings_lookup,
             )
+
+            # Voronoi tessellation : remplacer les convex hull individuels par
+            # des cellules Voronoi clippées par convex hull commune.
+            # Garantit l'absence de chevauchement entre clusters voisins.
+            if len(zones) >= 2:
+                all_pts = sub_windowed[["latitude", "longitude"]].values
+                voronoi_hulls = compute_voronoi_hulls(zones, all_pts)
+                for z, vh in zip(zones, voronoi_hulls):
+                    if vh is not None:
+                        z["hull_coords"] = vh
+                    # Sinon on garde le convex hull initial comme fallback
+
             commune_zones.extend(zones)
 
         all_zones.extend(commune_zones)

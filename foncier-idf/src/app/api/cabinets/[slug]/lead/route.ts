@@ -286,7 +286,7 @@ export async function POST(
     }
 
     const visitorSend = await resend.emails
-      .send(visitorPayload as Parameters<typeof resend.emails.send>[0])
+      .send(visitorPayload as unknown as Parameters<typeof resend.emails.send>[0])
       .catch((err: unknown) => {
         console.error("[/api/cabinets/lead] visitor email failed:", err);
         return null;
@@ -364,7 +364,7 @@ export async function POST(
       }
 
       const cabinetSend = await resend.emails
-        .send(cabinetPayload as Parameters<typeof resend.emails.send>[0])
+        .send(cabinetPayload as unknown as Parameters<typeof resend.emails.send>[0])
         .catch((err: unknown) => {
           console.error("[/api/cabinets/lead] cabinet email failed:", err);
           return null;

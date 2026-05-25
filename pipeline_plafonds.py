@@ -111,9 +111,11 @@ def parse_zonage_csv(url: str) -> pd.DataFrame:
     df = pd.read_csv(url, dtype=str, sep=None, engine="python")
     print(f"  → {len(df):,} lignes lues, colonnes : {list(df.columns)[:8]}...")
 
-    # Détection souple des colonnes (les noms varient selon millésime)
-    code_candidates = ["code_insee", "INSEE_COM", "code_commune", "codgeo", "insee"]
-    zone_candidates = ["zone", "zone_abc", "ZONE_ABC", "categorie", "zonage"]
+    # Détection souple des colonnes (les noms varient selon millésime/source).
+    # Le dataset Kadata zonage-abc-des-communes-... utilise 'id' pour l'INSEE,
+    # d'autres millésimes utilisent code_insee / INSEE_COM. On cherche dans l'ordre.
+    code_candidates = ["code_insee", "INSEE_COM", "code_commune", "codgeo", "insee", "id"]
+    zone_candidates = ["zone_abc", "ZONE_ABC", "categorie", "zonage", "zone"]
 
     code_col = _first_match(df.columns, code_candidates)
     zone_col = _first_match(df.columns, zone_candidates)

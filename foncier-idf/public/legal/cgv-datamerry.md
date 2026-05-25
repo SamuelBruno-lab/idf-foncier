@@ -142,6 +142,11 @@ Le Client s'interdit de :
 - Faire de l'extraction massive systématique des Données (scraping, mirror)
 - Réutiliser les Données pour entraîner un modèle d'apprentissage automatique concurrent du Service
 - Utiliser le Service à des fins illicites, déloyales ou contraires aux conditions des sources de données (DVF, OLAP, ANIL, INSEE, OSM)
+- **Reverse-engineering** : tenter de décompiler, désassembler ou autrement extraire le code source, les algorithmes ou la logique métier du Service (clustering HDBSCAN, CAPM, DCF, pondérations internes, prompts LLM, etc.)
+- **Reconstitution** : développer, faire développer ou faire fonctionner pour son propre compte ou pour le compte de tiers un service substantiellement équivalent au Service en s'inspirant des sorties, de la structure JSON, des formules ou du comportement du Service DATAMERRY
+- **Détournement de l'usage** : utiliser le Service comme base de données de référence pour alimenter un produit tiers, qu'il soit interne au Client ou destiné à des clients finaux
+
+Toute violation des restrictions ci-dessus expose le Client à la résiliation immédiate du Service et à des poursuites pour concurrence déloyale et parasitisme économique (art. 1240 du Code civil, jurisprudence constante).
 
 ### 7.4 Affichage de la marque
 

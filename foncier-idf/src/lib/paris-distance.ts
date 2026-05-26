@@ -14,6 +14,7 @@
 
 import type { TransportStop } from "./datasets/transports";
 import { findNearestGare } from "./datasets/gares";
+import { computeJourneyToParis, type IdfmJourneyResult } from "./datasets/idfm-journey";
 
 // Centre de Paris : Notre-Dame (origine officielle du km 0 français)
 const PARIS_CENTER_LAT = 48.853;
@@ -29,8 +30,17 @@ export type ParisDistanceResult = {
   is_ile_de_france: boolean;
   /** Distance vol d'oiseau jusqu'à Notre-Dame (km, arrondi 0.1) */
   crow_distance_km: number;
-  /** Temps de trajet estimé en transports en commun jusqu'au centre Paris (min). null hors IDF. */
+  /**
+   * Temps de trajet estimé en transports en commun jusqu'au centre Paris (min).
+   * Issu de IDFM PRIM Navitia si la clé IDFM_PRIM_API_KEY est configurée
+   * (précision ~98%), sinon estimation heuristique (3-4 min/km couronne).
+   * null hors IDF.
+   */
   estimated_minutes_to_paris: number | null;
+  /** Vrai si la valeur ci-dessus vient de l'API officielle Navitia (et non d'une estimation). */
+  minutes_to_paris_from_official_api: boolean;
+  /** Itinéraire détaillé porte-à-porte si dispo (clé PRIM configurée). */
+  journey_to_paris: IdfmJourneyResult | null;
   /** Première gare SNCF/RER/train à proximité (issue du dataset transports), ou null */
   nearest_major_station: {
     nom: string;
@@ -143,15 +153,11 @@ export async function computeParisDistance(
   const crowKmRaw = haversineKm(lat, lon, PARIS_CENTER_LAT, PARIS_CENTER_LON);
   const crow_distance_km = Math.round(crowKmRaw * 10) / 10;
 
-  const estimated_minutes_to_paris = estimateMinutesToParis(crowKmRaw, dept);
-
   // ── Stratégie première gare : DB officielle d'abord, fallback OSM ────────
   let nearest_major_station: ParisDistanceResult["nearest_major_station"] = null;
 
   const dbGare = await findNearestGare(lat, lon, 20).catch(() => null);
   if (dbGare) {
-    // Conversion gare DB → format ParisDistanceResult
-    // Priorité du label : ligne principale si dispo, sinon réseau
     const ligneLabel = dbGare.lignes && dbGare.lignes.length > 0
       ? dbGare.lignes.join(" / ")
       : null;
@@ -166,8 +172,26 @@ export async function computeParisDistance(
       ligne: ligneLabel,
     };
   } else {
-    // Fallback OSM si DB non peuplée ou requête KO
     nearest_major_station = pickNearestMajorStation(transportStops);
+  }
+
+  // ── Itinéraire porte-à-porte : Navitia IDFM PRIM (si clé) ────────────────
+  // Bascule sur les minutes officielles quand on a un trajet réel, sinon
+  // estimation heuristique (3-4 min/km selon couronne).
+  let journey_to_paris: IdfmJourneyResult | null = null;
+  let estimated_minutes_to_paris: number | null = null;
+  let minutes_to_paris_from_official_api = false;
+
+  if (is_idf) {
+    const journey = await computeJourneyToParis(lat, lon).catch(() => null);
+    if (journey && journey.available && journey.total_duration_min > 0) {
+      journey_to_paris = journey;
+      estimated_minutes_to_paris = journey.total_duration_min;
+      minutes_to_paris_from_official_api = true;
+    } else {
+      // Fallback heuristique si l'API a échoué ou clé absente
+      estimated_minutes_to_paris = estimateMinutesToParis(crowKmRaw, dept);
+    }
   }
 
   return {
@@ -175,6 +199,8 @@ export async function computeParisDistance(
     is_ile_de_france: is_idf,
     crow_distance_km,
     estimated_minutes_to_paris,
+    minutes_to_paris_from_official_api,
+    journey_to_paris,
     nearest_major_station,
   };
 }

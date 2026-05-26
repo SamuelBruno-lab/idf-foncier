@@ -21,7 +21,8 @@ export type DatasetKey =
   | "transports"
   | "services_proximite"
   | "insee_iris"
-  | "dpe";
+  | "dpe"
+  | "idfm_journey";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

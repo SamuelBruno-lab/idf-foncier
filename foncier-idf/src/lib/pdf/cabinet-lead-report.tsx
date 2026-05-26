@@ -61,6 +61,24 @@ export type CabinetLeadReportData = {
     is_ile_de_france: boolean;
     crow_distance_km: number;
     estimated_minutes_to_paris: number | null;
+    minutes_to_paris_from_official_api: boolean;
+    /** Détail porte-à-porte si IDFM PRIM dispo */
+    journey_to_paris: {
+      destination: string;
+      total_duration_min: number;
+      walking_duration_min: number;
+      walking_distance_m: number;
+      nb_transfers: number;
+      sections: Array<{
+        type: "walking" | "transit" | "transfer" | "wait" | "other";
+        duration_min: number;
+        distance_m: number | null;
+        line: string | null;
+        line_color: string | null;
+        from: string | null;
+        to: string | null;
+      }>;
+    } | null;
     nearest_major_station: {
       nom: string;
       type: "train" | "rer" | "metro";
@@ -598,9 +616,14 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                 </View>
                 {Boolean(data.paris_distance.estimated_minutes_to_paris) && (
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Temps trajet estimé</Text>
+                    <Text style={styles.detailLabel}>
+                      {data.paris_distance.minutes_to_paris_from_official_api
+                        ? "Temps trajet IDFM (heure de pointe)"
+                        : "Temps trajet estimé"}
+                    </Text>
                     <Text style={styles.detailValue}>
-                      ~ {data.paris_distance.estimated_minutes_to_paris} min en transports
+                      {data.paris_distance.minutes_to_paris_from_official_api ? "" : "~ "}
+                      {data.paris_distance.estimated_minutes_to_paris} min en transports
                     </Text>
                   </View>
                 )}
@@ -628,6 +651,29 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                   </View>
                 )}
               </View>
+
+              {/* Détail itinéraire porte-à-porte (IDFM PRIM Navitia) */}
+              {Boolean(data.paris_distance.journey_to_paris) && data.paris_distance.journey_to_paris && (
+                <>
+                  <View style={{ marginTop: 8, padding: 10, backgroundColor: "#f1f5f9", borderRadius: 6 }}>
+                    <Text style={{ fontSize: 9, color: "#475569", marginBottom: 6 }}>
+                      Itinéraire porte-à-porte jusqu&apos;à <Text style={{ fontWeight: 700 }}>{data.paris_distance.journey_to_paris.destination}</Text>
+                      {" "}({data.paris_distance.journey_to_paris.total_duration_min} min total
+                      {" · "}{data.paris_distance.journey_to_paris.walking_duration_min} min marche
+                      {" · "}{data.paris_distance.journey_to_paris.nb_transfers} correspondance{data.paris_distance.journey_to_paris.nb_transfers > 1 ? "s" : ""}) :
+                    </Text>
+                    {data.paris_distance.journey_to_paris.sections
+                      .filter((s) => s.type !== "wait")
+                      .map((s, i) => (
+                        <Text key={i} style={{ fontSize: 9, color: "#0f172a", marginBottom: 2 }}>
+                          {s.type === "walking" || s.type === "transfer"
+                            ? `🚶 ${s.duration_min} min de marche${s.distance_m ? ` (${s.distance_m} m)` : ""}`
+                            : `🚆 ${s.line ?? "Transit"} · ${s.duration_min} min · ${s.from ?? ""} → ${s.to ?? ""}`}
+                        </Text>
+                      ))}
+                  </View>
+                </>
+              )}
             </>
           )}
 

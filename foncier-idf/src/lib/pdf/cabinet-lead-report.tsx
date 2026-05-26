@@ -52,6 +52,59 @@ export type CabinetLeadReportData = {
   wizard_answers: Record<string, unknown>;
 
   generated_at: Date;
+
+  // ─── Données opensource enrichies (page 2 du rapport) ─────────────────────
+
+  /** Distance Notre-Dame + estimation temps trajet + première gare (si IDF) */
+  paris_distance?: {
+    is_paris: boolean;
+    is_ile_de_france: boolean;
+    crow_distance_km: number;
+    estimated_minutes_to_paris: number | null;
+    nearest_major_station: {
+      nom: string;
+      type: "train" | "rer" | "metro";
+      distance_m: number;
+      walk_minutes: number;
+      reseau: string | null;
+      ligne: string | null;
+    } | null;
+  } | null;
+
+  /** Transports à proximité (Overpass / OSM) */
+  transports?: {
+    score_accessibilite: number;
+    count: number;
+    par_type: Record<string, number>;
+    top_stops: Array<{
+      nom: string;
+      type: string;
+      distance_m: number;
+      walk_minutes: number;
+      ligne: string | null;
+    }>;
+  } | null;
+
+  /** Écoles à proximité (Annuaire Éducation Nationale) */
+  ecoles?: {
+    count: number;
+    par_type: Record<string, number>;
+  } | null;
+
+  /** Services quotidien à pied (Overpass / OSM) */
+  services?: {
+    score_quotidien: number;
+    count: number;
+    par_categorie: Record<string, number>;
+  } | null;
+
+  /** Données socio-démo INSEE Filosofi / IRIS */
+  insee?: {
+    revenu_median_uc_eur: number | null;
+    taux_proprietaires_pct: number | null;
+    taux_csp_plus_pct: number | null;
+    population_municipale: number | null;
+  } | null;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -491,13 +544,13 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
 
         {/* Footer */}
         <View style={styles.footer}>
-          {data.cabinet_legal && (
+          {Boolean(data.cabinet_legal) && (
             <Text style={{ marginBottom: 3 }}>{data.cabinet_legal}</Text>
           )}
           <Text>
             Estimation propulsée par <Text style={styles.footerBold}>DATAMERRY®</Text>
             {"  ·  "}
-            Sources : DVF (notaires), OLAP, ANIL, ADEME, INSEE
+            Sources : DVF (notaires), OLAP, ANIL, ADEME, INSEE, OSM
             {"  ·  "}
             Méthodologie : modèle AVM (Charte Expertise 6e éd. 2025, ch. 6)
           </Text>
@@ -506,6 +559,214 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           </Text>
         </View>
       </Page>
+
+      {/* ─────────────────────────────────────────────────────────────────
+          Page 2 — Contexte localisation (données opensource)
+          Affichée seulement si on a au moins un dataset enrichi disponible.
+          ───────────────────────────────────────────────────────────────── */}
+      {Boolean(data.paris_distance || data.transports || data.ecoles || data.services || data.insee) && (
+        <Page size="A4" style={styles.page}>
+          {/* Mini header rappel */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.cabinetName}>{data.cabinet_name.toUpperCase()}</Text>
+              <Text style={{ fontSize: 8, color: "#64748b", marginTop: 2 }}>
+                Contexte localisation
+              </Text>
+            </View>
+            <View style={styles.headerRight}>
+              <Text style={styles.headerDate}>{fmtDate(data.generated_at)}</Text>
+              <Text style={{ fontSize: 8, color: "#64748b" }}>{data.address}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.title}>Le quartier en chiffres</Text>
+          <Text style={styles.subtitle}>
+            Données opensource (DVF notaires, OSM, INSEE Filosofi, Annuaire Éducation Nationale)
+          </Text>
+
+          {/* ── Section 1 — Proximité Paris ──────────────────────────── */}
+          {Boolean(data.paris_distance) && data.paris_distance && (
+            <>
+              <Text style={styles.sectionTitle}>Proximité Paris</Text>
+              <View style={styles.detailGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Distance Notre-Dame</Text>
+                  <Text style={styles.detailValue}>
+                    {fmt(data.paris_distance.crow_distance_km)} km à vol d&apos;oiseau
+                  </Text>
+                </View>
+                {Boolean(data.paris_distance.estimated_minutes_to_paris) && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Temps trajet estimé</Text>
+                    <Text style={styles.detailValue}>
+                      ~ {data.paris_distance.estimated_minutes_to_paris} min en transports
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Localisation</Text>
+                  <Text style={styles.detailValue}>
+                    {data.paris_distance.is_paris
+                      ? "Paris intra-muros"
+                      : data.paris_distance.is_ile_de_france
+                        ? "Île-de-France (banlieue)"
+                        : "Hors Île-de-France"}
+                  </Text>
+                </View>
+                {Boolean(data.paris_distance.nearest_major_station) && data.paris_distance.nearest_major_station && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Première gare</Text>
+                    <Text style={styles.detailValue}>
+                      {data.paris_distance.nearest_major_station.nom}
+                      {data.paris_distance.nearest_major_station.ligne
+                        ? ` (${data.paris_distance.nearest_major_station.ligne})`
+                        : ""}
+                      {" · "}
+                      {data.paris_distance.nearest_major_station.walk_minutes} min à pied
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+
+          {/* ── Section 2 — Transports proches ───────────────────────── */}
+          {Boolean(data.transports) && data.transports && (
+            <>
+              <Text style={styles.sectionTitle}>Transports à proximité</Text>
+              <View style={styles.detailGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Score accessibilité</Text>
+                  <Text style={styles.detailValue}>
+                    {data.transports.score_accessibilite}/100
+                    {" · "}
+                    {data.transports.count} arrêts dans un rayon de 800 m
+                  </Text>
+                </View>
+                {Object.entries(data.transports.par_type).slice(0, 4).map(([type, count]) => (
+                  <View key={type} style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>{type}</Text>
+                    <Text style={styles.detailValue}>{count}</Text>
+                  </View>
+                ))}
+              </View>
+              {data.transports.top_stops.length > 0 && (
+                <View style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 4 }}>
+                    Les 6 plus proches :
+                  </Text>
+                  {data.transports.top_stops.map((stop, i) => (
+                    <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                      • {stop.nom} ({stop.type}
+                      {stop.ligne ? ` · ${stop.ligne}` : ""}) — {stop.walk_minutes} min à pied
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          {/* ── Section 3 — Écoles ──────────────────────────────────── */}
+          {Boolean(data.ecoles) && data.ecoles && data.ecoles.count > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Écoles à proximité</Text>
+              <View style={styles.detailGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Total</Text>
+                  <Text style={styles.detailValue}>{data.ecoles.count} dans 1,5 km</Text>
+                </View>
+                {Object.entries(data.ecoles.par_type).map(([type, count]) => (
+                  <View key={type} style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>{type}</Text>
+                    <Text style={styles.detailValue}>{count}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* ── Section 4 — Services quotidien ───────────────────────── */}
+          {Boolean(data.services) && data.services && data.services.count > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Services & commerces (500 m)</Text>
+              <View style={styles.detailGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Score "vie sans bagnole"</Text>
+                  <Text style={styles.detailValue}>{data.services.score_quotidien}/100</Text>
+                </View>
+                {Object.entries(data.services.par_categorie).map(([cat, count]) => (
+                  <View key={cat} style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>{cat.replace("_", " ")}</Text>
+                    <Text style={styles.detailValue}>{count}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* ── Section 5 — INSEE socio-démo ─────────────────────────── */}
+          {Boolean(data.insee) && data.insee && (
+            <>
+              <Text style={styles.sectionTitle}>Profil socio-démographique (INSEE Filosofi)</Text>
+              <View style={styles.detailGrid}>
+                {data.insee.revenu_median_uc_eur != null && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Revenu médian / UC</Text>
+                    <Text style={styles.detailValue}>{fmt(data.insee.revenu_median_uc_eur)} € / an</Text>
+                  </View>
+                )}
+                {data.insee.taux_proprietaires_pct != null && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Propriétaires occupants</Text>
+                    <Text style={styles.detailValue}>{data.insee.taux_proprietaires_pct} %</Text>
+                  </View>
+                )}
+                {data.insee.taux_csp_plus_pct != null && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>CSP+ (cadres / prof. lib.)</Text>
+                    <Text style={styles.detailValue}>{data.insee.taux_csp_plus_pct} %</Text>
+                  </View>
+                )}
+                {data.insee.population_municipale != null && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Population commune</Text>
+                    <Text style={styles.detailValue}>{fmt(data.insee.population_municipale)} hab.</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+
+          {/* Note méthodologie */}
+          <View style={[styles.expertNote, { marginTop: 18 }]}>
+            <Text style={styles.expertNoteTitle}>Méthodologie</Text>
+            <Text>
+              Toutes les données ci-dessus sont issues de sources <Text style={{ fontWeight: 700 }}>opensource publiques</Text> :
+              transactions notariées DVF (data.gouv.fr), arrêts de transports et services
+              quotidiens via OpenStreetMap (Overpass), Annuaire Éducation Nationale
+              (data.education.gouv.fr), INSEE Filosofi pour le revenu médian. Les scores
+              d&apos;accessibilité et de vie sans bagnole sont des heuristiques DATAMERRY
+              basées sur la quantité, le type et la distance des points d&apos;intérêt.
+              {"\n\n"}
+              Pour une visite physique gratuite et un avis d&apos;expert affiné, un agent
+              {" "}{data.cabinet_name} vous recontacte sous 24h ouvrées.
+            </Text>
+          </View>
+
+          {/* Footer page 2 */}
+          <View style={styles.footer}>
+            {Boolean(data.cabinet_legal) && (
+              <Text style={{ marginBottom: 3 }}>{data.cabinet_legal}</Text>
+            )}
+            <Text>
+              Rapport propulsé par <Text style={styles.footerBold}>DATAMERRY®</Text>
+              {"  ·  "}
+              Page 2 / 2
+            </Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 }

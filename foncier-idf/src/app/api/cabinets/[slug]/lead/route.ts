@@ -28,6 +28,13 @@ import {
   CabinetLeadReportPDF,
   type CabinetLeadReportData,
 } from "@/lib/pdf/cabinet-lead-report";
+import { geocodeAddress } from "@/lib/geocode";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { getTransports } from "@/lib/datasets/transports";
+import { getEcoles } from "@/lib/datasets/ecoles";
+import { getServices } from "@/lib/datasets/services";
+import { getInseeIris } from "@/lib/datasets/insee";
+import { computeParisDistance } from "@/lib/paris-distance";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Supabase (service_role : on insère + on lit le branding cabinet)
@@ -177,7 +184,33 @@ export async function POST(
 
   const leadId = (inserted as { id: string }).id;
 
-  // 4) Génération PDF
+  // 4) ENRICHISSEMENT — géocodage + datasets opensource en parallèle
+  //
+  // Pour faire un rapport "Immo Data killer" on agrège tout ce que le cabinet
+  // n'aurait pas spontanément sous la main : transports, écoles, services
+  // quotidien, INSEE socio-démo, distance Paris si IDF.
+  //
+  // Tout en parallèle pour limiter la latence (~1-2s total même avec 5 fetches).
+  // Tous les .catch(() => null) → le PDF se contente de ce qu'on a, jamais bloquant.
+  const sbServer = getSupabaseServerClient();
+  const geo = await geocodeAddress(address, sbServer).catch(() => null);
+  const top = geo?.results[0];
+
+  const [transports, ecoles, services, inseeIris] = top
+    ? await Promise.all([
+        getTransports(top.lat, top.lon).catch(() => null),
+        getEcoles(top.lat, top.lon).catch(() => null),
+        getServices(top.lat, top.lon).catch(() => null),
+        getInseeIris(top.lat, top.lon).catch(() => null),
+      ])
+    : [null, null, null, null];
+
+  // Distance + temps trajet Paris (sync, basé sur Insee + Haversine + transports)
+  const parisDistance = top
+    ? computeParisDistance(top.lat, top.lon, top.code_insee, transports?.stops)
+    : null;
+
+  // 5) Génération PDF
   const pdfData: CabinetLeadReportData = {
     cabinet_name: cabinet.cabinet_name,
     cabinet_legal: cabinet.legal_mention ?? null,
@@ -185,7 +218,7 @@ export async function POST(
     secondary_color: cabinet.secondary_color ?? null,
     visitor_name,
     visitor_email,
-    address,
+    address: top?.label ?? address,
     type_bien,
     surface: insertPayload.surface,
     prix_m2_median: estim.prix_m2_median ?? null,
@@ -195,6 +228,37 @@ export async function POST(
     nb_ventes: estim.nb_ventes ?? null,
     wizard_answers: wizard,
     generated_at: new Date(),
+    // Données opensource enrichies
+    paris_distance: parisDistance,
+    transports: transports
+      ? {
+          score_accessibilite: transports.score_accessibilite,
+          count: transports.count,
+          par_type: transports.par_type,
+          top_stops: transports.stops.slice(0, 6),
+        }
+      : null,
+    ecoles: ecoles
+      ? {
+          count: ecoles.count,
+          par_type: ecoles.par_type,
+        }
+      : null,
+    services: services
+      ? {
+          score_quotidien: services.score_quotidien,
+          count: services.count,
+          par_categorie: services.par_categorie,
+        }
+      : null,
+    insee: inseeIris
+      ? {
+          revenu_median_uc_eur: inseeIris.revenu_median_uc_eur,
+          taux_proprietaires_pct: inseeIris.taux_proprietaires_pct,
+          taux_csp_plus_pct: inseeIris.taux_csp_plus_pct,
+          population_municipale: inseeIris.population_municipale,
+        }
+      : null,
   };
 
   let pdfBuffer: Buffer | null = null;

@@ -13,6 +13,7 @@
  */
 
 import type { TransportStop } from "./datasets/transports";
+import { findNearestGare } from "./datasets/gares";
 
 // Centre de Paris : Notre-Dame (origine officielle du km 0 français)
 const PARIS_CENTER_LAT = 48.853;
@@ -117,18 +118,24 @@ function estimateMinutesToParis(
 /**
  * Calcule l'enrichissement "proximité Paris" pour un bien géolocalisé.
  *
+ * Stratégie pour la première gare :
+ *   1. Essaie la table dim_gares (référentiel officiel SNCF + IDFM) via la
+ *      fonction Postgres find_nearest_gare (déterministe, sub-5ms).
+ *   2. Fallback OSM stops si la DB n'a pas encore été peuplée par le pipeline
+ *      pipeline_gares_idf.py (ex: en dev local sans run du pipeline).
+ *
  * @param lat - Latitude WGS84 du bien
  * @param lon - Longitude WGS84 du bien
  * @param codeInsee - Code INSEE de la commune (5 caractères)
- * @param transportStops - Liste des arrêts à proximité (issue de getTransports), optionnel
+ * @param transportStops - Liste des arrêts (issue de getTransports), pour fallback
  * @returns Objet ParisDistanceResult, jamais null
  */
-export function computeParisDistance(
+export async function computeParisDistance(
   lat: number,
   lon: number,
   codeInsee: string,
   transportStops?: TransportStop[],
-): ParisDistanceResult {
+): Promise<ParisDistanceResult> {
   const dept = (codeInsee ?? "").slice(0, 2);
   const is_paris = dept === "75";
   const is_idf = IDF_DEPTS.has(dept);
@@ -138,7 +145,30 @@ export function computeParisDistance(
 
   const estimated_minutes_to_paris = estimateMinutesToParis(crowKmRaw, dept);
 
-  const nearest_major_station = pickNearestMajorStation(transportStops);
+  // ── Stratégie première gare : DB officielle d'abord, fallback OSM ────────
+  let nearest_major_station: ParisDistanceResult["nearest_major_station"] = null;
+
+  const dbGare = await findNearestGare(lat, lon, 20).catch(() => null);
+  if (dbGare) {
+    // Conversion gare DB → format ParisDistanceResult
+    // Priorité du label : ligne principale si dispo, sinon réseau
+    const ligneLabel = dbGare.lignes && dbGare.lignes.length > 0
+      ? dbGare.lignes.join(" / ")
+      : null;
+    nearest_major_station = {
+      nom: dbGare.nom,
+      type: (dbGare.type === "transilien" || dbGare.type === "sncf" || dbGare.type === "tram"
+        ? "train"
+        : dbGare.type) as "train" | "rer" | "metro",
+      distance_m: Math.round(dbGare.distance_km * 1000),
+      walk_minutes: dbGare.walk_minutes,
+      reseau: dbGare.reseau,
+      ligne: ligneLabel,
+    };
+  } else {
+    // Fallback OSM si DB non peuplée ou requête KO
+    nearest_major_station = pickNearestMajorStation(transportStops);
+  }
 
   return {
     is_paris,

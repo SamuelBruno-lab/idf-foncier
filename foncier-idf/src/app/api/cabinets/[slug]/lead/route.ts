@@ -216,10 +216,12 @@ export async function POST(
       ])
     : [null, null, null, null, null];
 
-  // Distance + temps trajet Paris — alimenté par les stops "élargis 5km" pour
-  // garantir qu'on identifie la première gare même hors d'un kilomètre à pied.
+  // Distance + temps trajet Paris.
+  // computeParisDistance est async : il interroge d'abord dim_gares (source
+  // officielle SNCF+IDFM), avec fallback sur les stops OSM élargis si la DB
+  // n'est pas encore peuplée par pipeline_gares_idf.py.
   const parisDistance = top
-    ? computeParisDistance(
+    ? await computeParisDistance(
         top.lat,
         top.lon,
         top.code_insee,

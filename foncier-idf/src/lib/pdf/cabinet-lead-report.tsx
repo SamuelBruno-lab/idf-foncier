@@ -222,10 +222,18 @@ function buildStyles(primary: string) {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-const fmt = (n: number | null | undefined): string =>
-  n != null && Number.isFinite(n)
-    ? new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)
-    : "—";
+// Formatte un nombre avec espace ASCII normal comme séparateur de milliers.
+//
+// On NE PEUT PAS utiliser `Intl.NumberFormat("fr-FR")` dans le PDF car le
+// séparateur de milliers français est un NARROW NO-BREAK SPACE (U+202F) qui
+// n'est PAS dans la police Helvetica embarquée par @react-pdf/renderer →
+// le PDF affichait "138/322€" au lieu de "138 322 €". Espace ASCII pour
+// tous (compatible toute police Type1).
+const fmt = (n: number | null | undefined): string => {
+  if (n == null || !Number.isFinite(n)) return "—";
+  // Arrondit puis insère un espace ASCII tous les 3 chiffres (regex lookahead)
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+};
 
 const fmtDate = (d: Date): string =>
   d.toLocaleDateString("fr-FR", {

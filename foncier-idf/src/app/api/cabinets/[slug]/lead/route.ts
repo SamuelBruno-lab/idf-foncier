@@ -34,6 +34,7 @@ import { getTransports } from "@/lib/datasets/transports";
 import { getEcoles } from "@/lib/datasets/ecoles";
 import { getServices } from "@/lib/datasets/services";
 import { getInseeIris } from "@/lib/datasets/insee";
+import { getPriceEvolution } from "@/lib/datasets/price-evolution";
 import { computeParisDistance } from "@/lib/paris-distance";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export async function POST(
   //     première gare RER/Transilien/métro même si on est loin de tout
   //     (banlieue, terrains, etc.). Sans ça on retournait null trop souvent.
   //   - ecoles, services, INSEE (datasets standard)
-  const [transports, transportsLarge, ecoles, services, inseeIris] = top
+  const [transports, transportsLarge, ecoles, services, inseeIris, priceEvolution] = top
     ? await Promise.all([
         getTransports(top.lat, top.lon).catch(() => null),
         // Limite à 200 : en IDF dense (Pantin, Saint-Denis, etc.) le rayon 5km
@@ -213,8 +214,15 @@ export async function POST(
         getEcoles(top.lat, top.lon).catch(() => null),
         getServices(top.lat, top.lon).catch(() => null),
         getInseeIris(top.lat, top.lon).catch(() => null),
+        // Évolution prix m² par année (DVF agrégé via fonction Postgres
+        // get_price_evolution). 8 ans par défaut. Filtré par type_bien
+        // résidentiel (Appartement / Maison) ; pour autres types on skip
+        // car DVF n'a pas de granularité fine sur Commerce/Tertiaire.
+        ["Appartement", "Maison"].includes(type_bien)
+          ? getPriceEvolution(top.code_insee, type_bien, 8).catch(() => null)
+          : Promise.resolve(null),
       ])
-    : [null, null, null, null, null];
+    : [null, null, null, null, null, null];
 
   // Distance + temps trajet Paris.
   // computeParisDistance est async : il interroge d'abord dim_gares (source
@@ -276,6 +284,16 @@ export async function POST(
           taux_proprietaires_pct: inseeIris.taux_proprietaires_pct,
           taux_csp_plus_pct: inseeIris.taux_csp_plus_pct,
           population_municipale: inseeIris.population_municipale,
+        }
+      : null,
+    price_evolution: priceEvolution && priceEvolution.available
+      ? {
+          type_local: priceEvolution.type_local,
+          years: priceEvolution.years,
+          variation_pct_total: priceEvolution.variation_pct_total,
+          variation_pct_5y: priceEvolution.variation_pct_5y,
+          annee_min: priceEvolution.annee_min,
+          annee_max: priceEvolution.annee_max,
         }
       : null,
   };

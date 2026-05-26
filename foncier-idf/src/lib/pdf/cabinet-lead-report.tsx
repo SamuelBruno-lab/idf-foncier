@@ -131,6 +131,22 @@ export type CabinetLeadReportData = {
     taux_csp_plus_pct: number | null;
     population_municipale: number | null;
   } | null;
+
+  /** Évolution prix m² DVF par année (commune × type). */
+  price_evolution?: {
+    type_local: string;
+    years: Array<{
+      annee: number;
+      prix_m2_median: number;
+      prix_m2_p25: number | null;
+      prix_m2_p75: number | null;
+      nb_ventes: number;
+    }>;
+    variation_pct_total: number | null;
+    variation_pct_5y: number | null;
+    annee_min: number | null;
+    annee_max: number | null;
+  } | null;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -367,6 +383,160 @@ function pickUsage(answers: Record<string, unknown>): string {
   if (up) return usageProLabel[up] ?? up;
   if (ut) return usageTerrainLabel[ut] ?? ut;
   return "—";
+}
+
+/**
+ * Bar chart de l'évolution prix m² par année.
+ *
+ * Implémenté en React-PDF natif (pas de lib graphique) : chaque année est
+ * un <View> avec hauteur proportionnelle au prix. Permet d'embarquer dans
+ * un PDF léger sans dépendance.
+ *
+ * Affiche : label année + bar (hauteur normalisée 0-100) + valeur €/m² au-dessus
+ * + caption avec variation 5y / variation totale.
+ */
+function PriceEvolutionChart({
+  years,
+  variation_pct_total,
+  variation_pct_5y,
+  type_local,
+  primaryColor,
+}: {
+  years: Array<{ annee: number; prix_m2_median: number; nb_ventes: number }>;
+  variation_pct_total: number | null;
+  variation_pct_5y: number | null;
+  type_local: string;
+  primaryColor: string;
+}) {
+  const maxPrice = Math.max(...years.map((y) => y.prix_m2_median));
+  const minPrice = Math.min(...years.map((y) => y.prix_m2_median));
+  // Échelle visuelle : on amplifie la différence en partant de minPrice * 0.95
+  // (sinon des prix qui varient peu donnent toutes les barres identiques).
+  const scaleMin = minPrice * 0.95;
+  const scaleMax = maxPrice * 1.02;
+  const range = Math.max(scaleMax - scaleMin, 1);
+  const chartHeight = 80; // px
+
+  const tag = (pct: number | null): string => {
+    if (pct == null) return "—";
+    const sign = pct >= 0 ? "+" : "";
+    return `${sign}${pct} %`;
+  };
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      {/* Bars row */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-end",
+          gap: 6,
+          height: chartHeight + 28, // place pour la valeur au-dessus
+          paddingBottom: 4,
+        }}
+      >
+        {years.map((y) => {
+          const ratio = (y.prix_m2_median - scaleMin) / range;
+          const barHeight = Math.max(8, Math.round(ratio * chartHeight));
+          return (
+            <View key={y.annee} style={{ flex: 1, alignItems: "center" }}>
+              <Text
+                style={{
+                  fontSize: 8,
+                  color: "#0f172a",
+                  fontWeight: 700,
+                  marginBottom: 3,
+                }}
+              >
+                {Math.round(y.prix_m2_median / 100) / 10}k
+              </Text>
+              <View
+                style={{
+                  width: "70%",
+                  height: barHeight,
+                  backgroundColor: primaryColor,
+                  borderTopLeftRadius: 2,
+                  borderTopRightRadius: 2,
+                }}
+              />
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Year labels */}
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 6,
+          borderTopColor: "#cbd5e1",
+          borderTopWidth: 1,
+          paddingTop: 3,
+        }}
+      >
+        {years.map((y) => (
+          <Text
+            key={y.annee}
+            style={{
+              flex: 1,
+              fontSize: 8,
+              color: "#64748b",
+              textAlign: "center",
+            }}
+          >
+            {y.annee}
+          </Text>
+        ))}
+      </View>
+
+      {/* Caption : variation cumulée */}
+      <View
+        style={{
+          marginTop: 8,
+          padding: 8,
+          backgroundColor: "#f1f5f9",
+          borderRadius: 4,
+        }}
+      >
+        <Text style={{ fontSize: 9, color: "#0f172a" }}>
+          {type_local} sur la commune :{" "}
+          <Text style={{ fontWeight: 700, color: primaryColor }}>
+            {fmt(years[years.length - 1].prix_m2_median)} €/m²
+          </Text>{" "}
+          en {years[years.length - 1].annee}
+          {variation_pct_5y != null && (
+            <>
+              {" "}·{" "}
+              <Text
+                style={{
+                  fontWeight: 700,
+                  color: variation_pct_5y >= 0 ? "#15803d" : "#b91c1c",
+                }}
+              >
+                {tag(variation_pct_5y)} sur 5 ans
+              </Text>
+            </>
+          )}
+          {variation_pct_total != null && variation_pct_5y !== variation_pct_total && (
+            <>
+              {" "}·{" "}
+              <Text
+                style={{
+                  fontWeight: 700,
+                  color: variation_pct_total >= 0 ? "#15803d" : "#b91c1c",
+                }}
+              >
+                {tag(variation_pct_total)} sur la période complète
+              </Text>
+            </>
+          )}
+        </Text>
+        <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
+          Médiane DVF par année · données notariées officielles · années avec ≥ 5 ventes
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 /**
@@ -833,7 +1003,23 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             </>
           )}
 
-          {/* ── Section 5 — INSEE socio-démo ─────────────────────────── */}
+          {/* ── Section 5 — Évolution prix m² 8 ans ─────────────────── */}
+          {Boolean(data.price_evolution) && data.price_evolution && data.price_evolution.years.length >= 2 && (
+            <>
+              <Text style={styles.sectionTitle}>
+                Évolution prix m² ({data.price_evolution.annee_min} – {data.price_evolution.annee_max})
+              </Text>
+              <PriceEvolutionChart
+                years={data.price_evolution.years}
+                variation_pct_total={data.price_evolution.variation_pct_total}
+                variation_pct_5y={data.price_evolution.variation_pct_5y}
+                type_local={data.price_evolution.type_local}
+                primaryColor={data.primary_color}
+              />
+            </>
+          )}
+
+          {/* ── Section 6 — INSEE socio-démo ─────────────────────────── */}
           {Boolean(data.insee) && data.insee && (
             <>
               <Text style={styles.sectionTitle}>Profil socio-démographique (INSEE Filosofi)</Text>

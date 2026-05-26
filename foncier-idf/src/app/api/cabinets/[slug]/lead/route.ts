@@ -196,18 +196,35 @@ export async function POST(
   const geo = await geocodeAddress(address, sbServer).catch(() => null);
   const top = geo?.results[0];
 
-  const [transports, ecoles, services, inseeIris] = top
+  // 5 fetches en parallèle :
+  //   - transports à pied (rayon 800m, défaut) — pour la liste "à 10 min à pied"
+  //   - transports élargi (rayon 5 km) — UNIQUEMENT pour identifier la
+  //     première gare RER/Transilien/métro même si on est loin de tout
+  //     (banlieue, terrains, etc.). Sans ça on retournait null trop souvent.
+  //   - ecoles, services, INSEE (datasets standard)
+  const [transports, transportsLarge, ecoles, services, inseeIris] = top
     ? await Promise.all([
         getTransports(top.lat, top.lon).catch(() => null),
+        // Limite à 200 : en IDF dense (Pantin, Saint-Denis, etc.) le rayon 5km
+        // contient 100+ arrêts de bus. Sans cette limite élevée, la gare RER
+        // pourrait être hors top 30 (filtrée par distance avant qu'on trie
+        // par priorité RER>train>métro).
+        getTransports(top.lat, top.lon, { radiusM: 5000, limit: 200 }).catch(() => null),
         getEcoles(top.lat, top.lon).catch(() => null),
         getServices(top.lat, top.lon).catch(() => null),
         getInseeIris(top.lat, top.lon).catch(() => null),
       ])
-    : [null, null, null, null];
+    : [null, null, null, null, null];
 
-  // Distance + temps trajet Paris (sync, basé sur Insee + Haversine + transports)
+  // Distance + temps trajet Paris — alimenté par les stops "élargis 5km" pour
+  // garantir qu'on identifie la première gare même hors d'un kilomètre à pied.
   const parisDistance = top
-    ? computeParisDistance(top.lat, top.lon, top.code_insee, transports?.stops)
+    ? computeParisDistance(
+        top.lat,
+        top.lon,
+        top.code_insee,
+        transportsLarge?.stops ?? transports?.stops,
+      )
     : null;
 
   // 5) Génération PDF

@@ -374,10 +374,13 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           </View>
         )}
 
-        {/* Récap caractéristiques */}
+        {/* Récap caractéristiques.
+            Note TS : on entoure les checks de unknown par Boolean(...) car
+            `{a.xxx && (...)}` retournerait `unknown | JSX` que ReactNode
+            refuse en strict mode. Boolean() force la conversion. */}
         <Text style={styles.sectionTitle}>Caractéristiques renseignées</Text>
         <View style={styles.detailGrid}>
-          {a.intent && (
+          {Boolean(a.intent) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Projet</Text>
               <Text style={styles.detailValue}>{intentLabel[String(a.intent)] ?? String(a.intent)}</Text>
@@ -387,37 +390,37 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             <Text style={styles.detailLabel}>Type</Text>
             <Text style={styles.detailValue}>{data.type_bien}</Text>
           </View>
-          {a.pieces && (
+          {Boolean(a.pieces) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Pièces</Text>
               <Text style={styles.detailValue}>T{String(a.pieces)}</Text>
             </View>
           )}
-          {a.etage && (
+          {Boolean(a.etage) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Étage</Text>
               <Text style={styles.detailValue}>{String(a.etage)}</Text>
             </View>
           )}
-          {a.annee_construction && (
+          {Boolean(a.annee_construction) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Année</Text>
               <Text style={styles.detailValue}>{String(a.annee_construction)}</Text>
             </View>
           )}
-          {a.dpe && a.dpe !== "inconnu" && (
+          {Boolean(a.dpe) && a.dpe !== "inconnu" && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>DPE</Text>
               <Text style={styles.detailValue}>Classe {String(a.dpe).toUpperCase()}</Text>
             </View>
           )}
-          {a.etat && (
+          {Boolean(a.etat) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>État général</Text>
               <Text style={styles.detailValue}>{etatLabel[String(a.etat)] ?? String(a.etat)}</Text>
             </View>
           )}
-          {(a.usage || a.usage_pro || a.usage_terrain) && (
+          {Boolean(a.usage || a.usage_pro || a.usage_terrain) && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Destination</Text>
               <Text style={styles.detailValue}>{pickUsage(a)}</Text>

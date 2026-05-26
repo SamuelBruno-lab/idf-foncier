@@ -65,10 +65,18 @@ export type CabinetLeadReportData = {
     /** Détail porte-à-porte si IDFM PRIM dispo */
     journey_to_paris: {
       destination: string;
+      destination_id: string;
       total_duration_min: number;
       walking_duration_min: number;
       walking_distance_m: number;
       nb_transfers: number;
+      primary_lines: string[];
+      alternatives: Array<{
+        duration_min: number;
+        walking_min: number;
+        nb_transfers: number;
+        primary_lines: string[];
+      }>;
       sections: Array<{
         type: "walking" | "transit" | "transfer" | "wait" | "other";
         duration_min: number;
@@ -359,6 +367,47 @@ function pickUsage(answers: Record<string, unknown>): string {
   if (up) return usageProLabel[up] ?? up;
   if (ut) return usageTerrainLabel[ut] ?? ut;
   return "—";
+}
+
+/**
+ * Construit la chaîne " via Métro 5 ou RER E" à partir des alternatives Navitia.
+ *
+ * Stratégie :
+ *   - On garde les alternatives dont la durée est ≤ best_duration + 5 min
+ *     (sinon une alternative 25% plus lente parasite la phrase)
+ *   - Pour chaque alternative, on prend la 1ère ligne de transit (ligne au
+ *     départ de l'adresse — la plus signifiante pour le futur acheteur)
+ *   - On déduplique et on formate avec virgules + "ou" final
+ *   - Si 0 ligne, on ne dit rien (juste la durée)
+ */
+function formatLinesNarrative(
+  alternatives: Array<{ duration_min: number; primary_lines: string[] }>,
+  fallback_lines: string[],
+): string {
+  if (!alternatives || alternatives.length === 0) {
+    // Pas d'alternative → on tente quand même les lignes principales
+    if (fallback_lines.length === 0) return "";
+    return ` via ${fallback_lines[0]}`;
+  }
+
+  const best = alternatives[0].duration_min;
+  const close = alternatives.filter((a) => a.duration_min <= best + 5);
+
+  // Première ligne de chaque alternative proche, dédupliquée
+  const lines: string[] = [];
+  for (const alt of close) {
+    if (alt.primary_lines.length === 0) continue;
+    const first = alt.primary_lines[0];
+    if (!lines.includes(first)) lines.push(first);
+  }
+  if (lines.length === 0) return "";
+
+  if (lines.length === 1) return ` via ${lines[0]}`;
+  if (lines.length === 2) return ` via ${lines[0]} ou ${lines[1]}`;
+  // 3+ : on liste les 3 premiers avec virgules
+  const head = lines.slice(0, lines.length - 1).join(", ");
+  const tail = lines[lines.length - 1];
+  return ` via ${head} ou ${tail}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -655,10 +704,35 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               {/* Détail itinéraire porte-à-porte (IDFM PRIM Navitia) */}
               {Boolean(data.paris_distance.journey_to_paris) && data.paris_distance.journey_to_paris && (
                 <>
+                  {/* Phrase naturelle — la pépite Diara peut copier-coller dans son argumentaire */}
+                  <View
+                    style={{
+                      marginTop: 10,
+                      padding: 12,
+                      backgroundColor: data.primary_color + "10",
+                      borderColor: data.primary_color,
+                      borderWidth: 1,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: "#0f172a", lineHeight: 1.5 }}>
+                      🗼 Cet appartement est à{" "}
+                      <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                        {data.paris_distance.journey_to_paris.total_duration_min} minutes
+                      </Text>{" "}
+                      porte-à-porte de <Text style={{ fontWeight: 700 }}>Paris {data.paris_distance.journey_to_paris.destination}</Text>
+                      {formatLinesNarrative(
+                        data.paris_distance.journey_to_paris.alternatives,
+                        data.paris_distance.journey_to_paris.primary_lines,
+                      )}
+                      .
+                    </Text>
+                  </View>
+
+                  {/* Bloc détail technique du meilleur itinéraire */}
                   <View style={{ marginTop: 8, padding: 10, backgroundColor: "#f1f5f9", borderRadius: 6 }}>
                     <Text style={{ fontSize: 9, color: "#475569", marginBottom: 6 }}>
-                      Itinéraire porte-à-porte jusqu&apos;à <Text style={{ fontWeight: 700 }}>{data.paris_distance.journey_to_paris.destination}</Text>
-                      {" "}({data.paris_distance.journey_to_paris.total_duration_min} min total
+                      Détail itinéraire le plus rapide ({data.paris_distance.journey_to_paris.total_duration_min} min total
                       {" · "}{data.paris_distance.journey_to_paris.walking_duration_min} min marche
                       {" · "}{data.paris_distance.journey_to_paris.nb_transfers} correspondance{data.paris_distance.journey_to_paris.nb_transfers > 1 ? "s" : ""}) :
                     </Text>
@@ -671,6 +745,14 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                             : `🚆 ${s.line ?? "Transit"} · ${s.duration_min} min · ${s.from ?? ""} → ${s.to ?? ""}`}
                         </Text>
                       ))}
+                    {data.paris_distance.journey_to_paris.alternatives.length > 1 && (
+                      <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
+                        Alternatives : {data.paris_distance.journey_to_paris.alternatives
+                          .slice(1)
+                          .map((a) => `${a.duration_min} min via ${a.primary_lines.join(" + ") || "marche"}`)
+                          .join(" — ")}
+                      </Text>
+                    )}
                   </View>
                 </>
               )}

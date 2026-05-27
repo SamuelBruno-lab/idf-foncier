@@ -45,7 +45,7 @@ export type ServicesResult = {
   radius_m: number;
   par_categorie: Record<ServiceCategory, number>;
   top_par_categorie: Record<ServiceCategory, Service[]>;
-  score_quotidien: number; // 0-100 : à quel point on peut vivre sans bagnole
+  score_quotidien: number; // 0-100 : accessibilité quotidienne à pied (sans voiture)
   source: string;
   fetched_at: string;
 };

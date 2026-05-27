@@ -990,7 +990,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               <Text style={styles.sectionTitle}>Services & commerces (500 m)</Text>
               <View style={styles.detailGrid}>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Score "vie sans bagnole"</Text>
+                  <Text style={styles.detailLabel}>Score quotidien à pied</Text>
                   <Text style={styles.detailValue}>{data.services.score_quotidien}/100</Text>
                 </View>
                 {Object.entries(data.services.par_categorie).map(([cat, count]) => (
@@ -1060,7 +1060,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               transactions notariées DVF (data.gouv.fr), arrêts de transports et services
               quotidiens via OpenStreetMap (Overpass), Annuaire Éducation Nationale
               (data.education.gouv.fr), INSEE Filosofi pour le revenu médian. Les scores
-              d&apos;accessibilité et de vie sans bagnole sont des heuristiques DATAMERRY
+              d&apos;accessibilité aux transports et aux services quotidiens à pied sont des heuristiques DATAMERRY
               basées sur la quantité, le type et la distance des points d&apos;intérêt.
               {"\n\n"}
               Pour une visite physique gratuite et un avis d&apos;expert affiné, un agent

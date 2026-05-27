@@ -163,49 +163,143 @@ def fetch_merimee() -> list[dict]:
 
 
 def parse_merimee_record(rec: dict) -> dict | None:
-    """Convertit un record Mérimée ODS en ligne dim_poi."""
-    # Champs varient selon la version ODS. On essaye plusieurs noms communs.
-    geo = rec.get("coordonnees") or rec.get("geo_point_2d") or rec.get("c_geo")
+    """
+    Convertit un record Mérimée ODS en ligne dim_poi.
+
+    Les noms de champs varient selon la version ODS du dataset.
+    On essaye TOUS les noms connus + un fallback brutal sur les clés
+    contenant 'geo' / 'coord' pour les coordonnées.
+    """
+    # ── Coordonnées : on cherche partout ───────────────────────────────────
+    geo_candidates = [
+        "coordonnees", "coordonnees_geographiques", "geo_point_2d", "c_geo",
+        "geo_shape", "loc_xy", "geom_x_y", "centre", "coords",
+    ]
+    geo = None
+    for key in geo_candidates:
+        if key in rec and rec[key]:
+            geo = rec[key]
+            break
+    # Fallback : scan toutes les clés qui contiennent "geo" ou "coord"
+    if geo is None:
+        for k, v in rec.items():
+            if v and ("geo" in k.lower() or "coord" in k.lower() or k.lower() in ("lat", "latitude")):
+                geo = v
+                break
+
     lat = lon = None
     if isinstance(geo, dict):
-        lat = geo.get("lat") or geo.get("y")
-        lon = geo.get("lon") or geo.get("x")
+        # Format ODS classique : {lat, lon} OU {y, x}
+        lat = geo.get("lat") or geo.get("y") or geo.get("latitude")
+        lon = geo.get("lon") or geo.get("x") or geo.get("longitude") or geo.get("lng")
+        # Format GeoJSON : { type: 'Point', coordinates: [lon, lat] }
+        if lat is None and "coordinates" in geo:
+            coords = geo["coordinates"]
+            if isinstance(coords, list) and len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
     elif isinstance(geo, list) and len(geo) >= 2:
-        lat, lon = geo[0], geo[1]
+        # Tableau [lat, lon] ou [lon, lat] — heuristique : si premier > 90, c'est du lon
+        a, b = float(geo[0]), float(geo[1])
+        if abs(a) > 90:
+            lon, lat = a, b
+        else:
+            lat, lon = a, b
+    elif isinstance(geo, str):
+        # Format "lat,lon" ou "lon,lat"
+        parts = geo.split(",")
+        if len(parts) == 2:
+            try:
+                a, b = float(parts[0].strip()), float(parts[1].strip())
+                if abs(a) > 90:
+                    lon, lat = a, b
+                else:
+                    lat, lon = a, b
+            except ValueError:
+                pass
+
     if lat is None or lon is None:
         return None
 
-    nom = rec.get("titre_courant") or rec.get("appellation") or rec.get("nom") or ""
+    # Sanity check
+    try:
+        lat_f, lon_f = float(lat), float(lon)
+        if not (-90 <= lat_f <= 90 and -180 <= lon_f <= 180):
+            return None
+    except (TypeError, ValueError):
+        return None
+
+    # ── Nom : essaye plusieurs champs ──────────────────────────────────────
+    nom_candidates = [
+        "titre_courant", "appellation", "appellation_courante",
+        "nom", "denomination", "intitule", "designation",
+    ]
+    nom = None
+    for key in nom_candidates:
+        v = rec.get(key)
+        if v and isinstance(v, str):
+            nom = v.strip()
+            break
     if not nom:
         return None
 
-    code_insee = (
-        rec.get("code_insee_commune")
-        or rec.get("insee")
-        or rec.get("codeinsee_commune")
-        or None
-    )
+    # ── Code commune + dept ────────────────────────────────────────────────
+    insee_candidates = [
+        "code_insee_commune", "code_insee", "insee",
+        "codeinsee_commune", "code_commune", "codecom",
+    ]
+    code_insee = None
+    for key in insee_candidates:
+        v = rec.get(key)
+        if v:
+            code_insee = str(v).strip()
+            break
+    dept = None
     if code_insee:
-        code_insee = str(code_insee).strip()
-    dept = code_insee[:2] if code_insee else None
+        # DROM = 3 chars, métropole = 2 chars
+        dept = code_insee[:3] if code_insee.startswith("97") else code_insee[:2]
 
-    # Score notabilité : MH classé = +50, inscrit = +30
-    protection = (rec.get("statut_juridique_de_la_protection") or rec.get("protection") or "").lower()
+    # ── Score notabilité : MH classé = 50, inscrit = 30, autre = 20 ───────
+    protection_candidates = [
+        "statut_juridique_de_la_protection",
+        "statut_juridique",
+        "protection",
+        "categorie_de_classement",
+    ]
+    protection = ""
+    for key in protection_candidates:
+        v = rec.get(key)
+        if v:
+            protection = str(v).lower()
+            break
     notabilite = 50 if "class" in protection else 30 if "inscr" in protection else 20
+
+    # ── ID Mérimée (référence de la notice) ───────────────────────────────
+    merimee_id_candidates = [
+        "reference_de_la_notice", "reference", "ref",
+        "merimee", "record_id", "id",
+    ]
+    merimee_id = None
+    for key in merimee_id_candidates:
+        v = rec.get(key)
+        if v:
+            merimee_id = str(v).strip()
+            break
 
     return {
         "wikidata_id": None,
-        "merimee_id": rec.get("reference_de_la_notice") or rec.get("ref") or rec.get("merimee") or rec.get("record_id"),
+        "merimee_id": merimee_id,
         "osm_id": None,
-        "nom": nom.strip(),
+        "nom": nom,
         "type": "monument",
-        "categorie": (rec.get("denomination") or "monument_historique").strip().lower()[:60],
-        "lat": float(lat),
-        "lon": float(lon),
+        "categorie": (rec.get("denomination") or "monument_historique").strip().lower()[:60]
+        if isinstance(rec.get("denomination"), str)
+        else "monument_historique",
+        "lat": lat_f,
+        "lon": lon_f,
         "code_insee_commune": code_insee,
         "dept": dept,
         "wikipedia_url": None,
-        "description": (rec.get("description") or "")[:1000] or None,
+        "description": None,
         "notabilite_score": notabilite,
         "source": "merimee",
     }
@@ -217,66 +311,84 @@ def parse_merimee_record(rec: dict) -> dict | None:
 
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 
-# Requête SPARQL : POI en France avec article Wikipedia FR
-# - musées (Q33506)
-# - parcs urbains (Q22698)
-# - sites archéologiques (Q839954)
-# - places (Q174782)
-# - églises (Q16970)
-# - châteaux (Q23413)
-# - opéras (Q24354)
-# - théâtres (Q24354)
-# - jardins (Q22652)
-SPARQL_QUERY = """
-SELECT DISTINCT ?item ?itemLabel ?coord ?wikipedia ?sitelinks ?typeLabel ?inseeCode WHERE {
-  VALUES ?type {
-    wd:Q33506   # musée
-    wd:Q22698   # parc urbain
-    wd:Q839954  # site archéologique
-    wd:Q174782  # place
-    wd:Q16970   # église
-    wd:Q23413   # château
-    wd:Q24354   # opéra
-    wd:Q1497375 # théâtre
-    wd:Q22652   # jardin remarquable
-    wd:Q1567431 # site naturel remarquable
-  }
-  ?item wdt:P31/wdt:P279* ?type .
+# Types Wikidata à interroger UN PAR UN (pour éviter timeout serveur public)
+# Chaque type = requête SPARQL séparée, ~5-30s chacune.
+WIKIDATA_TYPES = [
+    ("Q33506", "musée"),
+    ("Q22698", "parc urbain"),
+    ("Q839954", "site archéologique"),
+    ("Q174782", "place"),
+    ("Q16970", "église"),
+    ("Q23413", "château"),
+    ("Q24354", "opéra"),
+    ("Q1497375", "théâtre"),
+    ("Q22652", "jardin remarquable"),
+    ("Q1567431", "site naturel remarquable"),
+]
+
+
+def build_sparql_for_type(type_qid: str) -> str:
+    """Requête SPARQL pour UN type de POI en France avec article Wikipedia FR."""
+    return f"""
+SELECT DISTINCT ?item ?itemLabel ?coord ?wikipedia ?sitelinks ?inseeCode WHERE {{
+  ?item wdt:P31/wdt:P279* wd:{type_qid} .
   ?item wdt:P17 wd:Q142 .              # en France
   ?item wdt:P625 ?coord .              # avec coordonnées
   ?item wikibase:sitelinks ?sitelinks .
-  OPTIONAL { ?item wdt:P374 ?inseeCode . }
+  OPTIONAL {{ ?item wdt:P374 ?inseeCode . }}
   ?wikipedia schema:about ?item ;
              schema:isPartOf <https://fr.wikipedia.org/> .
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr". }
-}
-LIMIT 30000
-"""
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "fr". }}
+}}
+LIMIT 10000
+""".strip()
 
 
 def fetch_wikidata() -> list[dict]:
-    """Lance la requête SPARQL Wikidata pour les POI France."""
-    print("📡 Wikidata SPARQL — musées + parcs + sites + places …")
-    try:
-        r = requests.post(
-            WIKIDATA_SPARQL,
-            data={"query": SPARQL_QUERY, "format": "json"},
-            headers={
-                "Accept": "application/sparql-results+json",
-                "User-Agent": USER_AGENT,
-            },
-            timeout=120,
-        )
-    except requests.RequestException as e:
-        print(f"  ⚠️ Wikidata network error : {e}")
-        return []
-    if r.status_code != 200:
-        print(f"  ⚠️ Wikidata HTTP {r.status_code} — vérifier rate limit / syntaxe SPARQL")
-        return []
-    data = r.json()
-    bindings = data.get("results", {}).get("bindings", [])
-    print(f"  ✓ Wikidata : {len(bindings)} POI récupérés")
-    return bindings
+    """
+    Lance UNE requête SPARQL Wikidata PAR TYPE de POI (anti-timeout).
+
+    L'ancienne version cumulait tous les types en 1 grosse requête → 60-90s
+    de calcul → timeout 504 sur le serveur public. Maintenant on découpe :
+    chaque type tourne en 5-30s, on a 10 requêtes totales = ~3 min total.
+
+    Si une type timeout, on log et on continue avec les suivants.
+    """
+    all_bindings: list[dict] = []
+    print("📡 Wikidata SPARQL — 10 types de POI (musées, parcs, places, etc.) …")
+
+    for type_qid, type_label in WIKIDATA_TYPES:
+        query = build_sparql_for_type(type_qid)
+        try:
+            r = requests.post(
+                WIKIDATA_SPARQL,
+                data={"query": query, "format": "json"},
+                headers={
+                    "Accept": "application/sparql-results+json",
+                    "User-Agent": USER_AGENT,
+                },
+                timeout=90,
+            )
+            if r.status_code != 200:
+                print(f"  ⚠️ Wikidata {type_label} ({type_qid}): HTTP {r.status_code}")
+                # Backoff léger avant le suivant
+                time.sleep(3)
+                continue
+            data = r.json()
+            bindings = data.get("results", {}).get("bindings", [])
+            # On attache le type label à chaque binding pour parser plus tard
+            for b in bindings:
+                b["_type_label"] = {"value": type_label}
+            all_bindings.extend(bindings)
+            print(f"  ✓ {type_label} ({type_qid}): {len(bindings)} POI")
+            # Rate limit gentil — Wikidata est tolérant mais courtois
+            time.sleep(1)
+        except requests.RequestException as e:
+            print(f"  ⚠️ Wikidata {type_label} network error : {e}")
+            continue
+
+    print(f"  ✓ Wikidata TOTAL : {len(all_bindings)} POI récupérés")
+    return all_bindings
 
 
 def parse_wikidata_binding(b: dict) -> dict | None:
@@ -297,7 +409,12 @@ def parse_wikidata_binding(b: dict) -> dict | None:
     lat = float(m.group(2))
 
     wikipedia_url = b.get("wikipedia", {}).get("value")
-    type_label = b.get("typeLabel", {}).get("value", "").lower()
+    # _type_label est injecté par fetch_wikidata() (1 requête par type),
+    # ancien typeLabel restait pour compatibilité legacy
+    type_label = (
+        b.get("_type_label", {}).get("value")
+        or b.get("typeLabel", {}).get("value", "")
+    ).lower()
     insee = b.get("inseeCode", {}).get("value")
 
     # Map type_label → type dim_poi (CHECK constraint)

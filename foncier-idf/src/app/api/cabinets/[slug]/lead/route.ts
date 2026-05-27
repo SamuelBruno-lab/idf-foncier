@@ -36,6 +36,7 @@ import { getServices } from "@/lib/datasets/services";
 import { getInseeIris } from "@/lib/datasets/insee";
 import { getPriceEvolution } from "@/lib/datasets/price-evolution";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
+import { getPointsInteret } from "@/lib/datasets/points-interet";
 import { computeParisDistance } from "@/lib/paris-distance";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -218,6 +219,7 @@ export async function POST(
     inseeIris,
     priceEvolution,
     lyceesBac,
+    pointsInteret,
   ] = top
     ? await Promise.all([
         getTransports(top.lat, top.lon, { radiusM: transportsRadius }).catch(() => null),
@@ -229,18 +231,16 @@ export async function POST(
         getEcoles(top.lat, top.lon).catch(() => null),
         getServices(top.lat, top.lon).catch(() => null),
         getInseeIris(top.lat, top.lon).catch(() => null),
-        // Évolution prix m² par année (DVF agrégé via fonction Postgres
-        // get_price_evolution). 8 ans par défaut. Filtré par type_bien
-        // résidentiel (Appartement / Maison) ; pour autres types on skip
-        // car DVF n'a pas de granularité fine sur Commerce/Tertiaire.
         ["Appartement", "Maison"].includes(type_bien)
           ? getPriceEvolution(top.code_insee, type_bien, 8).catch(() => null)
           : Promise.resolve(null),
-        // Top 3 lycées les plus proches avec taux de réussite au bac.
-        // L'argument vente #1 pour les parents qui achètent à Paris/banlieue.
         getLyceesBac(top.lat, top.lon).catch(() => null),
+        // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
+        // Sert à enrichir la phrase argumentaire "proche de … comme la
+        // Place des Vosges et le Centre Pompidou".
+        getPointsInteret(top.lat, top.lon).catch(() => null),
       ])
-    : [null, null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null, null];
 
   // Distance + temps trajet Paris.
   // computeParisDistance est async : il interroge d'abord dim_gares (source
@@ -301,6 +301,16 @@ export async function POST(
             taux_mention_general: l.taux_mention_general,
             distance_m: l.distance_m,
             annee_session: l.annee_session,
+          })),
+        }
+      : null,
+    points_interet: pointsInteret && pointsInteret.available
+      ? {
+          count: pointsInteret.count,
+          top: pointsInteret.top.map((p) => ({
+            nom: p.nom,
+            type: p.type,
+            distance_m: p.distance_m,
           })),
         }
       : null,

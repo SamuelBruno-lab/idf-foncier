@@ -132,6 +132,16 @@ export type CabinetLeadReportData = {
     }>;
   } | null;
 
+  /** Top 2 points d'intérêts notables (OSM + wikipedia filter) */
+  points_interet?: {
+    count: number;
+    top: Array<{
+      nom: string;
+      type: "monument" | "musee" | "attraction" | "memorial" | "viewpoint" | "autre";
+      distance_m: number;
+    }>;
+  } | null;
+
   /** Services quotidien à pied (Overpass / OSM) */
   services?: {
     score_quotidien: number;
@@ -555,6 +565,39 @@ function PriceEvolutionChart({
 }
 
 /**
+ * Formatte la citation des points d'intérêts notables pour la phrase
+ * argumentaire. Renvoie par exemple :
+ *   1 POI : « comme la Place des Vosges »
+ *   2 POI : « comme la Place des Vosges et le Centre Pompidou »
+ *   0 POI : "" (rien)
+ *
+ * On garde tel quel le nom OSM (déjà bien capitalisé) et on insère "le/la/l'"
+ * intelligemment si on détecte un genre courant. Sinon on cite sans article.
+ */
+function formatPoisNarrative(
+  pois: Array<{ nom: string }> | undefined,
+): string {
+  if (!pois || pois.length === 0) return "";
+
+  const articulate = (nom: string): string => {
+    // Si le nom commence déjà par un article ("La Sorbonne", "Le Louvre"), on garde.
+    if (/^(La |Le |L'|Les |Un |Une )/.test(nom)) return nom;
+    // Heuristique simple : "Place", "Cathédrale", "Tour", "Île" → féminin
+    const fem = ["place", "cathédrale", "cathedrale", "tour", "église", "eglise", "fontaine", "porte", "rue", "avenue", "île", "ile", "basilique", "colonne", "statue"];
+    const masc = ["jardin", "parc", "musée", "musee", "pont", "palais", "château", "chateau", "centre", "théâtre", "theatre", "marché", "marche", "monument", "memorial", "obélisque", "obelisque", "panthéon", "pantheon"];
+    const firstWord = nom.split(/\s+/)[0]?.toLowerCase() ?? "";
+    // Voyelle : élision "l'"
+    if (/^[aeiouhéèêâî]/.test(firstWord)) return `l'${nom}`;
+    if (fem.includes(firstWord)) return `la ${nom}`;
+    if (masc.includes(firstWord)) return `le ${nom}`;
+    return nom; // pas d'article si on ne sait pas
+  };
+
+  if (pois.length === 1) return ` comme ${articulate(pois[0].nom)}`;
+  return ` comme ${articulate(pois[0].nom)} et ${articulate(pois[1].nom)}`;
+}
+
+/**
  * Construit la chaîne " via Métro 5 ou RER E" à partir des alternatives Navitia.
  *
  * Stratégie :
@@ -839,7 +882,9 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
 
           {/* ── Section "Quartier" — UNIQUEMENT pour adresses Paris intra-muros ─ */}
           {/* Pour Paris, "Proximité Paris" n'a aucun sens (on y est). On affiche
-              à la place une phrase qualitative cabinet "proche toutes commodités" */}
+              à la place une phrase qualitative cabinet "proche toutes commodités" +
+              les 1-2 points d'intérêts notables les plus proches (issus OSM avec
+              filtre wikipedia=*). Argument vente direct pour Diara. */}
           {Boolean(data.paris_distance?.is_paris) && (
             <View
               style={{
@@ -857,8 +902,18 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                 <Text style={{ fontWeight: 700, color: data.primary_color }}>
                   Paris intra-muros
                 </Text>{" "}
-                — quartier dense, proche de toutes commodités et points d&apos;intérêts
-                notables. Desserte transports en commun excellente par défaut.
+                — quartier dense, proche de toutes commodités
+                {data.points_interet && data.points_interet.top.length > 0 ? (
+                  <>
+                    {" "}et de points d&apos;intérêts notables
+                    <Text style={{ fontWeight: 700 }}>
+                      {formatPoisNarrative(data.points_interet.top)}
+                    </Text>
+                  </>
+                ) : (
+                  <> et points d&apos;intérêts notables</>
+                )}
+                . Desserte transports en commun excellente par défaut.
               </Text>
             </View>
           )}
@@ -907,6 +962,16 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                         : ""}
                       {" · "}
                       {data.paris_distance.nearest_major_station.walk_minutes} min à pied
+                    </Text>
+                  </View>
+                )}
+                {data.points_interet && data.points_interet.top.length > 0 && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Points d&apos;intérêts notables</Text>
+                    <Text style={styles.detailValue}>
+                      {data.points_interet.top
+                        .map((p) => `${p.nom} (${p.distance_m < 1000 ? `${p.distance_m} m` : `${(p.distance_m / 1000).toFixed(1)} km`})`)
+                        .join(" · ")}
                     </Text>
                   </View>
                 )}

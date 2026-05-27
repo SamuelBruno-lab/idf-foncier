@@ -24,7 +24,8 @@ export type DatasetKey =
   | "dpe"
   | "idfm_journey"
   | "price_evolution"
-  | "lycees_bac";
+  | "lycees_bac"
+  | "points_interet";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

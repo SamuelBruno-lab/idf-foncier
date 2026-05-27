@@ -81,37 +81,84 @@ MERIMEE_BASE = (
 )
 
 
+# Tous les départements français (métropole + Corse + DROM)
+ALL_DEPTS = [
+    "01","02","03","04","05","06","07","08","09","10",
+    "11","12","13","14","15","16","17","18","19","21",
+    "22","23","24","25","26","27","28","29","2A","2B",
+    "30","31","32","33","34","35","36","37","38","39",
+    "40","41","42","43","44","45","46","47","48","49",
+    "50","51","52","53","54","55","56","57","58","59",
+    "60","61","62","63","64","65","66","67","68","69",
+    "70","71","72","73","74","75","76","77","78","79",
+    "80","81","82","83","84","85","86","87","88","89",
+    "90","91","92","93","94","95","971","972","973","974","976",
+]
+
+
 def fetch_merimee() -> list[dict]:
-    """Pagine sur l'API ODS Mérimée pour récupérer tous les MH France."""
-    print("📡 Mérimée — Monuments Historiques classés/inscrits …")
+    """
+    Pagine sur l'API ODS Mérimée DÉPARTEMENT PAR DÉPARTEMENT pour contourner
+    la limite serveur ODS (offset max 10 000).
+
+    L'API ODS data.culture.gouv.fr renvoie HTTP 400 quand l'offset dépasse
+    ~10 000. En filtrant par dept (refine), on a chaque dept = quelques
+    centaines de monuments max → offset reste < 1 000 par dept.
+    """
+    print("📡 Mérimée — Monuments Historiques classés/inscrits (paginé par dept) …")
     out: list[dict] = []
-    offset = 0
     page_size = 100
-    while True:
-        try:
-            r = requests.get(
-                MERIMEE_BASE,
-                params={"limit": page_size, "offset": offset, "select": "*"},
-                headers={"Accept": "application/json", "User-Agent": USER_AGENT},
-                timeout=30,
-            )
-        except requests.RequestException as e:
-            print(f"  ⚠️ Mérimée network error à offset {offset}: {e}")
-            break
-        if r.status_code != 200:
-            print(f"  ⚠️ Mérimée HTTP {r.status_code} à offset {offset}")
-            break
-        data = r.json()
-        records = data.get("results") or []
-        if not records:
-            break
-        out.extend(records)
-        total = data.get("total_count", 0)
-        offset += page_size
-        if offset >= total:
-            break
-        time.sleep(0.1)
-    print(f"  ✓ Mérimée : {len(out)} monuments récupérés")
+    # Champ refine selon nomenclature ODS Mérimée
+    refine_fields_candidates = ["departement_en_lettres", "departement", "code_departement", "dpt"]
+
+    for dept in ALL_DEPTS:
+        # On essaye plusieurs nomenclatures de champ (varie selon version ODS)
+        dept_count = 0
+        for refine_field in refine_fields_candidates:
+            offset = 0
+            success = False
+            while True:
+                try:
+                    r = requests.get(
+                        MERIMEE_BASE,
+                        params={
+                            "limit": page_size,
+                            "offset": offset,
+                            "select": "*",
+                            f"refine.{refine_field}": dept,
+                        },
+                        headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+                        timeout=30,
+                    )
+                except requests.RequestException as e:
+                    print(f"  ⚠️ Dept {dept} ({refine_field}) network error : {e}")
+                    break
+                if r.status_code != 200:
+                    # Ce refine field ne marche pas, on tente le suivant
+                    break
+                data = r.json()
+                records = data.get("results") or []
+                if not records:
+                    if offset == 0:
+                        # Refine accepté mais 0 résultat — peut-être mauvais champ
+                        break
+                    # Sinon on a fini les records de ce dept
+                    success = True
+                    break
+                out.extend(records)
+                dept_count += len(records)
+                success = True
+                total = data.get("total_count", 0)
+                offset += page_size
+                if offset >= total:
+                    break
+                time.sleep(0.05)
+            if success and dept_count > 0:
+                # On a trouvé le bon refine field, on l'utilise pour les depts suivants
+                break
+        if dept_count > 0:
+            print(f"  ✓ Dept {dept}: {dept_count} monuments")
+    print(f"  ✓ Mérimée TOTAL : {len(out)} monuments récupérés")
     return out
 
 

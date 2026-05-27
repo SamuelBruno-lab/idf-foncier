@@ -157,7 +157,7 @@ export type CabinetLeadReportData = {
     population_municipale: number | null;
   } | null;
 
-  /** Évolution prix m² DVF par année (commune × type). */
+  /** Évolution prix m² DVF par année (micro-marché HDBSCAN ou commune). */
   price_evolution?: {
     type_local: string;
     years: Array<{
@@ -171,6 +171,12 @@ export type CabinetLeadReportData = {
     variation_pct_5y: number | null;
     annee_min: number | null;
     annee_max: number | null;
+    /** "cluster" = micro-marché HDBSCAN, "commune" = commune entière. */
+    scope?: "cluster" | "commune";
+    /** Nb total de ventes utilisées (cluster scope). */
+    nb_total_ventes_cluster?: number;
+    /** "hull" = polygon exact, "centroid" = fallback nearest cluster. */
+    match_method?: "hull" | "centroid" | "none";
   } | null;
 };
 
@@ -425,12 +431,14 @@ function PriceEvolutionChart({
   variation_pct_total,
   variation_pct_5y,
   type_local,
+  scope,
   primaryColor,
 }: {
   years: Array<{ annee: number; prix_m2_median: number; nb_ventes: number }>;
   variation_pct_total: number | null;
   variation_pct_5y: number | null;
   type_local: string;
+  scope: "cluster" | "commune";
   primaryColor: string;
 }) {
   const maxPrice = Math.max(...years.map((y) => y.prix_m2_median));
@@ -524,7 +532,7 @@ function PriceEvolutionChart({
         }}
       >
         <Text style={{ fontSize: 9, color: "#0f172a" }}>
-          {type_local} sur la commune :{" "}
+          {type_local} {scope === "cluster" ? "dans le micro-marché" : "sur la commune"} :{" "}
           <Text style={{ fontWeight: 700, color: primaryColor }}>
             {fmt(years[years.length - 1].prix_m2_median)} €/m²
           </Text>{" "}
@@ -558,6 +566,7 @@ function PriceEvolutionChart({
         </Text>
         <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
           Médiane DVF par année · données notariées officielles · années avec ≥ 5 ventes
+          {scope === "cluster" ? " · périmètre = polygon HDBSCAN du micro-marché" : ""}
         </Text>
       </View>
     </View>
@@ -1194,13 +1203,23 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           {Boolean(data.price_evolution) && data.price_evolution && data.price_evolution.years.length >= 2 && (
             <>
               <Text style={styles.sectionTitle}>
-                Évolution prix m² ({data.price_evolution.annee_min} – {data.price_evolution.annee_max})
+                {data.price_evolution.scope === "cluster"
+                  ? "Évolution prix m² du micro-marché"
+                  : "Évolution prix m² de la commune"}
+                {" "}({data.price_evolution.annee_min} – {data.price_evolution.annee_max})
               </Text>
+              {data.price_evolution.scope === "cluster" && data.price_evolution.nb_total_ventes_cluster != null && (
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Agrégation sur {data.price_evolution.nb_total_ventes_cluster} ventes notariées DVF dans le micro-marché
+                  ({data.price_evolution.type_local}, polygon HDBSCAN officiel).
+                </Text>
+              )}
               <PriceEvolutionChart
                 years={data.price_evolution.years}
                 variation_pct_total={data.price_evolution.variation_pct_total}
                 variation_pct_5y={data.price_evolution.variation_pct_5y}
                 type_local={data.price_evolution.type_local}
+                scope={data.price_evolution.scope ?? "commune"}
                 primaryColor={data.primary_color}
               />
             </>

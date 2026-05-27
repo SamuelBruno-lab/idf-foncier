@@ -34,7 +34,7 @@ import { getTransports } from "@/lib/datasets/transports";
 import { getEcoles } from "@/lib/datasets/ecoles";
 import { getServices } from "@/lib/datasets/services";
 import { getInseeIris } from "@/lib/datasets/insee";
-import { getPriceEvolution } from "@/lib/datasets/price-evolution";
+import { getClusterPriceEvolution } from "@/lib/datasets/cluster-price-evolution";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
 import { getPointsInteret } from "@/lib/datasets/points-interet";
 import { computeParisDistance } from "@/lib/paris-distance";
@@ -231,8 +231,17 @@ export async function POST(
         getEcoles(top.lat, top.lon).catch(() => null),
         getServices(top.lat, top.lon).catch(() => null),
         getInseeIris(top.lat, top.lon).catch(() => null),
+        // Évolution prix m² au niveau MICRO-MARCHÉ (cluster HDBSCAN) — plus
+        // précis que commune-level. Filtre les ventes DVF dans le polygon
+        // hull du cluster matchant l'adresse + agrège par année.
         ["Appartement", "Maison"].includes(type_bien)
-          ? getPriceEvolution(top.code_insee, type_bien, 8).catch(() => null)
+          ? getClusterPriceEvolution({
+              lat: top.lat,
+              lon: top.lon,
+              code_commune: top.code_insee,
+              type_local: type_bien,
+              years_back: 8,
+            }).catch(() => null)
           : Promise.resolve(null),
         getLyceesBac(top.lat, top.lon).catch(() => null),
         // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
@@ -337,6 +346,10 @@ export async function POST(
           variation_pct_5y: priceEvolution.variation_pct_5y,
           annee_min: priceEvolution.annee_min,
           annee_max: priceEvolution.annee_max,
+          // Métadonnées cluster (nouveauté) :
+          scope: "cluster" as const,
+          nb_total_ventes_cluster: priceEvolution.nb_total_ventes_cluster,
+          match_method: priceEvolution.match_method,
         }
       : null,
   };

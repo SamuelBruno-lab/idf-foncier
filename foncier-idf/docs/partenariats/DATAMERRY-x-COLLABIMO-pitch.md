@@ -23,7 +23,19 @@ C'est le modèle **Multiple Listing Service** (MLS) américain, structure qui p�
 | Le critère « 1 an d'expérience » filtre les pros sérieux | Les briques doivent être **professionnelles**, pas grand public |
 | Ton bandeau partenaires (IAD, Olean, Budgetlyss, Neos) montre une stratégie de **modules** | Tu acceptes les briques externes officielles si elles servent ta valeur |
 
-**→ DATAMERRY se positionne pile dans le slot manquant : la couche data / intelligence marché.**
+### Analyse de l'écosystème partenaires actuel
+
+| Partenaire | Apport au Cercle | Périmètre |
+|---|---|---|
+| **IAD** | ~20 000 mandataires sous carte T centralisée (n°1 français) | Mandataires affiliés |
+| **Olean Group** | Délégation carte T pour indépendants (73 €/mo + 10 % honoraires) | Indépendants hors réseau |
+| **Budgetlyss** | Simulateur budget / crédit acheteurs | Côté acquéreur |
+| **Neos Immo** | Réseau immo local (à confirmer) | Niche locale |
+| **🆕 DATAMERRY** | **Data / estimation / intelligence marché** | **Cross-réseau** |
+
+**Implication stratégique IAD** : si les mandataires IAD participent au Cercle (lecture la plus probable), une intégration DATAMERRY native = **exposition à 20 000 conseillers**. Même 5 % de pénétration = 1 000 cabinets actifs × 50 €/mo moyen = **50 000 €/mo MRR potentiel à 24 mois** sur le Channel Partner.
+
+**→ DATAMERRY se positionne pile dans le slot manquant : la couche data / intelligence marché, complémentaire des 4 partenaires actuels, sans aucune concurrence frontale.**
 
 ---
 
@@ -164,6 +176,14 @@ J'ai noté que la home Collabimo pousse vers **« Prendre rendez-vous »** plut�
 
 ### Carte T Eurealimmo
 Sujet secondaire (tu as déjà Olean Group). Si à un moment des agents Cercle veulent une délégation carte T moins chère que les 73 €/mo + 10 % d'Olean, on en reparle calmement — mais ce n'est pas le focus d'aujourd'hui.
+
+### Questions à clarifier ensemble au call
+
+1. **IAD et Le Cercle** : les mandataires IAD participent-ils au Cercle (partagent-ils leurs mandats) ou IAD est purement sponsor / co-marqué ? Selon la réponse, la projection MRR DATAMERRY × IAD peut être ajustée (lecture A vs lecture B).
+2. **Calendrier de lancement Le Cercle** : Q3 2026 ? Si oui, DATAMERRY peut être prêt pour l'opening day.
+3. **Pricing Cercle aux agents** : quel tarif d'adhésion vises-tu (les 49 €/mo dans mes hypothèses sont une estimation) ?
+4. **Objectif M12** : tu vises combien d'agents Cercle actifs à 12 mois ? La projection MRR DATAMERRY dépend directement de ça.
+5. **URL CTA officielle** : la home Collabimo pousse vers « Prendre rendez-vous ». Tu confirmes que c'est l'URL à pointer comme CTA dans les rapports DATAMERRY (au lieu de `/vendre`) ?
 
 ---
 

@@ -117,6 +117,21 @@ export type CabinetLeadReportData = {
     par_type: Record<string, number>;
   } | null;
 
+  /** Top 3 lycées avec taux de réussite bac (data.education.gouv.fr) */
+  lycees_bac?: {
+    count: number;
+    top: Array<{
+      nom: string;
+      statut: "public" | "prive" | "inconnu";
+      commune: string;
+      taux_reussite_general: number | null;
+      taux_reussite_techno: number | null;
+      taux_mention_general: number | null;
+      distance_m: number;
+      annee_session: number | null;
+    }>;
+  } | null;
+
   /** Services quotidien à pied (Overpass / OSM) */
   services?: {
     score_quotidien: number;
@@ -819,11 +834,37 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
 
           <Text style={styles.title}>Le quartier en chiffres</Text>
           <Text style={styles.subtitle}>
-            Données opensource (DVF notaires, OSM, INSEE Filosofi, Annuaire Éducation Nationale)
+            Données opensource (DVF notaires, OSM, INSEE Filosofi, Annuaire Éducation Nationale, data.education.gouv.fr)
           </Text>
 
-          {/* ── Section 1 — Proximité Paris ──────────────────────────── */}
-          {Boolean(data.paris_distance) && data.paris_distance && (
+          {/* ── Section "Quartier" — UNIQUEMENT pour adresses Paris intra-muros ─ */}
+          {/* Pour Paris, "Proximité Paris" n'a aucun sens (on y est). On affiche
+              à la place une phrase qualitative cabinet "proche toutes commodités" */}
+          {Boolean(data.paris_distance?.is_paris) && (
+            <View
+              style={{
+                marginTop: 8,
+                marginBottom: 12,
+                padding: 12,
+                backgroundColor: data.primary_color + "10",
+                borderColor: data.primary_color,
+                borderWidth: 1,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ fontSize: 11, color: "#0f172a", lineHeight: 1.5 }}>
+                🗼 Adresse{" "}
+                <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                  Paris intra-muros
+                </Text>{" "}
+                — quartier dense, proche de toutes commodités et points d&apos;intérêts
+                notables. Desserte transports en commun excellente par défaut.
+              </Text>
+            </View>
+          )}
+
+          {/* ── Section 1 — Proximité Paris (UNIQUEMENT banlieue / province) ── */}
+          {!data.paris_distance?.is_paris && Boolean(data.paris_distance) && data.paris_distance && (
             <>
               <Text style={styles.sectionTitle}>Proximité Paris</Text>
               <View style={styles.detailGrid}>
@@ -936,12 +977,14 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               score garde sa valeur informative. */}
           {Boolean(data.transports) && data.transports && (
             <>
-              <Text style={styles.sectionTitle}>Transports à proximité</Text>
+              <Text style={styles.sectionTitle}>
+                {data.paris_distance?.is_paris
+                  ? "Métros, RER & tramway à 500 m"
+                  : "Transports à proximité"}
+              </Text>
               {data.paris_distance?.is_paris ? (
                 <Text style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}>
-                  Adresse <Text style={{ fontWeight: 700 }}>Paris intra-muros</Text> —
-                  desserte par les transports en commun excellente par défaut
-                  ({data.transports.count} arrêts dans un rayon de 800 m).
+                  {data.transports.count} arrêts dans un rayon de 500 m.
                 </Text>
               ) : (
                 <View style={styles.detailGrid}>
@@ -977,7 +1020,69 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             </>
           )}
 
-          {/* ── Section 3 — Écoles ──────────────────────────────────── */}
+          {/* ── Section Lycées + Taux de réussite Bac ────────────────────
+              Argument vente #1 pour les parents qui achètent (Paris ou banlieue).
+              Source : data.education.gouv.fr dataset IVAL officiel. */}
+          {Boolean(data.lycees_bac) && data.lycees_bac && data.lycees_bac.top.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Lycées à proximité — taux de réussite Bac</Text>
+              {data.lycees_bac.top.map((l, i) => {
+                const statutLabel =
+                  l.statut === "public" ? "Public" : l.statut === "prive" ? "Privé sous contrat" : "—";
+                const tauxG = l.taux_reussite_general;
+                const tauxT = l.taux_reussite_techno;
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      marginBottom: 8,
+                      padding: 8,
+                      backgroundColor: "#f8fafc",
+                      borderRadius: 6,
+                      borderLeftWidth: 3,
+                      borderLeftColor: data.primary_color,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+                      {l.nom}
+                    </Text>
+                    <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>
+                      {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
+                      {l.annee_session ? ` · Session ${l.annee_session}` : ""}
+                    </Text>
+                    <View style={{ flexDirection: "row", gap: 16, marginTop: 5 }}>
+                      {tauxG != null && (
+                        <Text style={{ fontSize: 10 }}>
+                          <Text style={{ color: "#64748b" }}>Bac général : </Text>
+                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                            {tauxG} %
+                          </Text>
+                        </Text>
+                      )}
+                      {tauxT != null && (
+                        <Text style={{ fontSize: 10 }}>
+                          <Text style={{ color: "#64748b" }}>Bac techno : </Text>
+                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                            {tauxT} %
+                          </Text>
+                        </Text>
+                      )}
+                      {l.taux_mention_general != null && (
+                        <Text style={{ fontSize: 10 }}>
+                          <Text style={{ color: "#64748b" }}>Taux de mention : </Text>
+                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                            {l.taux_mention_general} %
+                          </Text>
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </>
+          )}
+
+          {/* ── Section 3 — Écoles (maternelle, élémentaire, collège) ─── */}
           {Boolean(data.ecoles) && data.ecoles && data.ecoles.count > 0 && (
             <>
               <Text style={styles.sectionTitle}>Écoles à proximité</Text>

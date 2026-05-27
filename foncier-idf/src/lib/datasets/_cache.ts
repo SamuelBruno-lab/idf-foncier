@@ -23,7 +23,8 @@ export type DatasetKey =
   | "insee_iris"
   | "dpe"
   | "idfm_journey"
-  | "price_evolution";
+  | "price_evolution"
+  | "lycees_bac";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

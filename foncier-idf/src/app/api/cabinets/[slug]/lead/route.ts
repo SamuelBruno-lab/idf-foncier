@@ -35,6 +35,7 @@ import { getEcoles } from "@/lib/datasets/ecoles";
 import { getServices } from "@/lib/datasets/services";
 import { getInseeIris } from "@/lib/datasets/insee";
 import { getPriceEvolution } from "@/lib/datasets/price-evolution";
+import { getLyceesBac } from "@/lib/datasets/lycees-bac";
 import { computeParisDistance } from "@/lib/paris-distance";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -203,9 +204,23 @@ export async function POST(
   //     première gare RER/Transilien/métro même si on est loin de tout
   //     (banlieue, terrains, etc.). Sans ça on retournait null trop souvent.
   //   - ecoles, services, INSEE (datasets standard)
-  const [transports, transportsLarge, ecoles, services, inseeIris, priceEvolution] = top
+  // Rayon transports adaptatif : Paris intra-muros (dept 75) très dense, on
+  // restreint à 500 m pour ne pas noyer le lecteur avec 50+ arrêts. En
+  // banlieue/province, 800 m reste pertinent (densité plus faible).
+  const isParisIntraMuros = top ? top.code_insee.startsWith("75") : false;
+  const transportsRadius = isParisIntraMuros ? 500 : 800;
+
+  const [
+    transports,
+    transportsLarge,
+    ecoles,
+    services,
+    inseeIris,
+    priceEvolution,
+    lyceesBac,
+  ] = top
     ? await Promise.all([
-        getTransports(top.lat, top.lon).catch(() => null),
+        getTransports(top.lat, top.lon, { radiusM: transportsRadius }).catch(() => null),
         // Limite à 200 : en IDF dense (Pantin, Saint-Denis, etc.) le rayon 5km
         // contient 100+ arrêts de bus. Sans cette limite élevée, la gare RER
         // pourrait être hors top 30 (filtrée par distance avant qu'on trie
@@ -221,8 +236,11 @@ export async function POST(
         ["Appartement", "Maison"].includes(type_bien)
           ? getPriceEvolution(top.code_insee, type_bien, 8).catch(() => null)
           : Promise.resolve(null),
+        // Top 3 lycées les plus proches avec taux de réussite au bac.
+        // L'argument vente #1 pour les parents qui achètent à Paris/banlieue.
+        getLyceesBac(top.lat, top.lon).catch(() => null),
       ])
-    : [null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null];
 
   // Distance + temps trajet Paris.
   // computeParisDistance est async : il interroge d'abord dim_gares (source
@@ -269,6 +287,21 @@ export async function POST(
       ? {
           count: ecoles.count,
           par_type: ecoles.par_type,
+        }
+      : null,
+    lycees_bac: lyceesBac && lyceesBac.available
+      ? {
+          count: lyceesBac.count,
+          top: lyceesBac.top.map((l) => ({
+            nom: l.nom,
+            statut: l.statut,
+            commune: l.commune,
+            taux_reussite_general: l.taux_reussite_general,
+            taux_reussite_techno: l.taux_reussite_techno,
+            taux_mention_general: l.taux_mention_general,
+            distance_m: l.distance_m,
+            annee_session: l.annee_session,
+          })),
         }
       : null,
     services: services

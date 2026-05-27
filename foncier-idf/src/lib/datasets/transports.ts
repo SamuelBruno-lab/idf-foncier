@@ -217,6 +217,9 @@ export async function getTransports(
     TTL_DAYS,
     () => fetchTransportsFromOverpass(lat, lon, radiusM, limit),
     0,
+    // Ne pas cacher un résultat vide : c'est probablement un timeout
+    // Overpass qui empoisonnerait sinon le cache 30 jours.
+    (result) => result.count > 0,
   );
 
   return { ...data, cached };

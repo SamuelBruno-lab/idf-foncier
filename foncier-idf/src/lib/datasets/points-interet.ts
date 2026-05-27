@@ -25,6 +25,7 @@
  */
 
 import { addressHash, fetchWithCache, haversineMeters } from "./_cache";
+import { findNearbyPoiFromDb } from "./poi-db";
 
 const DEFAULT_RADIUS_M = 1500; // 1.5 km — capture l'essentiel sans noyer
 const TTL_DAYS = 30;
@@ -202,6 +203,32 @@ export async function getPointsInteret(
   lon: number,
   radius_m: number = DEFAULT_RADIUS_M,
 ): Promise<PointsInteretResult & { cached: boolean }> {
+  // ── STRATÉGIE 1 : Table dim_poi (officielle Mérimée + Wikidata) ────────
+  // Sub-5ms, déterministe, immune aux timeouts Overpass. Si dim_poi est
+  // peuplée (via pipeline_poi.py), on n'a plus jamais besoin d'OSM.
+  const dbRows = await findNearbyPoiFromDb(lat, lon, radius_m, 5).catch(() => []);
+  if (dbRows.length > 0) {
+    const now = new Date().toISOString();
+    const top = dbRows.slice(0, 2).map((r) => ({
+      osm_id: 0,
+      nom: r.nom,
+      type: mapDbType(r.type),
+      lat: r.lat,
+      lon: r.lon,
+      distance_m: r.distance_m,
+      wikipedia_url: r.wikipedia_url,
+    })) as PointInteret[];
+    return {
+      available: true,
+      count: dbRows.length,
+      top,
+      source: "dim_poi (Mérimée + Wikidata)",
+      fetched_at: now,
+      cached: false,
+    };
+  }
+
+  // ── STRATÉGIE 2 (fallback) : Overpass OSM (legacy, peut timeout) ───────
   const hash = addressHash(lat, lon);
   const { data, cached } = await fetchWithCache<PointsInteretResult>(
     hash,
@@ -210,6 +237,33 @@ export async function getPointsInteret(
     TTL_DAYS,
     () => fetchPointsInteretFromOverpass(lat, lon, radius_m),
     0,
+    (result) => result.available && result.count > 0,
   );
   return { ...data, cached };
+}
+
+/** Convertit le type dim_poi (CHECK constraint) vers le type PointInteret (UI). */
+function mapDbType(dbType: string): PointInteret["type"] {
+  switch (dbType) {
+    case "monument":
+    case "site_archeologique":
+      return "monument";
+    case "musee":
+      return "musee";
+    case "memorial":
+      return "memorial";
+    case "site_naturel":
+    case "parc":
+      return "attraction";
+    case "place":
+    case "eglise":
+    case "chateau":
+    case "pont":
+    case "fontaine":
+    case "theatre":
+    case "opera":
+      return "attraction";
+    default:
+      return "autre";
+  }
 }

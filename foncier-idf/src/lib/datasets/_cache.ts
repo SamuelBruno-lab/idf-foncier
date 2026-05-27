@@ -73,6 +73,13 @@ export async function fetchWithCache<T>(
   ttlDays: number,
   fetcher: () => Promise<T>,
   costEurEstimated = 0,
+  /**
+   * Callback optionnel : si fourni et qu'il renvoie false sur le résultat du
+   * fetch, on SKIP la mise en cache. Évite que des résultats "vides" (ex:
+   * Overpass timeout → count: 0) empoisonnent le cache pour 30 jours.
+   * Si non fourni, on cache toujours (comportement legacy).
+   */
+  shouldCache?: (data: T) => boolean,
 ): Promise<CachedDatasetResult<T>> {
   const sb = getSupabaseServerClient();
 
@@ -95,7 +102,6 @@ export async function fetchWithCache<T>(
     }
   } catch (err) {
     console.warn(`[dataset cache ${key}] read failed:`, err);
-    // on continue vers le fetch — pas de blocage si la table est down
   }
 
   // 2) Fetch source
@@ -107,28 +113,33 @@ export async function fetchWithCache<T>(
     throw err;
   }
 
-  // 3) Upsert cache (fire-and-forget — on log mais on ne bloque pas la réponse)
-  void (async () => {
-    try {
-      const expires = new Date(Date.now() + ttlDays * 86_400_000);
-      await sb.from("property_report_cache").upsert(
-        {
-          address_hash: hash,
-          lat: latLon.lat,
-          lon: latLon.lon,
-          dataset_key: key,
-          payload: data as unknown,
-          fetched_at: new Date().toISOString(),
-          expires_at: expires.toISOString(),
-          source: key,
-          source_cost_eur: costEurEstimated,
-        },
-        { onConflict: "address_hash,dataset_key" },
-      );
-    } catch (err) {
-      console.warn(`[dataset cache ${key}] write failed:`, err);
-    }
-  })();
+  // 3) Upsert cache (fire-and-forget) — SAUF si shouldCache() refuse
+  const wantCache = shouldCache ? shouldCache(data) : true;
+  if (wantCache) {
+    void (async () => {
+      try {
+        const expires = new Date(Date.now() + ttlDays * 86_400_000);
+        await sb.from("property_report_cache").upsert(
+          {
+            address_hash: hash,
+            lat: latLon.lat,
+            lon: latLon.lon,
+            dataset_key: key,
+            payload: data as unknown,
+            fetched_at: new Date().toISOString(),
+            expires_at: expires.toISOString(),
+            source: key,
+            source_cost_eur: costEurEstimated,
+          },
+          { onConflict: "address_hash,dataset_key" },
+        );
+      } catch (err) {
+        console.warn(`[dataset cache ${key}] write failed:`, err);
+      }
+    })();
+  } else {
+    console.log(`[dataset ${key}] result empty/unavailable — skipping cache write`);
+  }
 
   return { data, cached: false, cost_eur: costEurEstimated };
 }

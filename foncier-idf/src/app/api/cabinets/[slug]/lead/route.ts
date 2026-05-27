@@ -305,6 +305,7 @@ export async function POST(
             nom: l.nom,
             statut: l.statut,
             commune: l.commune,
+            dept: l.dept,
             taux_reussite_general: l.taux_reussite_general,
             taux_reussite_techno: l.taux_reussite_techno,
             taux_mention_general: l.taux_mention_general,

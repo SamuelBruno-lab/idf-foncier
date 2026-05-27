@@ -43,6 +43,9 @@ export type LyceeBacResult = {
   nom: string;
   statut: "public" | "prive" | "inconnu";
   commune: string;
+  /** Code département (2 caractères métro, 3 pour DROM). Permet de comparer
+   *  le taux à la moyenne académique. Null si introuvable. */
+  dept: string | null;
   /** Taux de réussite au bac général (%) — null si non publié */
   taux_reussite_general: number | null;
   /** Taux de réussite au bac technologique (%) */
@@ -98,6 +101,12 @@ type OdsRecord = {
   appellation_officielle?: string;
   ville?: string;
   commune?: string;
+  // Différentes nomenclatures de code département selon les versions ODS
+  code_departement?: string;
+  departement?: string;
+  dep?: string;
+  code_insee?: string;
+  code_insee_de_l_etablissement?: string;
   secteur?: string;
   etablissement_public_ou_priv?: string;
   taux_reussite_g?: number | null;
@@ -109,6 +118,32 @@ type OdsRecord = {
   session?: number;
   geo_point_2d?: { lat?: number; lon?: number } | { type?: string; coordinates?: number[] };
 };
+
+/**
+ * Extrait le code département depuis un record ODS, en testant plusieurs champs
+ * possibles. Si aucun n'est dispo, dérive depuis le code INSEE de l'établissement.
+ */
+function pickDept(rec: OdsRecord): string | null {
+  const candidates = [
+    rec.code_departement,
+    rec.departement,
+    rec.dep,
+  ];
+  for (const c of candidates) {
+    if (c && typeof c === "string") {
+      const cleaned = c.trim();
+      if (cleaned.length === 2 || cleaned.length === 3) return cleaned;
+    }
+  }
+  // Fallback : extraire les 2-3 premiers chars du code INSEE
+  const insee = rec.code_insee || rec.code_insee_de_l_etablissement;
+  if (insee && typeof insee === "string") {
+    const s = insee.trim();
+    if (s.startsWith("97") && s.length >= 3) return s.slice(0, 3); // DROM
+    if (s.length >= 2) return s.slice(0, 2);
+  }
+  return null;
+}
 
 function pickCoords(geo: OdsRecord["geo_point_2d"] | undefined): { lat: number; lon: number } | null {
   if (!geo) return null;
@@ -185,6 +220,7 @@ async function fetchLyceesFromOds(
           "Lycée non identifié",
         statut: parseStatut(rec.secteur ?? rec.etablissement_public_ou_priv),
         commune: rec.commune ?? rec.ville ?? "",
+        dept: pickDept(rec),
         taux_reussite_general:
           rec.taux_brut_de_reussite_serie_generale ?? rec.taux_reussite_g ?? null,
         taux_reussite_techno: rec.taux_brut_de_reussite_serie_techno ?? null,

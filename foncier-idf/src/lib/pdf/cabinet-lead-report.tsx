@@ -23,6 +23,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { getBacMoyenneDept } from "../datasets/bac-moyennes";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -124,6 +125,7 @@ export type CabinetLeadReportData = {
       nom: string;
       statut: "public" | "prive" | "inconnu";
       commune: string;
+      dept: string | null;
       taux_reussite_general: number | null;
       taux_reussite_techno: number | null;
       taux_mention_general: number | null;
@@ -1095,32 +1097,53 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           )}
 
           {/* ── Section Lycées + Taux de réussite Bac ────────────────────
-              FILTRE ÉDITORIAL VENDEUR :
-                - On ne montre que les lycées avec ≥ 75 % de réussite bac
-                  général OU ≥ 50 % de mention. Un lycée à 40 % de bac
-                  dévaloriserait le bien — on ne le mentionne pas.
-                - Tri par taux DÉCROISSANT (meilleur en haut) puis distance
-                  croissante en cas d'égalité.
-                - Max 2 lycées pour rester focalisé argument.
-                - Si aucun lycée ne passe le seuil → on cache toute la
-                  section (mieux qu'afficher "le moins pire").
-              Source : data.education.gouv.fr dataset IVAL officiel. */}
+              FILTRE ÉDITORIAL VENDEUR (révisé) :
+                - Un lycée n'est cité que si SON taux de réussite bac général
+                  est STRICTEMENT SUPÉRIEUR à la moyenne de son académie
+                  (session 2024 DEPP). C'est plus juste qu'un seuil fixe :
+                  un lycée à 85 % en Guadeloupe (moy. acad. 86 %) ne sera
+                  pas cité, mais un lycée à 92 % en Versailles (moy. 93 %)
+                  non plus — donc la valorisation est honnête, locale.
+                - Tri par DÉPASSEMENT de moyenne décroissant (le plus
+                  au-dessus de sa moyenne académique en haut).
+                - Max 2 lycées affichés.
+                - Section masquée entièrement si aucun lycée ne dépasse sa
+                  moyenne académique.
+              Source : data.education.gouv.fr IVAL + DEPP juillet 2024. */}
           {(() => {
-            const SEUIL_BAC_GENERAL = 75; // %
-            const SEUIL_MENTION = 50; // %
-            const lyceesQualifies = (data.lycees_bac?.top ?? [])
+            // Calcule pour chaque lycée son "dépassement" vs moyenne académique
+            const lyceesEnrichis = (data.lycees_bac?.top ?? []).map((l) => {
+              const moyAcad = getBacMoyenneDept(l.dept);
+              const tauxG = l.taux_reussite_general;
+              const tauxMention = l.taux_mention_general;
+              // Dépassement bac général
+              const depassement_general =
+                tauxG != null && moyAcad ? tauxG - moyAcad.taux_general : null;
+              const depassement_mention =
+                tauxMention != null && moyAcad ? tauxMention - moyAcad.taux_mention : null;
+              return {
+                ...l,
+                moy_academie_general: moyAcad?.taux_general ?? null,
+                moy_academie_mention: moyAcad?.taux_mention ?? null,
+                depassement_general,
+                depassement_mention,
+              };
+            });
+
+            const lyceesQualifies = lyceesEnrichis
               .filter((l) => {
-                const okBac =
-                  l.taux_reussite_general != null && l.taux_reussite_general >= SEUIL_BAC_GENERAL;
-                const okMention =
-                  l.taux_mention_general != null && l.taux_mention_general >= SEUIL_MENTION;
-                return okBac || okMention;
+                // Au moins un des 2 indicateurs (bac général OU mention)
+                // strictement au-dessus de la moyenne académique
+                const okG = l.depassement_general != null && l.depassement_general > 0;
+                const okM = l.depassement_mention != null && l.depassement_mention > 0;
+                return okG || okM;
               })
               .sort((a, b) => {
-                // Tri par meilleur taux d'abord
-                const ta = a.taux_reussite_general ?? 0;
-                const tb = b.taux_reussite_general ?? 0;
-                if (tb !== ta) return tb - ta;
+                // Tri par dépassement bac général décroissant (le meilleur
+                // par rapport à sa propre académie en premier)
+                const da = a.depassement_general ?? -Infinity;
+                const db = b.depassement_general ?? -Infinity;
+                if (db !== da) return db - da;
                 return a.distance_m - b.distance_m;
               })
               .slice(0, 2);
@@ -1129,7 +1152,12 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
 
             return (
               <>
-                <Text style={styles.sectionTitle}>Lycées à proximité — taux de réussite Bac</Text>
+                <Text style={styles.sectionTitle}>
+                  Lycées à proximité — taux de réussite Bac
+                </Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Comparaison vs. moyenne académique session 2024 (DEPP).
+                </Text>
                 {lyceesQualifies.map((l, i) => {
                   const statutLabel =
                     l.statut === "public"
@@ -1137,8 +1165,6 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                       : l.statut === "prive"
                         ? "Privé sous contrat"
                         : "—";
-                  const tauxG = l.taux_reussite_general;
-                  const tauxT = l.taux_reussite_techno;
                   return (
                     <View
                       key={i}
@@ -1158,32 +1184,31 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                         {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
                         {l.annee_session ? ` · Session ${l.annee_session}` : ""}
                       </Text>
-                      <View style={{ flexDirection: "row", gap: 16, marginTop: 5 }}>
-                        {tauxG != null && tauxG >= SEUIL_BAC_GENERAL && (
+                      <View style={{ flexDirection: "row", gap: 16, marginTop: 5, flexWrap: "wrap" }}>
+                        {/* Bac général — affiché uniquement si > moyenne académique */}
+                        {l.depassement_general != null && l.depassement_general > 0 && (
                           <Text style={{ fontSize: 10 }}>
                             <Text style={{ color: "#64748b" }}>Bac général : </Text>
                             <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                              {tauxG} %
+                              {l.taux_reussite_general} %
+                            </Text>
+                            <Text style={{ color: "#15803d", fontSize: 9 }}>
+                              {" "}(+{l.depassement_general.toFixed(1)} pts vs académie)
                             </Text>
                           </Text>
                         )}
-                        {tauxT != null && tauxT >= SEUIL_BAC_GENERAL && (
+                        {/* Taux de mention — affiché uniquement si > moyenne académique */}
+                        {l.depassement_mention != null && l.depassement_mention > 0 && (
                           <Text style={{ fontSize: 10 }}>
-                            <Text style={{ color: "#64748b" }}>Bac techno : </Text>
+                            <Text style={{ color: "#64748b" }}>Mention : </Text>
                             <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                              {tauxT} %
+                              {l.taux_mention_general} %
+                            </Text>
+                            <Text style={{ color: "#15803d", fontSize: 9 }}>
+                              {" "}(+{l.depassement_mention.toFixed(1)} pts vs académie)
                             </Text>
                           </Text>
                         )}
-                        {l.taux_mention_general != null &&
-                          l.taux_mention_general >= SEUIL_MENTION && (
-                            <Text style={{ fontSize: 10 }}>
-                              <Text style={{ color: "#64748b" }}>Taux de mention : </Text>
-                              <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                                {l.taux_mention_general} %
-                              </Text>
-                            </Text>
-                          )}
                       </View>
                     </View>
                   );

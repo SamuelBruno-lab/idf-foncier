@@ -930,25 +930,37 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           )}
 
           {/* ── Section 2 — Transports proches ───────────────────────── */}
+          {/* En intra-muros Paris (dept 75), un "score accessibilité" est non-
+              discriminant (tout le monde a métro à 5 min). On masque le score
+              chiffré et on affiche juste la liste des arrêts. En banlieue le
+              score garde sa valeur informative. */}
           {Boolean(data.transports) && data.transports && (
             <>
               <Text style={styles.sectionTitle}>Transports à proximité</Text>
-              <View style={styles.detailGrid}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Score accessibilité</Text>
-                  <Text style={styles.detailValue}>
-                    {data.transports.score_accessibilite}/100
-                    {" · "}
-                    {data.transports.count} arrêts dans un rayon de 800 m
-                  </Text>
-                </View>
-                {Object.entries(data.transports.par_type).slice(0, 4).map(([type, count]) => (
-                  <View key={type} style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>{type}</Text>
-                    <Text style={styles.detailValue}>{count}</Text>
+              {data.paris_distance?.is_paris ? (
+                <Text style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}>
+                  Adresse <Text style={{ fontWeight: 700 }}>Paris intra-muros</Text> —
+                  desserte par les transports en commun excellente par défaut
+                  ({data.transports.count} arrêts dans un rayon de 800 m).
+                </Text>
+              ) : (
+                <View style={styles.detailGrid}>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Score accessibilité</Text>
+                    <Text style={styles.detailValue}>
+                      {data.transports.score_accessibilite}/100
+                      {" · "}
+                      {data.transports.count} arrêts dans 800 m
+                    </Text>
                   </View>
-                ))}
-              </View>
+                  {Object.entries(data.transports.par_type).slice(0, 3).map(([type, count]) => (
+                    <View key={type} style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>{type}</Text>
+                      <Text style={styles.detailValue}>{count}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               {data.transports.top_stops.length > 0 && (
                 <View style={{ marginTop: 6 }}>
                   <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 4 }}>
@@ -985,14 +997,19 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           )}
 
           {/* ── Section 4 — Services quotidien ───────────────────────── */}
+          {/* Idem que Transports : à Paris intra-muros tout est à 200 m à pied,
+              le score n'apporte rien. On garde le décompte des catégories qui
+              reste utile (savoir combien de boulangeries / pharmacies / etc.). */}
           {Boolean(data.services) && data.services && data.services.count > 0 && (
             <>
               <Text style={styles.sectionTitle}>Services & commerces (500 m)</Text>
               <View style={styles.detailGrid}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Score quotidien à pied</Text>
-                  <Text style={styles.detailValue}>{data.services.score_quotidien}/100</Text>
-                </View>
+                {!data.paris_distance?.is_paris && (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Accessibilité à pied</Text>
+                    <Text style={styles.detailValue}>{data.services.score_quotidien}/100</Text>
+                  </View>
+                )}
                 {Object.entries(data.services.par_categorie).map(([cat, count]) => (
                   <View key={cat} style={styles.detailItem}>
                     <Text style={styles.detailLabel}>{cat.replace("_", " ")}</Text>

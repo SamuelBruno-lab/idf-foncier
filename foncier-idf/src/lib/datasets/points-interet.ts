@@ -32,6 +32,43 @@ const TTL_DAYS = 30;
 const TIMEOUT_MS = 6000;
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
+/**
+ * Blacklist défensive : mots-clés à exclure du nom d'un POI car il s'agit
+ * de lieux qui DÉVALORISENT le bien immo (filtre éditorial vendeur).
+ *
+ * Théoriquement la whitelist Mérimée + Wikidata + (tourism|historic)+wikipedia
+ * ne contient pas ce genre de lieu, mais sécurité de protection au cas où
+ * un POI Wikipedia parlerait d'une déchetterie ou prison célèbre.
+ */
+const BLACKLIST_NOM = [
+  "déchetterie",
+  "déchèterie",
+  "decheterie",
+  "decheterie",
+  "centre de tri",
+  "incinérateur",
+  "incinerateur",
+  "cimetière",
+  "cimetiere",
+  "morgue",
+  "prison",
+  "maison d'arrêt",
+  "maison d'arret",
+  "centre de détention",
+  "centre de detention",
+  "hôpital psychiatrique",
+  "hopital psychiatrique",
+  "asile",
+  "station d'épuration",
+  "station depuration",
+  "usine de retraitement",
+];
+
+function isBlacklistedName(nom: string): boolean {
+  const low = nom.toLowerCase();
+  return BLACKLIST_NOM.some((kw) => low.includes(kw));
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────────
@@ -152,6 +189,10 @@ async function fetchPointsInteretFromOverpass(
       const tags = e.tags ?? {};
       const nom = tags["name:fr"] || tags.name;
       if (!nom) continue;
+      // Filtre éditorial : exclure les POI qui dévaloriseraient le bien
+      // (déchetterie, prison, cimetière, etc.) — défense au cas où OSM
+      // aurait taggé un tel lieu avec wikipedia=*
+      if (isBlacklistedName(nom)) continue;
       // Dédoublonne par nom (même POI mappé en node + way)
       if (seenNames.has(nom)) continue;
       seenNames.add(nom);
@@ -206,7 +247,11 @@ export async function getPointsInteret(
   // ── STRATÉGIE 1 : Table dim_poi (officielle Mérimée + Wikidata) ────────
   // Sub-5ms, déterministe, immune aux timeouts Overpass. Si dim_poi est
   // peuplée (via pipeline_poi.py), on n'a plus jamais besoin d'OSM.
-  const dbRows = await findNearbyPoiFromDb(lat, lon, radius_m, 5).catch(() => []);
+  const dbRowsRaw = await findNearbyPoiFromDb(lat, lon, radius_m, 10).catch(() => []);
+  // Filtre éditorial vendeur : exclure les POI dévalorisants même si la
+  // DB contient (théoriquement Mérimée + Wikidata sont déjà propres, mais
+  // garde-fou défensif identique au fallback OSM)
+  const dbRows = dbRowsRaw.filter((r) => !isBlacklistedName(r.nom));
   if (dbRows.length > 0) {
     const now = new Date().toISOString();
     const top = dbRows.slice(0, 2).map((r) => ({

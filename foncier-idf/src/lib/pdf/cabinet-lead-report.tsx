@@ -1095,66 +1095,102 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           )}
 
           {/* ── Section Lycées + Taux de réussite Bac ────────────────────
-              Argument vente #1 pour les parents qui achètent (Paris ou banlieue).
+              FILTRE ÉDITORIAL VENDEUR :
+                - On ne montre que les lycées avec ≥ 75 % de réussite bac
+                  général OU ≥ 50 % de mention. Un lycée à 40 % de bac
+                  dévaloriserait le bien — on ne le mentionne pas.
+                - Tri par taux DÉCROISSANT (meilleur en haut) puis distance
+                  croissante en cas d'égalité.
+                - Max 2 lycées pour rester focalisé argument.
+                - Si aucun lycée ne passe le seuil → on cache toute la
+                  section (mieux qu'afficher "le moins pire").
               Source : data.education.gouv.fr dataset IVAL officiel. */}
-          {Boolean(data.lycees_bac) && data.lycees_bac && data.lycees_bac.top.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Lycées à proximité — taux de réussite Bac</Text>
-              {data.lycees_bac.top.map((l, i) => {
-                const statutLabel =
-                  l.statut === "public" ? "Public" : l.statut === "prive" ? "Privé sous contrat" : "—";
-                const tauxG = l.taux_reussite_general;
-                const tauxT = l.taux_reussite_techno;
-                return (
-                  <View
-                    key={i}
-                    style={{
-                      marginBottom: 8,
-                      padding: 8,
-                      backgroundColor: "#f8fafc",
-                      borderRadius: 6,
-                      borderLeftWidth: 3,
-                      borderLeftColor: data.primary_color,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
-                      {l.nom}
-                    </Text>
-                    <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>
-                      {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
-                      {l.annee_session ? ` · Session ${l.annee_session}` : ""}
-                    </Text>
-                    <View style={{ flexDirection: "row", gap: 16, marginTop: 5 }}>
-                      {tauxG != null && (
-                        <Text style={{ fontSize: 10 }}>
-                          <Text style={{ color: "#64748b" }}>Bac général : </Text>
-                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                            {tauxG} %
+          {(() => {
+            const SEUIL_BAC_GENERAL = 75; // %
+            const SEUIL_MENTION = 50; // %
+            const lyceesQualifies = (data.lycees_bac?.top ?? [])
+              .filter((l) => {
+                const okBac =
+                  l.taux_reussite_general != null && l.taux_reussite_general >= SEUIL_BAC_GENERAL;
+                const okMention =
+                  l.taux_mention_general != null && l.taux_mention_general >= SEUIL_MENTION;
+                return okBac || okMention;
+              })
+              .sort((a, b) => {
+                // Tri par meilleur taux d'abord
+                const ta = a.taux_reussite_general ?? 0;
+                const tb = b.taux_reussite_general ?? 0;
+                if (tb !== ta) return tb - ta;
+                return a.distance_m - b.distance_m;
+              })
+              .slice(0, 2);
+
+            if (lyceesQualifies.length === 0) return null;
+
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Lycées à proximité — taux de réussite Bac</Text>
+                {lyceesQualifies.map((l, i) => {
+                  const statutLabel =
+                    l.statut === "public"
+                      ? "Public"
+                      : l.statut === "prive"
+                        ? "Privé sous contrat"
+                        : "—";
+                  const tauxG = l.taux_reussite_general;
+                  const tauxT = l.taux_reussite_techno;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        marginBottom: 8,
+                        padding: 8,
+                        backgroundColor: "#f8fafc",
+                        borderRadius: 6,
+                        borderLeftWidth: 3,
+                        borderLeftColor: data.primary_color,
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+                        {l.nom}
+                      </Text>
+                      <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>
+                        {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
+                        {l.annee_session ? ` · Session ${l.annee_session}` : ""}
+                      </Text>
+                      <View style={{ flexDirection: "row", gap: 16, marginTop: 5 }}>
+                        {tauxG != null && tauxG >= SEUIL_BAC_GENERAL && (
+                          <Text style={{ fontSize: 10 }}>
+                            <Text style={{ color: "#64748b" }}>Bac général : </Text>
+                            <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                              {tauxG} %
+                            </Text>
                           </Text>
-                        </Text>
-                      )}
-                      {tauxT != null && (
-                        <Text style={{ fontSize: 10 }}>
-                          <Text style={{ color: "#64748b" }}>Bac techno : </Text>
-                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                            {tauxT} %
+                        )}
+                        {tauxT != null && tauxT >= SEUIL_BAC_GENERAL && (
+                          <Text style={{ fontSize: 10 }}>
+                            <Text style={{ color: "#64748b" }}>Bac techno : </Text>
+                            <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                              {tauxT} %
+                            </Text>
                           </Text>
-                        </Text>
-                      )}
-                      {l.taux_mention_general != null && (
-                        <Text style={{ fontSize: 10 }}>
-                          <Text style={{ color: "#64748b" }}>Taux de mention : </Text>
-                          <Text style={{ fontWeight: 700, color: data.primary_color }}>
-                            {l.taux_mention_general} %
-                          </Text>
-                        </Text>
-                      )}
+                        )}
+                        {l.taux_mention_general != null &&
+                          l.taux_mention_general >= SEUIL_MENTION && (
+                            <Text style={{ fontSize: 10 }}>
+                              <Text style={{ color: "#64748b" }}>Taux de mention : </Text>
+                              <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                                {l.taux_mention_general} %
+                              </Text>
+                            </Text>
+                          )}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </>
-          )}
+                  );
+                })}
+              </>
+            );
+          })()}
 
           {/* ── Section 3 — Écoles (maternelle, élémentaire, collège) ─── */}
           {Boolean(data.ecoles) && data.ecoles && data.ecoles.count > 0 && (

@@ -6,7 +6,7 @@
  *   Couverture : 100% IDF (RER, Transilien, Métro, Tram, Bus, Vélib, marche).
  *   Quota gratuit : 1 million de requêtes / mois.
  *
- * Auth : header `apiKey: <IDFM_PRIM_API_KEY>`.
+ * Auth : header `apikey: <IDFM_PRIM_API_KEY>` (lowercase, cf. swagger officiel).
  *
  * Destination par défaut : Châtelet-Les-Halles (hub central Paris),
  * le station la plus connectée de France (RER A/B/D + Métro 1/4/7/11/14).
@@ -22,8 +22,11 @@
 
 import { addressHash, fetchWithCache } from "./_cache";
 
+// URL base extraite du contrat OpenAPI officiel IDF Mobilités (swagger.json,
+// host: prim.iledefrance-mobilites.fr, basePath: /marketplace/v2/navitia).
+// L'endpoint /journeys est documenté sous path GET /journeys.
 const PRIM_BASE =
-  "https://prim.iledefrance-mobilites.fr/marketplace/navitia/journeys";
+  "https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia/journeys";
 
 /**
  * Liste des hubs Paris testés en parallèle pour trouver le trajet optimal.
@@ -256,7 +259,9 @@ async function fetchJourneyToHub(
 
   try {
     const res = await fetch(`${PRIM_BASE}?${params.toString()}`, {
-      headers: { Accept: "application/json", apiKey },
+      // Auth officielle PRIM : header `apikey` en lowercase (cf. swagger
+      // securityDefinitions.APIKeyHeader.name = "apikey").
+      headers: { Accept: "application/json", apikey: apiKey },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) return null;

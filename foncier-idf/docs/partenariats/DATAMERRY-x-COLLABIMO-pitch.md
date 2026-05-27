@@ -37,6 +37,27 @@ C'est le modèle **Multiple Listing Service** (MLS) américain, structure qui p�
 
 **→ DATAMERRY se positionne pile dans le slot manquant : la couche data / intelligence marché, complémentaire des 4 partenaires actuels, sans aucune concurrence frontale.**
 
+### Positionnement vs partenaires existants — phrases prêtes pour le call
+
+À ouvrir spontanément en début de discussion pour anticiper les objections :
+
+**Sur IAD** :
+> *« Diara, je sais qu'IAD est déjà partenaire — et c'est très bien. DATAMERRY ne vient pas remplacer leurs outils internes d'estimation, on est dans un slot différent. IAD a ses propres simulateurs commune-level, DATAMERRY apporte la précision micro-marché HDBSCAN (cluster ~200-400 m de rayon) qu'aucun outil IAD ne propose. Concrètement, un mandataire IAD qui utilise DATAMERRY dans Le Cercle peut justifier un argument de précision face à un vendeur, sans bouger son outil principal. C'est complémentaire, pas remplaçant. »*
+
+**Sur Olean Group** :
+> *« Olean fait la délégation carte T, ce n'est pas mon angle aujourd'hui. DATAMERRY n'est pas un réseau immo — c'est une infrastructure data. Un agent peut être délégué Olean ET utiliser DATAMERRY pour estimer ses biens, les deux briques cohabitent sans conflit. »*
+
+**Sur Budgetlyss** :
+> *« Budgetlyss côté acheteur (budget, crédit), DATAMERRY côté vendeur (estimation, captation lead). Bundle naturel : un acheteur qualifié Budgetlyss + un mandat estimé DATAMERRY = transaction fluide pour les agents Cercle. »*
+
+**Sur Neos Immo** :
+> *« À explorer ensemble — je ne connais pas bien leur positionnement. Mais a priori on couvre des zones complémentaires. »*
+
+**Phrase ouverture suggérée pour la visio** :
+> *« Avant qu'on entre dans le partenariat, je veux poser une chose : j'ai vu que tu as déjà 4 partenaires officiels (IAD, Olean, Budgetlyss, Neos). DATAMERRY ne marche sur les pieds d'aucun d'eux — on est sur la couche data, slot qu'aucun d'eux ne couvre. L'angle que je te propose aujourd'hui est exactement complémentaire à ce que tu as déjà construit. »*
+
+Cet alignement explicite désamorce les objections potentielles et te repositionne comme **architecte d'écosystème** (et pas comme énième fournisseur qui veut sa part du gâteau).
+
 ---
 
 ## 2. DATAMERRY — la data layer naturelle du Cercle

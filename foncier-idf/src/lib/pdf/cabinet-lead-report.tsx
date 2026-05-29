@@ -792,11 +792,30 @@ function PriceEvolutionChart({
           </Text>
         )}
 
-        <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
-          Médiane DVF par année · données notariées officielles · années avec ≥ 5 ventes
-          {scope === "cluster" ? " · périmètre = polygon HDBSCAN du micro-marché" : ""}
-          {hasCommune ? " · référence commune : agrégat code INSEE" : ""}
-        </Text>
+        {(() => {
+          // Affichage du VRAI nombre de ventes utilisées (somme sur la période)
+          // Plutôt que le seuil minimum qui faisait croire à un échantillon
+          // ridicule (Drancy = 72 k hab, plusieurs centaines de ventes/an).
+          const totalCluster = years.reduce((acc, y) => acc + (y.nb_ventes ?? 0), 0);
+          const totalCommune = (communeYears ?? []).reduce(
+            (acc, y) => acc + (y.nb_ventes ?? 0),
+            0,
+          );
+          const minSeuil = scope === "cluster" ? 5 : 10;
+          return (
+            <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
+              Médiane DVF par année · données notariées officielles ·
+              {scope === "cluster"
+                ? ` ${totalCluster} ventes agrégées dans le micro-marché HDBSCAN`
+                : ` ${totalCluster} ventes agrégées sur la commune`}
+              {hasCommune && totalCommune > 0
+                ? ` · ${totalCommune} ventes référence commune`
+                : ""}
+              {" · années retenues : au moins "}
+              {minSeuil} ventes
+            </Text>
+          );
+        })()}
       </View>
     </View>
   );

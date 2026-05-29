@@ -30,7 +30,12 @@ import { pointInPolygon } from "../geo";
 
 const TTL_DAYS = 7;
 const DEFAULT_YEARS_BACK = 8;
-const MIN_VENTES_PAR_AN = 5; // garde-fou anti-bruit statistique
+// Seuil minimal de ventes par an pour qu'une année soit retenue dans
+// la courbe cluster. Compromis statistique :
+//   - 5 = bonne confiance mais souvent exclut des communes denses dont
+//         le cluster est étroit (Drancy 62m² T3 → 3-4 ventes/an seulement)
+//   - 3 = encore défendable, évite la bascule sur "commune-only" trompeuse
+const MIN_VENTES_PAR_AN = 3;
 
 export type ClusterPriceYear = {
   annee: number;

@@ -144,18 +144,20 @@ async function computeFromDb(
     fetched_at: now,
   };
 
-  // Récupération brute (filtre code_commune + type + année + bucket surface)
+  // Récupération TOUTES SURFACES commune + type. On filtre par bucket
+  // ensuite côté JS pour économiser une requête. Le P95 global (toutes
+  // surfaces confondues) sert de FILET DE SÉCURITÉ : il est calculé sur
+  // beaucoup plus de ventes que le bucket précis et donne un plafond
+  // beaucoup plus robuste contre les outliers.
   const { data: dvfRaw, error } = await sb
     .from("dvf_points")
     .select("prix_m2, valeur_fonciere, surface_reelle_bati, annee")
     .eq("code_commune", code_commune)
     .eq("type_local", type_local)
     .gte("annee", yearMin)
-    .gte("surface_reelle_bati", range.min)
-    .lt("surface_reelle_bati", range.max)
     .not("prix_m2", "is", null)
     .not("valeur_fonciere", "is", null)
-    .limit(20000);
+    .limit(30000);
 
   if (error) {
     return {
@@ -167,7 +169,7 @@ async function computeFromDb(
   const points = (dvfRaw ?? []) as DvfPoint[];
   // Filtrage anti-outliers : exclut prix_m2 < 500 ou > 50 000 (saisies erronées)
   // Et valeur_fonciere < 10 k€ ou > 50 M€ (mutations atypiques)
-  const filtered = points.filter(
+  const allCommune = points.filter(
     (p) =>
       p.prix_m2 != null &&
       p.valeur_fonciere != null &&
@@ -175,39 +177,69 @@ async function computeFromDb(
       p.prix_m2 >= 500 &&
       p.prix_m2 <= 50000 &&
       p.valeur_fonciere >= 10000 &&
-      p.valeur_fonciere <= 50_000_000,
+      p.valeur_fonciere <= 50_000_000 &&
+      p.surface_reelle_bati >= 5 &&
+      p.surface_reelle_bati <= 500,
   );
 
-  if (filtered.length < MIN_VENTES_BUCKET) {
+  if (allCommune.length < 20) {
     return {
       ...empty,
-      reason: `bucket_${bucket}_insufficient_data (${filtered.length} ventes)`,
-      nb_ventes_bucket: filtered.length,
+      reason: `commune_insufficient_data (${allCommune.length} ventes)`,
+      nb_ventes_bucket: allCommune.length,
     };
   }
 
-  const prix_m2_sorted = filtered
+  // Filtre du bucket cible (filet précis)
+  const bucketSales = allCommune.filter((p) => {
+    const s = p.surface_reelle_bati as number;
+    return s >= range.min && s < range.max;
+  });
+
+  // P95 GLOBAL — toutes surfaces commune (filet large, robuste)
+  const prix_m2_all_sorted = allCommune
     .map((p) => p.prix_m2 as number)
     .sort((a, b) => a - b);
-  const prix_total_sorted = filtered
-    .map((p) => p.valeur_fonciere as number)
-    .sort((a, b) => a - b);
+  const prix_m2_p95_global = quantile(prix_m2_all_sorted, 0.95);
 
-  const prix_m2_p95 = Math.round(quantile(prix_m2_sorted, 0.95));
+  // P95 BUCKET — surface cible (filet précis, mais sensible aux outliers
+  // sur petits échantillons)
+  let prix_m2_p95_bucket: number | null = null;
+  let prix_m2_max_bucket = 0;
+  if (bucketSales.length >= MIN_VENTES_BUCKET) {
+    const bucketSorted = bucketSales
+      .map((p) => p.prix_m2 as number)
+      .sort((a, b) => a - b);
+    prix_m2_p95_bucket = quantile(bucketSorted, 0.95);
+    prix_m2_max_bucket = bucketSorted[bucketSorted.length - 1];
+  }
+
+  // PLAFOND EFFECTIF — minimum des deux filets, plus une petite tolérance
+  // sur le filet global pour ne pas être trop agressif (10 % au-dessus du
+  // P95 global est encore réaliste).
+  const prix_m2_p95_effectif = Math.round(
+    prix_m2_p95_bucket != null
+      ? Math.min(prix_m2_p95_bucket, prix_m2_p95_global * 1.1)
+      : prix_m2_p95_global * 1.1,
+  );
+
+  const prix_m2_p95 = prix_m2_p95_effectif;
   const prix_m2_max_observe = Math.round(
-    prix_m2_sorted[prix_m2_sorted.length - 1],
+    Math.max(prix_m2_max_bucket, prix_m2_all_sorted[prix_m2_all_sorted.length - 1]),
   );
-  const prix_total_p95 = Math.round(quantile(prix_total_sorted, 0.95));
-  const prix_total_max_observe = Math.round(
-    prix_total_sorted[prix_total_sorted.length - 1],
-  );
+  // Pour le prix TOTAL on applique le P95 €/m² au surface_m2 du bien
+  // estimé (cohérent et défendable, plutôt que de mixer les surfaces
+  // brutes du bucket qui n'ont pas la même taille que le bien).
+  const prix_total_p95 = Math.round(prix_m2_p95 * surface_m2);
+  const prix_total_max_observe = Math.round(prix_m2_max_observe * surface_m2);
 
+  const nb_ventes_bucket = bucketSales.length;
   const confiance =
-    filtered.length >= MIN_VENTES_BUCKET_LARGE
+    nb_ventes_bucket >= MIN_VENTES_BUCKET_LARGE
       ? "high"
-      : filtered.length >= MIN_VENTES_BUCKET
+      : nb_ventes_bucket >= MIN_VENTES_BUCKET
         ? "medium"
-        : "low";
+        : "low"; // low : on a quand même un plafond GLOBAL fiable
 
   return {
     available: true,
@@ -250,7 +282,7 @@ export async function getCommunePriceCeiling(args: {
   const { data, cached } = await fetchWithCache<CommunePriceCeilingResult>(
     cacheHash,
     { lat, lon },
-    "price_ceiling",
+    "price_ceiling_v2",
     TTL_DAYS,
     () => computeFromDb(code_commune, type_local, surface_m2, years_back),
     0,
@@ -297,12 +329,12 @@ export function capEstimationsByCommuneCeiling(args: {
   const { prix_m2_p10, prix_m2_median, prix_m2_p90, surface_m2, ceiling } =
     args;
 
-  // Pas de capping si pas de plafond fiable
+  // On cape dès qu'on a un P95 calculé. La confiance "low" reste valide
+  // car même un plafond global commune (toutes surfaces) basé sur ≥ 20
+  // ventes est plus fiable qu'un P90 cluster qui hérite des petites
+  // surfaces. Mieux vaut un plafond honnête qu'une estim irréaliste.
   const canCap =
-    ceiling != null &&
-    ceiling.available &&
-    ceiling.prix_m2_p95 != null &&
-    ceiling.confiance !== "low";
+    ceiling != null && ceiling.available && ceiling.prix_m2_p95 != null;
 
   let final_p90 = prix_m2_p90;
   let capped = false;

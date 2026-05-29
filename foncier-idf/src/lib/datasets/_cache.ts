@@ -29,6 +29,9 @@ export type DatasetKey =
   | "points_interet"
   // Ajouts pour les 3 nouveaux helpers (commit 242843b)
   | "price_ceiling"
+  // v2 du plafond commune : invalidation cache après refonte logique
+  // (P95 bucket + P95 global croisés, capping même en confiance low)
+  | "price_ceiling_v2"
   | "surface_adjustment"
   | "proximite_locale";
 

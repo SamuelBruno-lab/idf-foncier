@@ -433,10 +433,14 @@ export async function getProximiteLocale(
   const { data, cached } = await fetchWithCache<ProximiteLocaleResult>(
     cacheHash,
     { lat, lon },
-    "proximite_locale_v2",
+    "proximite_locale_v3",
     TTL_DAYS,
     () => computeProximiteLocale(lat, lon, radius_m),
     0,
+    // shouldCache : refuse de cacher les résultats vides — sinon en cas de
+    // panne Overpass on s'empoisonne pour 30 jours et on n'essaie plus la DB.
+    (result: ProximiteLocaleResult) =>
+      result.available && (result.sport.length + result.scolaire.length) > 0,
   );
 
   return { ...data, cached };

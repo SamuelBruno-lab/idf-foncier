@@ -38,7 +38,9 @@ export type DatasetKey =
   | "surface_adjustment"
   | "proximite_locale"
   // v2 : Overpass cascade 3 mirrors + fallback nom + timeout 20s
-  | "proximite_locale_v2";
+  | "proximite_locale_v2"
+  // v3 : DB dim_poi_local en priorité + shouldCache (purge caches vides)
+  | "proximite_locale_v3";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

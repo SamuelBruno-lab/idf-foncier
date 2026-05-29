@@ -1339,7 +1339,12 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
           {Boolean(data.transports) && data.transports && (
             <>
               {(() => {
-                const r = data.transports!.radius_m ?? 800;
+                // data.transports est garanti non-null ici (condition parente
+                // {Boolean(data.transports) && data.transports && ...}) mais
+                // l'IIFE casse le narrowing TS, donc on bind localement.
+                const tr = data.transports;
+                if (!tr) return null;
+                const r = tr.radius_m ?? 800;
                 const rLabel =
                   r < 1000 ? `${r} m` : `${(r / 1000).toFixed(1)} km`;
                 return (
@@ -1353,7 +1358,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                       <Text
                         style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}
                       >
-                        {data.transports!.count} arrêts dans un rayon de {rLabel}.
+                        {tr.count} arrêts dans un rayon de {rLabel}.
                       </Text>
                     ) : null}
                   </>

@@ -211,7 +211,9 @@ out center tags;
     for (const el of elements) {
       if (seen.has(el.id)) continue;
       const tags = el.tags;
-      if (!hasUsableName(tags)) continue;
+      // Narrowing explicite pour TypeScript : on vérifie tags + name ici
+      // plutôt que d'appeler hasUsableName qui ne propage pas le type.
+      if (!tags || !tags.name || tags.name.trim().length < 3) continue;
       const type = classifyEquipement(tags);
       if (!type) continue;
 
@@ -225,7 +227,7 @@ out center tags;
       seen.add(el.id);
       equipements.push({
         osm_id: el.id,
-        nom: tags!.name,
+        nom: tags.name,
         type,
         lat: elLat,
         lon: elLon,

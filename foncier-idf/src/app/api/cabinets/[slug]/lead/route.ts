@@ -363,17 +363,16 @@ export async function POST(
       )
     : null;
 
-  // FALLBACK transports : si Overpass a échoué (rate limit, timeout) mais
-  // qu'on a une gare via dim_gares/PRIM, on injecte un stop unique pour
-  // ne pas afficher "0 arrêts" qui ruine la crédibilité du rapport.
-  if (
-    transports &&
-    transports.stops.length === 0 &&
-    parisDistance?.nearest_major_station
-  ) {
-    const g = parisDistance.nearest_major_station;
-    transports.stops = [
-      {
+  // FALLBACK transports : si Overpass a échoué (rate limit, timeout),
+  // on essaie 2 fallbacks successifs :
+  //   1. paris_distance.nearest_major_station (dim_gares Supabase)
+  //   2. 1re section transit de journey_to_paris (IDFM PRIM Navitia)
+  // Bien meilleur que d'afficher "0 arrêts" qui ruine la crédibilité.
+  if (transports && transports.stops.length === 0) {
+    const fallbacks: typeof transports.stops = [];
+    if (parisDistance?.nearest_major_station) {
+      const g = parisDistance.nearest_major_station;
+      fallbacks.push({
         osm_id: 0,
         nom: g.nom,
         type: g.type,
@@ -383,10 +382,47 @@ export async function POST(
         lon: 0,
         distance_m: g.distance_m,
         walk_minutes: g.walk_minutes,
-      },
-    ];
-    transports.count = 1;
-    transports.par_type = { [g.type]: 1 };
+      });
+    }
+    // Fallback PRIM : on parse les sections transit (RER B Drancy, etc.)
+    if (parisDistance?.journey_to_paris) {
+      const transitSections = parisDistance.journey_to_paris.sections.filter(
+        (s) => s.type === "transit" && s.from,
+      );
+      for (const s of transitSections.slice(0, 3)) {
+        const nom = s.from ?? "Station";
+        // Évite duplicate avec dim_gares fallback
+        if (fallbacks.some((f) => f.nom.toLowerCase() === nom.toLowerCase()))
+          continue;
+        // Heuristique distance : si on a déjà nearest_major_station, on
+        // suppose même distance (les stations PRIM sont alignées avec
+        // dim_gares). Sinon distance estimée à 600m (banlieue moyenne).
+        const distM =
+          parisDistance.nearest_major_station?.distance_m ?? 600;
+        fallbacks.push({
+          osm_id: 0,
+          nom,
+          type: s.line?.toLowerCase().startsWith("rer") ? "rer" : "train",
+          reseau: null,
+          ligne: s.line ?? null,
+          lat: 0,
+          lon: 0,
+          distance_m: distM,
+          walk_minutes: Math.round(distM / 80),
+        });
+      }
+    }
+    if (fallbacks.length > 0) {
+      transports.stops = fallbacks;
+      transports.count = fallbacks.length;
+      transports.par_type = fallbacks.reduce(
+        (acc, s) => {
+          acc[s.type] = (acc[s.type] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+    }
   }
 
   // Extraction des GARES À PROXIMITÉ depuis transportsLarge (rayon 5 km
@@ -435,19 +471,46 @@ export async function POST(
       }));
   }
   // Fallback : si Overpass transportsLarge est aussi vide, on injecte
-  // au minimum la nearest_major_station de paris_distance (qui vient de
-  // dim_gares Supabase ou de PRIM — sources fiables non-Overpass).
-  if (garesProches.length === 0 && parisDistance?.nearest_major_station) {
-    const g = parisDistance.nearest_major_station;
-    garesProches = [
-      {
+  // les gares depuis paris-distance (dim_gares ou PRIM Navitia).
+  if (garesProches.length === 0 && parisDistance) {
+    if (parisDistance.nearest_major_station) {
+      const g = parisDistance.nearest_major_station;
+      garesProches.push({
         nom: g.nom,
         type: g.type,
         ligne: g.ligne ?? null,
         distance_m: g.distance_m,
         walk_minutes: g.walk_minutes,
-      },
-    ];
+      });
+    }
+    // Fallback supplémentaire : extraction des sections transit PRIM
+    if (parisDistance.journey_to_paris) {
+      const transitSections = parisDistance.journey_to_paris.sections.filter(
+        (s) => s.type === "transit" && s.from,
+      );
+      for (const s of transitSections.slice(0, 3)) {
+        const nom = s.from ?? "Station";
+        if (
+          garesProches.some((g) => g.nom.toLowerCase() === nom.toLowerCase())
+        )
+          continue;
+        const lineLower = (s.line ?? "").toLowerCase();
+        const type = lineLower.startsWith("rer")
+          ? "rer"
+          : lineLower.startsWith("m") && lineLower.length <= 4
+            ? "metro"
+            : "train";
+        const distM =
+          parisDistance.nearest_major_station?.distance_m ?? 600;
+        garesProches.push({
+          nom,
+          type,
+          ligne: s.line ?? null,
+          distance_m: distM,
+          walk_minutes: Math.round(distM / 80),
+        });
+      }
+    }
   }
 
   // 5a) Ajustement par bucket de surface (Fix #1)

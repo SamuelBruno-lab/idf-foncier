@@ -99,7 +99,10 @@ async function fetchEcolesFromODS(
   const url = `${ODS_BASE}?${params.toString()}`;
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(6000),
+    // 12s : la donnée éducation.gouv peut être lente en soirée/weekend.
+    // Mieux vaut attendre que retourner vide et ne plus afficher
+    // l'école maternelle TIMBAUD-DEWERPE dans le rapport vendeur.
+    signal: AbortSignal.timeout(12000),
   });
 
   if (!res.ok) {

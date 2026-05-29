@@ -33,9 +33,12 @@ const DEFAULT_YEARS_BACK = 8;
 // Seuil minimal de ventes par an pour qu'une année soit retenue dans
 // la courbe cluster. Compromis statistique :
 //   - 5 = bonne confiance mais souvent exclut des communes denses dont
-//         le cluster est étroit (Drancy 62m² T3 → 3-4 ventes/an seulement)
-//   - 3 = encore défendable, évite la bascule sur "commune-only" trompeuse
-const MIN_VENTES_PAR_AN = 3;
+//         le cluster est étroit
+//   - 2 = très permissif, garde quasi toujours les années où il y a eu
+//         AU MOINS une transaction notariée. Pour la commune entière le
+//         capping P95 et le garde-fou 1,5× médiane restent en place donc
+//         pas de risque de surévaluation par 1-2 outliers.
+const MIN_VENTES_PAR_AN = 2;
 
 export type ClusterPriceYear = {
   annee: number;

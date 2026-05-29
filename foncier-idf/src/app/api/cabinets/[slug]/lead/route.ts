@@ -35,8 +35,22 @@ import { getEcoles } from "@/lib/datasets/ecoles";
 import { getServices } from "@/lib/datasets/services";
 import { getInseeIris } from "@/lib/datasets/insee";
 import { getClusterPriceEvolution } from "@/lib/datasets/cluster-price-evolution";
+import { getCommunePriceEvolution } from "@/lib/datasets/commune-price-evolution";
+import {
+  getCommunePriceCeiling,
+  capEstimationsByCommuneCeiling,
+} from "@/lib/datasets/commune-price-ceiling";
+import {
+  getSurfaceBucketAdjustment,
+  applySurfaceAdjustment,
+} from "@/lib/datasets/surface-bucket-adjustment";
+import { getProximiteLocale } from "@/lib/datasets/proximite-locale";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
 import { getPointsInteret } from "@/lib/datasets/points-interet";
+import {
+  findNearbyGrandsProjets,
+  type GrandProjetRow,
+} from "@/lib/datasets/grands-projets";
 import { computeParisDistance } from "@/lib/paris-distance";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -154,6 +168,9 @@ export async function POST(
   const type_bien = s(wizard.type_bien, 60) || "Appartement";
   const intent = s(wizard.intent, 30) || null;
 
+  // Insertion lead avec les valeurs ESTIM BRUTES (sans capping) — on garde
+  // la trace de ce que l'estimateur a sorti pour le suivi. Le capping
+  // s'applique uniquement à l'affichage PDF / email (cf. cappedEstim).
   const insertPayload = {
     cabinet_slug: slug,
     visitor_name,
@@ -199,17 +216,38 @@ export async function POST(
   const geo = await geocodeAddress(address, sbServer).catch(() => null);
   const top = geo?.results[0];
 
-  // 5 fetches en parallèle :
-  //   - transports à pied (rayon 800m, défaut) — pour la liste "à 10 min à pied"
-  //   - transports élargi (rayon 5 km) — UNIQUEMENT pour identifier la
-  //     première gare RER/Transilien/métro même si on est loin de tout
-  //     (banlieue, terrains, etc.). Sans ça on retournait null trop souvent.
-  //   - ecoles, services, INSEE (datasets standard)
-  // Rayon transports adaptatif : Paris intra-muros (dept 75) très dense, on
-  // restreint à 500 m pour ne pas noyer le lecteur avec 50+ arrêts. En
-  // banlieue/province, 800 m reste pertinent (densité plus faible).
+  // Rayon transports ADAPTATIF selon la zone géographique. Différences :
+  //   - Paris intra-muros (dept 75) : 500 m → 50+ arrêts dans 800 m, on noie
+  //     le lecteur. 500 m garde l'essentiel (3-4 stations majeures).
+  //   - Petite couronne IDF (92/93/94) : 900 m → banlieue dense, capture la
+  //     gare RER de banlieue (souvent à 700-900 m du centre quartier).
+  //     Capture la gare de Drancy à 900 m (test).
+  //   - Grande couronne IDF (77/78/91/95) : 1200 m → moins dense, capture
+  //     la gare Transilien parfois à 1 km.
+  //   - Province / autres : 1500 m → les gares de villes moyennes (50-200 k
+  //     habitants) sont en centre, à 1-2 km d'un quartier périphérique.
+  //
+  // Pour les équipements de proximité (sport/écoles), même barème.
+  function detectZoneRadius(code_insee: string | undefined): {
+    transports: number;
+    equipements: number;
+  } {
+    if (!code_insee) return { transports: 1500, equipements: 1500 };
+    if (code_insee.startsWith("75"))
+      return { transports: 500, equipements: 1000 };
+    if (/^(92|93|94)/.test(code_insee))
+      return { transports: 900, equipements: 1200 };
+    if (/^(77|78|91|95)/.test(code_insee))
+      return { transports: 1200, equipements: 1500 };
+    return { transports: 1500, equipements: 1500 };
+  }
+
+  const zoneRadius = top
+    ? detectZoneRadius(top.code_insee)
+    : { transports: 1500, equipements: 1500 };
   const isParisIntraMuros = top ? top.code_insee.startsWith("75") : false;
-  const transportsRadius = isParisIntraMuros ? 500 : 800;
+  const transportsRadius = zoneRadius.transports;
+  const equipementsRadius = zoneRadius.equipements;
 
   const [
     transports,
@@ -218,8 +256,13 @@ export async function POST(
     services,
     inseeIris,
     priceEvolution,
+    communePriceEvolution,
+    communePriceCeiling,
+    surfaceAdjustment,
     lyceesBac,
     pointsInteret,
+    proximiteLocale,
+    grandsProjets,
   ] = top
     ? await Promise.all([
         getTransports(top.lat, top.lon, { radiusM: transportsRadius }).catch(() => null),
@@ -243,13 +286,70 @@ export async function POST(
               years_back: 8,
             }).catch(() => null)
           : Promise.resolve(null),
+        // Évolution prix m² au niveau COMMUNE / arrondissement : sert de
+        // RÉFÉRENCE comparative au cluster micro-marché. Permet d'afficher
+        // 2 courbes superposées dans le PDF — l'utilisateur voit si son
+        // micro-marché surperforme ou sous-performe la commune entière.
+        ["Appartement", "Maison"].includes(type_bien)
+          ? getCommunePriceEvolution({
+              lat: top.lat,
+              lon: top.lon,
+              code_commune: top.code_insee,
+              type_local: type_bien,
+              years_back: 8,
+            }).catch(() => null)
+          : Promise.resolve(null),
+        // Plafond de prix RÉALISTE de la commune par bucket de surface :
+        // sert à capper les estimations P90 trop optimistes du cluster
+        // HDBSCAN qui hérite des petites surfaces (€/m² toujours plus haut).
+        // Sans capping : 429 k€ pour un 62m² Drancy → faux espoir vendeur.
+        ["Appartement", "Maison"].includes(type_bien) &&
+        Number.isFinite(surface) &&
+        surface > 0
+          ? getCommunePriceCeiling({
+              lat: top.lat,
+              lon: top.lon,
+              code_commune: top.code_insee,
+              type_local: type_bien,
+              surface_m2: surface,
+              years_back: 5,
+            }).catch(() => null)
+          : Promise.resolve(null),
+        // Ajustement bucket de surface (Fix #1) : si le voisinage est
+        // dominé par T2 (~30-45 m²) et qu'on estime un T3 (62 m²), on
+        // applique le ratio commune T2 → T3 (~0,88 à Drancy) pour
+        // recalibrer le €/m² hérité du cluster.
+        ["Appartement", "Maison"].includes(type_bien) &&
+        Number.isFinite(surface) &&
+        surface > 0
+          ? getSurfaceBucketAdjustment({
+              lat: top.lat,
+              lon: top.lon,
+              code_commune: top.code_insee,
+              type_local: type_bien,
+              surface_m2: surface,
+              years_back: 5,
+            }).catch(() => null)
+          : Promise.resolve(null),
         getLyceesBac(top.lat, top.lon).catch(() => null),
         // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
         // Sert à enrichir la phrase argumentaire "proche de … comme la
         // Place des Vosges et le Centre Pompidou".
         getPointsInteret(top.lat, top.lon).catch(() => null),
+        // Équipements LOCAUX (Fix #3) : sport, écoles, collèges — sans
+        // filtre wikipedia=*. Complète les POI notables avec ce qui pèse
+        // dans la décision d'une famille au quotidien (école adjacente,
+        // stade, piscine). Rayon adaptatif selon zone (1000 m Paris,
+        // 1200 m petite couronne, 1500 m grande couronne + province).
+        getProximiteLocale(top.lat, top.lon, equipementsRadius).catch(() => null),
+        // KILLER FEATURE forward-looking : grands projets d'infrastructure
+        // à proximité (Grand Paris Express, LGV, canaux, ZAC, gigafactories)
+        // avec anticipation prix +5 à +30%. Différenciateur vs PriceHubble.
+        findNearbyGrandsProjets(top.lat, top.lon, 5000, 5).catch(
+          () => [] as GrandProjetRow[],
+        ),
       ])
-    : [null, null, null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null, null, null, null, null, null, [] as GrandProjetRow[]];
 
   // Distance + temps trajet Paris.
   // computeParisDistance est async : il interroge d'abord dim_gares (source
@@ -264,7 +364,65 @@ export async function POST(
       )
     : null;
 
-  // 5) Génération PDF
+  // Extraction des GARES À PROXIMITÉ depuis transportsLarge (rayon 5 km
+  // déjà fetché). Rayon adaptatif selon zone :
+  //   - Paris intra-muros : 1000 m (les gares y sont denses)
+  //   - Petite couronne IDF : 1500 m (capture Drancy à 900 m + voisines)
+  //   - Grande couronne IDF : 2000 m (la gare Transilien est souvent à 1-2 km)
+  //   - Province : 2500 m (norme province : gare centre-ville à 1-2 km
+  //     du quartier périphérique)
+  function detectGareRadius(code_insee: string | undefined): number {
+    if (!code_insee) return 2500;
+    if (code_insee.startsWith("75")) return 1000;
+    if (/^(92|93|94)/.test(code_insee)) return 1500;
+    if (/^(77|78|91|95)/.test(code_insee)) return 2000;
+    return 2500;
+  }
+  const gareRadius = top ? detectGareRadius(top.code_insee) : 2500;
+  const garesProches =
+    transportsLarge && transportsLarge.stops
+      ? transportsLarge.stops
+          .filter((s) => {
+            const t = (s.type ?? "").toLowerCase();
+            return (
+              (t === "rer" ||
+                t === "train" ||
+                t === "metro" ||
+                t === "tramway" ||
+                t === "tram") &&
+              s.distance_m <= gareRadius
+            );
+          })
+          // Tri par distance puis dédoublonnage par nom (Drancy gare RER,
+          // Drancy gare Transilien peuvent être 2 entrées proches)
+          .sort((a, b) => a.distance_m - b.distance_m)
+          .slice(0, 4)
+      : [];
+
+  // 5a) Ajustement par bucket de surface (Fix #1)
+  // Si le voisinage est dominé par un bucket différent du bien à estimer,
+  // on recalibre le €/m² via le ratio commune entre les 2 buckets.
+  // Ex : voisinage T2 (5 500 €/m²) × ratio commune T2→T3 (0,88) → 4 840 €/m²
+  // pour un 62 m². Applique aux P10/Médiane/P90 uniformément.
+  const adjustedEstim = applySurfaceAdjustment({
+    prix_m2_p10: estim.prix_m2_p10 ?? null,
+    prix_m2_median: estim.prix_m2_median ?? null,
+    prix_m2_p90: estim.prix_m2_p90 ?? null,
+    adjustment: surfaceAdjustment,
+  });
+
+  // 5b) Capping des estimations P90 par le plafond commune (Fix #2)
+  // Appliqué APRÈS l'ajustement de surface : si malgré la recalibration,
+  // le P90 dépasse encore le P95 commune, on cape.
+  const cappedEstim = capEstimationsByCommuneCeiling({
+    prix_m2_p10: adjustedEstim.prix_m2_p10,
+    prix_m2_median: adjustedEstim.prix_m2_median,
+    prix_m2_p90: adjustedEstim.prix_m2_p90,
+    surface_m2: insertPayload.surface ?? 0,
+    ceiling: communePriceCeiling,
+  });
+
+  // 6) Génération PDF
   const pdfData: CabinetLeadReportData = {
     cabinet_name: cabinet.cabinet_name,
     cabinet_legal: cabinet.legal_mention ?? null,
@@ -275,11 +433,61 @@ export async function POST(
     address: top?.label ?? address,
     type_bien,
     surface: insertPayload.surface,
-    prix_m2_median: estim.prix_m2_median ?? null,
-    prix_m2_p10: estim.prix_m2_p10 ?? null,
-    prix_m2_p90: estim.prix_m2_p90 ?? null,
-    prix_total_median: estim.prix_total_median ?? null,
+    // Valeurs CAPPÉES par le plafond commune (Fix #2) — le P90 est ramené
+    // au P95 commune si dépassement. La médiane reste inchangée sauf cas
+    // marginal où elle dépassait le P95 commune (improbable).
+    prix_m2_median: cappedEstim.prix_m2_median,
+    prix_m2_p10: cappedEstim.prix_m2_p10,
+    prix_m2_p90: cappedEstim.prix_m2_p90,
+    prix_total_median: cappedEstim.prix_total_median,
     nb_ventes: estim.nb_ventes ?? null,
+    // Métadonnées capping pour affichage transparent dans le PDF
+    capped_to_commune_ceiling: cappedEstim.capped,
+    commune_ceiling: communePriceCeiling && communePriceCeiling.available
+      ? {
+          bucket: communePriceCeiling.bucket,
+          prix_m2_p95: communePriceCeiling.prix_m2_p95,
+          prix_total_p95: communePriceCeiling.prix_total_p95,
+          nb_ventes_bucket: communePriceCeiling.nb_ventes_bucket,
+          confiance: communePriceCeiling.confiance,
+        }
+      : null,
+    // Métadonnées ajustement de bucket de surface (Fix #1)
+    surface_adjustment: adjustedEstim.applied && surfaceAdjustment
+      ? {
+          bucket_dominant: surfaceAdjustment.bucket_dominant,
+          bucket_cible: surfaceAdjustment.bucket_cible,
+          pct_ajustement: adjustedEstim.pct,
+          ratio: adjustedEstim.ratio,
+          nb_ventes_voisinage: surfaceAdjustment.nb_ventes_voisinage,
+          confiance: surfaceAdjustment.confiance,
+        }
+      : null,
+    // Fix #3 — Équipements LOCAUX (sport + écoles)
+    proximite_locale: proximiteLocale && proximiteLocale.available
+      ? {
+          sport: proximiteLocale.sport.map((e) => ({
+            nom: e.nom,
+            type: e.type,
+            distance_m: e.distance_m,
+            proximite: e.proximite,
+          })),
+          scolaire: proximiteLocale.scolaire.map((e) => ({
+            nom: e.nom,
+            type: e.type,
+            distance_m: e.distance_m,
+            proximite: e.proximite,
+          })),
+        }
+      : null,
+    // Gares proches < 1500m (fix bonus : capture Drancy à 900m)
+    gares_proches: garesProches.map((s) => ({
+      nom: s.nom,
+      type: s.type,
+      distance_m: s.distance_m,
+      walk_minutes: s.walk_minutes,
+      ligne: s.ligne,
+    })),
     wizard_answers: wizard,
     generated_at: new Date(),
     // Données opensource enrichies
@@ -290,6 +498,7 @@ export async function POST(
           count: transports.count,
           par_type: transports.par_type,
           top_stops: transports.stops.slice(0, 6),
+          radius_m: transportsRadius,
         }
       : null,
     ecoles: ecoles
@@ -351,7 +560,53 @@ export async function POST(
           scope: "cluster" as const,
           nb_total_ventes_cluster: priceEvolution.nb_total_ventes_cluster,
           match_method: priceEvolution.match_method,
+          // Référence comparative commune (2e courbe sur le graphique) :
+          commune_years:
+            communePriceEvolution && communePriceEvolution.available
+              ? communePriceEvolution.years
+              : null,
+          commune_variation_pct_total:
+            communePriceEvolution && communePriceEvolution.available
+              ? communePriceEvolution.variation_pct_total
+              : null,
+          commune_code:
+            communePriceEvolution && communePriceEvolution.available
+              ? communePriceEvolution.code_commune
+              : null,
         }
+      // Fallback : pas de cluster mais commune dispo → on affiche quand même
+      // l'évolution commune-level (mieux que rien pour le vendeur).
+      : communePriceEvolution && communePriceEvolution.available
+        ? {
+            type_local: communePriceEvolution.type_local,
+            years: communePriceEvolution.years,
+            variation_pct_total: communePriceEvolution.variation_pct_total,
+            variation_pct_5y: null,
+            annee_min: communePriceEvolution.annee_min,
+            annee_max: communePriceEvolution.annee_max,
+            scope: "commune" as const,
+            nb_total_ventes_cluster: communePriceEvolution.nb_total_ventes_commune,
+            match_method: null,
+            commune_years: null,
+            commune_variation_pct_total: null,
+            commune_code: communePriceEvolution.code_commune,
+          }
+        : null,
+    // KILLER FEATURE forward-looking : grands projets infra à proximité.
+    // GPE, LGV, canaux, ZAC, gigafactories — avec impact prix anticipé.
+    // Différenciateur unique vs PriceHubble/Immo Data (qui sont backward).
+    grands_projets: grandsProjets && grandsProjets.length > 0
+      ? grandsProjets.map((g) => ({
+          nom: g.nom,
+          type: g.type,
+          importance: g.importance,
+          etat: g.etat,
+          date_livraison_estimee: g.date_livraison_estimee,
+          impact_prix_pct_min: g.impact_prix_pct_min,
+          impact_prix_pct_max: g.impact_prix_pct_max,
+          description: g.description,
+          distance_m: g.distance_m,
+        }))
       : null,
   };
 

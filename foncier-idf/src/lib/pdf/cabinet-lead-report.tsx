@@ -48,6 +48,32 @@ export type CabinetLeadReportData = {
   prix_m2_p90: number | null;
   prix_total_median: number | null;
   nb_ventes: number | null;
+  /** Fix #2 : true si le P90 a été ramené au plafond commune P95 */
+  capped_to_commune_ceiling?: boolean;
+  /**
+   * Fix #2 — Plafond commune par bucket de surface.
+   * Affiché dans le PDF pour transparence et crédibilisation.
+   */
+  commune_ceiling?: {
+    bucket: "T1" | "T2" | "T3" | "T4" | "T5+";
+    prix_m2_p95: number | null;
+    prix_total_p95: number | null;
+    nb_ventes_bucket: number;
+    confiance: "high" | "medium" | "low" | "none";
+  } | null;
+  /**
+   * Fix #1 — Ajustement par bucket de surface.
+   * Présent uniquement si l'ajustement a été appliqué (sinon null).
+   * pct_ajustement : -12 = décote 12 %, +5 = prime 5 %.
+   */
+  surface_adjustment?: {
+    bucket_dominant: "T1" | "T2" | "T3" | "T4" | "T5+";
+    bucket_cible: "T1" | "T2" | "T3" | "T4" | "T5+";
+    pct_ajustement: number;
+    ratio: number;
+    nb_ventes_voisinage: number;
+    confiance: "high" | "medium" | "low" | "none";
+  } | null;
 
   // Réponses brutes du wizard pour récap (intent, étage, DPE, etc.)
   wizard_answers: Record<string, unknown>;
@@ -110,6 +136,8 @@ export type CabinetLeadReportData = {
       walk_minutes: number;
       ligne: string | null;
     }>;
+    /** Rayon utilisé pour la requête (m) — adapté par zone géographique */
+    radius_m?: number;
   } | null;
 
   /** Écoles à proximité (Annuaire Éducation Nationale) */
@@ -144,6 +172,39 @@ export type CabinetLeadReportData = {
     }>;
   } | null;
 
+  /**
+   * Fix #3 — Équipements LOCAUX (sport / scolaire) sans filtre wikipedia.
+   * Catch les stades, piscines, écoles maternelles, collèges qui pèsent
+   * dans la décision famille même s'ils ne sont pas notoires.
+   */
+  proximite_locale?: {
+    sport: Array<{
+      nom: string;
+      type: "stade" | "complexe_sportif" | "piscine" | "terrain" | "fitness";
+      distance_m: number;
+      proximite: "adjacent" | "a_pied" | "quartier";
+    }>;
+    scolaire: Array<{
+      nom: string;
+      type: "maternelle" | "ecole" | "college";
+      distance_m: number;
+      proximite: "adjacent" | "a_pied" | "quartier";
+    }>;
+  } | null;
+
+  /**
+   * Fix bonus — Gares train/RER/métro/tramway < 1500 m.
+   * Capture la gare de Drancy à 900 m alors qu'elle est hors rayon 800 m
+   * du dataset transports principal.
+   */
+  gares_proches?: Array<{
+    nom: string;
+    type: string;
+    distance_m: number;
+    walk_minutes: number;
+    ligne: string | null;
+  }>;
+
   /** Services quotidien à pied (Overpass / OSM) */
   services?: {
     score_quotidien: number;
@@ -165,8 +226,8 @@ export type CabinetLeadReportData = {
     years: Array<{
       annee: number;
       prix_m2_median: number;
-      prix_m2_p25: number | null;
-      prix_m2_p75: number | null;
+      prix_m2_p25?: number | null;
+      prix_m2_p75?: number | null;
       nb_ventes: number;
     }>;
     variation_pct_total: number | null;
@@ -178,8 +239,45 @@ export type CabinetLeadReportData = {
     /** Nb total de ventes utilisées (cluster scope). */
     nb_total_ventes_cluster?: number;
     /** "hull" = polygon exact, "centroid" = fallback nearest cluster. */
-    match_method?: "hull" | "centroid" | "none";
+    match_method?: "hull" | "centroid" | "none" | null;
+    /**
+     * Référence comparative commune entière (2e courbe superposée au cluster).
+     * Permet de visualiser si le micro-marché sur/sous-performe la commune
+     * année après année. Null si seul le scope cluster est dispo.
+     */
+    commune_years?: Array<{
+      annee: number;
+      prix_m2_median: number;
+      nb_ventes: number;
+    }> | null;
+    commune_variation_pct_total?: number | null;
+    commune_code?: string | null;
   } | null;
+
+  /**
+   * Grands projets d'infrastructure à proximité (KILLER FEATURE forward-looking).
+   *
+   * Inclut : Grand Paris Express (gares futures), LGV (GPSO, LNPCA), canaux
+   * (Saint-Martin, Ourcq, Seine-Nord Europe), ZAC majeures (Saclay, Confluence,
+   * Euratlantique, Euroméditerranée), gigafactories (ProLogium, Verkor, ACC,
+   * STMicro Crolles).
+   *
+   * Chaque projet a un impact prix anticipé (+5 à +30%) selon proximité et
+   * stade d'avancement (concertation → DUP → travaux → livraison).
+   *
+   * Source : table dim_grands_projets, alimentée par pipeline_grands_projets.py.
+   */
+  grands_projets?: Array<{
+    nom: string;
+    type: string;
+    importance: "nationale" | "regionale" | "metropolitaine" | "communale";
+    etat: string;
+    date_livraison_estimee: string | null;
+    impact_prix_pct_min: number | null;
+    impact_prix_pct_max: number | null;
+    description: string | null;
+    distance_m: number;
+  }> | null;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -419,14 +517,19 @@ function pickUsage(answers: Record<string, unknown>): string {
 }
 
 /**
- * Bar chart de l'évolution prix m² par année.
+ * Bar+line chart de l'évolution prix m² par année.
  *
- * Implémenté en React-PDF natif (pas de lib graphique) : chaque année est
- * un <View> avec hauteur proportionnelle au prix. Permet d'embarquer dans
- * un PDF léger sans dépendance.
+ * Implémenté en React-PDF natif (pas de lib graphique) :
+ *   - Barre principale = micro-marché HDBSCAN (cluster) en couleur cabinet
+ *   - Repère superposé = moyenne commune entière (référence comparative)
+ *     affiché comme un petit trait gris au niveau de la médiane commune
+ *     dans la même échelle verticale. Permet au vendeur de voir année par
+ *     année si son micro-marché sur-performe ou sous-performe la commune.
  *
- * Affiche : label année + bar (hauteur normalisée 0-100) + valeur €/m² au-dessus
- * + caption avec variation 5y / variation totale.
+ * Si commune_years est null, on affiche un graphique simple (legacy).
+ *
+ * Affiche : label année + bar cluster + marqueur commune + valeur €/m²
+ * + caption avec variation 5y / variation totale + comparaison commune.
  */
 function PriceEvolutionChart({
   years,
@@ -435,6 +538,8 @@ function PriceEvolutionChart({
   type_local,
   scope,
   primaryColor,
+  communeYears,
+  communeVariationPctTotal,
 }: {
   years: Array<{ annee: number; prix_m2_median: number; nb_ventes: number }>;
   variation_pct_total: number | null;
@@ -442,9 +547,16 @@ function PriceEvolutionChart({
   type_local: string;
   scope: "cluster" | "commune";
   primaryColor: string;
+  communeYears?: Array<{ annee: number; prix_m2_median: number; nb_ventes: number }> | null;
+  communeVariationPctTotal?: number | null;
 }) {
-  const maxPrice = Math.max(...years.map((y) => y.prix_m2_median));
-  const minPrice = Math.min(...years.map((y) => y.prix_m2_median));
+  // Combine min/max de cluster ET commune pour que les 2 séries soient
+  // visuellement comparables sur la même échelle Y.
+  const clusterPrices = years.map((y) => y.prix_m2_median);
+  const communePrices = (communeYears ?? []).map((y) => y.prix_m2_median);
+  const allPrices = [...clusterPrices, ...communePrices];
+  const maxPrice = Math.max(...allPrices);
+  const minPrice = Math.min(...allPrices);
   // Échelle visuelle : on amplifie la différence en partant de minPrice * 0.95
   // (sinon des prix qui varient peu donnent toutes les barres identiques).
   const scaleMin = minPrice * 0.95;
@@ -458,8 +570,54 @@ function PriceEvolutionChart({
     return `${sign}${pct} %`;
   };
 
+  // Index commune par année pour récup rapide
+  const communeByYear = new Map<number, number>();
+  for (const cy of communeYears ?? []) {
+    communeByYear.set(cy.annee, cy.prix_m2_median);
+  }
+
+  const hasCommune = (communeYears ?? []).length >= 2;
+
   return (
     <View style={{ marginTop: 8 }}>
+      {/* Légende */}
+      {hasCommune && (
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "center",
+            gap: 16,
+            marginBottom: 6,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View
+              style={{
+                width: 10,
+                height: 6,
+                backgroundColor: primaryColor,
+                borderRadius: 1,
+              }}
+            />
+            <Text style={{ fontSize: 8, color: "#475569" }}>
+              Micro-marché (HDBSCAN)
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View
+              style={{
+                width: 10,
+                height: 2,
+                backgroundColor: "#64748b",
+              }}
+            />
+            <Text style={{ fontSize: 8, color: "#475569" }}>
+              Commune entière
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Bars row */}
       <View
         style={{
@@ -473,6 +631,11 @@ function PriceEvolutionChart({
         {years.map((y) => {
           const ratio = (y.prix_m2_median - scaleMin) / range;
           const barHeight = Math.max(8, Math.round(ratio * chartHeight));
+          const communePrice = communeByYear.get(y.annee);
+          const communeRatio =
+            communePrice != null ? (communePrice - scaleMin) / range : null;
+          const communeOffsetFromBottom =
+            communeRatio != null ? Math.round(communeRatio * chartHeight) : null;
           return (
             <View key={y.annee} style={{ flex: 1, alignItems: "center" }}>
               <Text
@@ -485,15 +648,39 @@ function PriceEvolutionChart({
               >
                 {Math.round(y.prix_m2_median / 100) / 10}k
               </Text>
+              {/* Container empilé : barre cluster + marqueur commune positionné */}
               <View
                 style={{
                   width: "70%",
-                  height: barHeight,
-                  backgroundColor: primaryColor,
-                  borderTopLeftRadius: 2,
-                  borderTopRightRadius: 2,
+                  height: chartHeight,
+                  position: "relative",
+                  justifyContent: "flex-end",
                 }}
-              />
+              >
+                {/* Barre cluster (micro-marché) */}
+                <View
+                  style={{
+                    width: "100%",
+                    height: barHeight,
+                    backgroundColor: primaryColor,
+                    borderTopLeftRadius: 2,
+                    borderTopRightRadius: 2,
+                  }}
+                />
+                {/* Marqueur commune (trait gris transversal) */}
+                {communeOffsetFromBottom != null && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: -3,
+                      right: -3,
+                      bottom: communeOffsetFromBottom - 1,
+                      height: 2,
+                      backgroundColor: "#64748b",
+                    }}
+                  />
+                )}
+              </View>
             </View>
           );
         })}
@@ -524,7 +711,7 @@ function PriceEvolutionChart({
         ))}
       </View>
 
-      {/* Caption : variation cumulée */}
+      {/* Caption : variation cumulée + comparaison commune si dispo */}
       <View
         style={{
           marginTop: 8,
@@ -566,9 +753,41 @@ function PriceEvolutionChart({
             </>
           )}
         </Text>
+
+        {/* Comparaison commune si scope = cluster et commune dispo */}
+        {hasCommune && scope === "cluster" && communeVariationPctTotal != null && (
+          <Text style={{ fontSize: 9, color: "#475569", marginTop: 4 }}>
+            Commune entière sur la même période :{" "}
+            <Text style={{ fontWeight: 700, color: "#475569" }}>
+              {tag(communeVariationPctTotal)}
+            </Text>
+            {variation_pct_total != null && (
+              <>
+                {" "}·{" "}
+                {variation_pct_total > communeVariationPctTotal ? (
+                  <Text style={{ fontWeight: 700, color: "#15803d" }}>
+                    le micro-marché sur-performe la moyenne communale de{" "}
+                    {(variation_pct_total - communeVariationPctTotal).toFixed(0)} pts
+                  </Text>
+                ) : variation_pct_total < communeVariationPctTotal ? (
+                  <Text style={{ fontWeight: 700, color: "#475569" }}>
+                    le micro-marché sous-performe la moyenne communale de{" "}
+                    {(communeVariationPctTotal - variation_pct_total).toFixed(0)} pts
+                  </Text>
+                ) : (
+                  <Text style={{ color: "#475569" }}>
+                    aligné sur la moyenne communale
+                  </Text>
+                )}
+              </>
+            )}
+          </Text>
+        )}
+
         <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 3 }}>
           Médiane DVF par année · données notariées officielles · années avec ≥ 5 ventes
           {scope === "cluster" ? " · périmètre = polygon HDBSCAN du micro-marché" : ""}
+          {hasCommune ? " · référence commune : agrégat code INSEE" : ""}
         </Text>
       </View>
     </View>
@@ -726,6 +945,72 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                   <Text style={styles.rangeStatValue}>{fmt(hi)} €</Text>
                 </View>
               </View>
+            )}
+
+            {/* Fix #1 — Mention ajustement bucket de surface.
+                Affichée quand le voisinage est dominé par un bucket différent
+                du bien estimé. Transparence méthodo + crédibilise. */}
+            {Boolean(data.surface_adjustment) && data.surface_adjustment && (
+              <Text
+                style={{
+                  fontSize: 8,
+                  color: "#64748b",
+                  marginTop: 8,
+                  paddingTop: 6,
+                  borderTopColor: "#e2e8f0",
+                  borderTopWidth: 1,
+                  width: "100%",
+                  textAlign: "center",
+                }}
+              >
+                Ajustement surface :{" "}
+                <Text
+                  style={{
+                    fontWeight: 700,
+                    color:
+                      data.surface_adjustment.pct_ajustement >= 0
+                        ? "#15803d"
+                        : "#b91c1c",
+                  }}
+                >
+                  {data.surface_adjustment.pct_ajustement >= 0 ? "+" : ""}
+                  {data.surface_adjustment.pct_ajustement} %
+                </Text>{" "}
+                (voisinage majoritairement {data.surface_adjustment.bucket_dominant},
+                bien estimé {data.surface_adjustment.bucket_cible}) — ratio
+                médian commune sur {data.surface_adjustment.nb_ventes_voisinage} ventes 5 ans
+              </Text>
+            )}
+
+            {/* Fix #2 — Mention plafond marché commune par bucket surface.
+                Affichée quand le P90 a été cappé OU quand la donnée commune
+                est fiable (sert d'argument vendeur transparent). */}
+            {Boolean(data.commune_ceiling) && data.commune_ceiling && data.commune_ceiling.prix_total_p95 != null && (
+              <Text
+                style={{
+                  fontSize: 8,
+                  color: "#64748b",
+                  marginTop: 8,
+                  paddingTop: 6,
+                  borderTopColor: "#e2e8f0",
+                  borderTopWidth: 1,
+                  width: "100%",
+                  textAlign: "center",
+                }}
+              >
+                {data.capped_to_commune_ceiling ? "⚠ " : ""}
+                Plafond marché {data.commune_ceiling.bucket === "T5+" ? "≥ 90 m²" :
+                  data.commune_ceiling.bucket === "T4" ? "70-89 m²" :
+                  data.commune_ceiling.bucket === "T3" ? "50-69 m²" :
+                  data.commune_ceiling.bucket === "T2" ? "30-49 m²" : "< 30 m²"} :{" "}
+                <Text style={{ fontWeight: 700, color: "#475569" }}>
+                  {fmt(data.commune_ceiling.prix_total_p95)} €
+                </Text>{" "}
+                (P95 commune · {data.commune_ceiling.nb_ventes_bucket} ventes 5 ans)
+                {data.capped_to_commune_ceiling
+                  ? " — le plafond ci-dessus a été réajusté au marché local."
+                  : ""}
+              </Text>
             )}
           </View>
         ) : (
@@ -1053,23 +1338,40 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               score garde sa valeur informative. */}
           {Boolean(data.transports) && data.transports && (
             <>
-              <Text style={styles.sectionTitle}>
-                {data.paris_distance?.is_paris
-                  ? "Métros, RER & tramway à 500 m"
-                  : "Transports à proximité"}
-              </Text>
-              {data.paris_distance?.is_paris ? (
-                <Text style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}>
-                  {data.transports.count} arrêts dans un rayon de 500 m.
-                </Text>
-              ) : (
+              {(() => {
+                const r = data.transports!.radius_m ?? 800;
+                const rLabel =
+                  r < 1000 ? `${r} m` : `${(r / 1000).toFixed(1)} km`;
+                return (
+                  <>
+                    <Text style={styles.sectionTitle}>
+                      {data.paris_distance?.is_paris
+                        ? `Métros, RER & tramway à ${rLabel}`
+                        : "Transports à proximité"}
+                    </Text>
+                    {data.paris_distance?.is_paris ? (
+                      <Text
+                        style={{ fontSize: 10, color: "#475569", marginBottom: 6 }}
+                      >
+                        {data.transports!.count} arrêts dans un rayon de {rLabel}.
+                      </Text>
+                    ) : null}
+                  </>
+                );
+              })()}
+              {!data.paris_distance?.is_paris && (
                 <View style={styles.detailGrid}>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Score accessibilité</Text>
                     <Text style={styles.detailValue}>
                       {data.transports.score_accessibilite}/100
                       {" · "}
-                      {data.transports.count} arrêts dans 800 m
+                      {data.transports.count} arrêts
+                      {data.transports.radius_m
+                        ? data.transports.radius_m < 1000
+                          ? ` dans ${data.transports.radius_m} m`
+                          : ` dans ${(data.transports.radius_m / 1000).toFixed(1)} km`
+                        : ""}
                     </Text>
                   </View>
                   {Object.entries(data.transports.par_type).slice(0, 3).map(([type, count]) => (
@@ -1094,6 +1396,112 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                 </View>
               )}
             </>
+          )}
+
+          {/* ── Section Gares à proximité (Fix bonus) ─────────────────────
+              Affichée si une gare train/RER/métro/tramway est à < 1500 m
+              ET qu'elle n'est PAS déjà dans top_stops (sinon redondant).
+              Capture le cas Drancy : gare à 900 m hors rayon 800 m std. */}
+          {Boolean(data.gares_proches) && data.gares_proches && data.gares_proches.length > 0 && (() => {
+            // Filtre les gares qui ne sont PAS déjà dans top_stops
+            const topStopNames = new Set(
+              (data.transports?.top_stops ?? []).map((s) => s.nom.toLowerCase()),
+            );
+            const exclusives = data.gares_proches.filter(
+              (g) => !topStopNames.has(g.nom.toLowerCase()),
+            );
+            if (exclusives.length === 0) return null;
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Gares ferrées à proximité</Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 4 }}>
+                  Train · RER · métro · tramway
+                  {(() => {
+                    const maxDist = Math.max(...exclusives.map((g) => g.distance_m));
+                    if (maxDist < 1000) return " · à pied (≤ 1 km)";
+                    if (maxDist < 1500) return " · à pied (≤ 1,5 km)";
+                    if (maxDist < 2000) return " · marche modérée (≤ 2 km)";
+                    return " · à ≤ 2,5 km";
+                  })()}
+                </Text>
+                <View>
+                  {exclusives.map((g, i) => (
+                    <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                      • {g.nom} ({g.type}
+                      {g.ligne ? ` · ${g.ligne}` : ""}) — {g.distance_m} m
+                      {g.walk_minutes ? ` · ${g.walk_minutes} min à pied` : ""}
+                    </Text>
+                  ))}
+                </View>
+              </>
+            );
+          })()}
+
+          {/* ── Section Équipements de proximité (Fix #3) ──────────────────
+              Sport / loisirs + écoles maternelles / élémentaires / collèges.
+              Sans filtre wikipedia — c'est de l'équipement LOCAL qui pèse
+              dans la décision d'une famille (école adjacente, stade à 5 min,
+              piscine de quartier).
+              Le LYCÉE notable est traité dans la section dédiée plus bas. */}
+          {Boolean(data.proximite_locale) && data.proximite_locale && (
+            (data.proximite_locale.sport.length > 0 ||
+              data.proximite_locale.scolaire.length > 0) && (
+              <>
+                <Text style={styles.sectionTitle}>Équipements de proximité</Text>
+
+                {data.proximite_locale.sport.length > 0 && (
+                  <View style={{ marginBottom: 6 }}>
+                    <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 3 }}>
+                      Sport &amp; loisirs ({data.proximite_locale.sport.length})
+                    </Text>
+                    {data.proximite_locale.sport.map((eq, i) => (
+                      <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                        • {eq.nom}
+                        {" — "}
+                        {eq.distance_m < 100
+                          ? "à proximité immédiate"
+                          : eq.distance_m < 1000
+                            ? `${eq.distance_m} m`
+                            : `${(eq.distance_m / 1000).toFixed(1)} km`}
+                        {eq.proximite === "adjacent" && (
+                          <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
+                        )}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {data.proximite_locale.scolaire.length > 0 && (
+                  <View style={{ marginBottom: 4 }}>
+                    <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 3 }}>
+                      Écoles à pied ({data.proximite_locale.scolaire.length})
+                    </Text>
+                    {data.proximite_locale.scolaire.map((eq, i) => {
+                      const label =
+                        eq.type === "maternelle"
+                          ? "École maternelle"
+                          : eq.type === "college"
+                            ? "Collège"
+                            : "École";
+                      return (
+                        <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                          • {label} {eq.nom}
+                          {" — "}
+                          {eq.distance_m < 100
+                            ? "à proximité immédiate"
+                            : eq.distance_m < 1000
+                              ? `${eq.distance_m} m`
+                              : `${(eq.distance_m / 1000).toFixed(1)} km`}
+                          {eq.proximite === "adjacent" && (
+                            <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
+                          )}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
+            )
           )}
 
           {/* ── Section Lycées + Taux de réussite Bac ────────────────────
@@ -1143,18 +1551,34 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               })
               .slice(0, 2);
 
-            if (lyceesQualifies.length === 0) return null;
+            // Fallback : si aucun lycée ≥ 80 %, on affiche quand même les 2
+            // plus proches sans badge premium — juste l'information de l'école
+            // du secteur. C'est l'argument de proximité même si la perf
+            // académique n'est pas un highlight. Sans ce fallback la section
+            // disparaît trop souvent (déontologie ≠ omission d'info utile).
+            const showFallback = lyceesQualifies.length === 0 && lyceesEnrichis.length > 0;
+            const lyceesFallback = showFallback
+              ? [...lyceesEnrichis]
+                  .sort((a, b) => a.distance_m - b.distance_m)
+                  .slice(0, 2)
+              : [];
+
+            const lyceesAAfficher = lyceesQualifies.length > 0 ? lyceesQualifies : lyceesFallback;
+            if (lyceesAAfficher.length === 0) return null;
 
             return (
               <>
                 <Text style={styles.sectionTitle}>
-                  Lycées à proximité — taux de réussite Bac
+                  {showFallback
+                    ? "Lycées du secteur"
+                    : "Lycées à proximité — taux de réussite Bac"}
                 </Text>
                 <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
-                  Lycées retenus : ≥ 80 % de réussite (Bac général). Comparaison
-                  académique session 2024 (DEPP) affichée si surperformance.
+                  {showFallback
+                    ? "Établissements de secteur les plus proches. Données IVAL/DEPP — pour information."
+                    : "Lycées retenus : ≥ 80 % de réussite (Bac général). Comparaison académique session 2024 (DEPP) affichée si surperformance."}
                 </Text>
-                {lyceesQualifies.map((l, i) => {
+                {lyceesAAfficher.map((l, i) => {
                   const statutLabel =
                     l.statut === "public"
                       ? "Public"
@@ -1283,9 +1707,113 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                 type_local={data.price_evolution.type_local}
                 scope={data.price_evolution.scope ?? "commune"}
                 primaryColor={data.primary_color}
+                communeYears={data.price_evolution.commune_years ?? null}
+                communeVariationPctTotal={data.price_evolution.commune_variation_pct_total ?? null}
               />
             </>
           )}
+
+          {/* ── Section 5b — Dynamique du quartier : grands projets infra
+              ────────────────────────────────────────────────────────────
+              ⚖️ CONFORMITÉ DÉONTOLOGIE :
+              On ne mentionne JAMAIS de chiffre prospectif d'évolution
+              de prix (loi Hoguet n°70-9, décret 72-678 art. 4-1, code
+              consommation L121-1, Charte Expertise 6e éd. 2025).
+              On informe sur l'existence du projet et sa dynamique
+              qualitative ("secteur en mutation", "projet structurant"),
+              sans engager une promesse de plus-value chiffrée. */}
+          {Boolean(data.grands_projets) &&
+            data.grands_projets &&
+            data.grands_projets.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>
+                  Dynamique du quartier — Grands projets à proximité
+                </Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Projets d&apos;infrastructure en cours ou à venir (transports,
+                  voies navigables, opérations d&apos;aménagement,
+                  réindustrialisation) susceptibles de transformer
+                  l&apos;attractivité du secteur dans les prochaines années.
+                </Text>
+                <View style={{ marginBottom: 10 }}>
+                  {data.grands_projets.slice(0, 4).map((g, idx) => {
+                    const dist =
+                      g.distance_m < 1000
+                        ? `${g.distance_m} m`
+                        : `${(g.distance_m / 1000).toFixed(1)} km`;
+                    const livraison = g.date_livraison_estimee
+                      ? new Date(g.date_livraison_estimee).getFullYear()
+                      : null;
+                    const livraisonLabel = livraison
+                      ? ` · livraison ${livraison}`
+                      : "";
+
+                    // Mention qualitative SANS chiffre prospectif (déontologie)
+                    const impactMax = g.impact_prix_pct_max ?? 0;
+                    const qualitativeLabel =
+                      impactMax >= 15
+                        ? "Projet structurant majeur"
+                        : impactMax >= 8
+                        ? "Secteur en mutation urbaine"
+                        : impactMax >= 3
+                        ? "Quartier dynamique"
+                        : "Projet à proximité";
+
+                    return (
+                      <View
+                        key={idx}
+                        style={{
+                          flexDirection: "row",
+                          marginBottom: 4,
+                          paddingLeft: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            color: data.primary_color,
+                            marginRight: 6,
+                          }}
+                        >
+                          •
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 10, color: "#0f172a" }}>
+                            <Text style={{ fontWeight: 700 }}>{g.nom}</Text>
+                            {` — à ${dist}${livraisonLabel}`}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              color: "#475569",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {qualitativeLabel}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 7,
+                    color: "#94a3b8",
+                    marginBottom: 8,
+                    fontStyle: "italic",
+                  }}
+                >
+                  Source : programmation officielle des maîtres d&apos;ouvrage
+                  (Société des Grands Projets, VNF, SNCF Réseau, opérations
+                  d&apos;intérêt national). Les indications de calendrier et
+                  de dynamique restent prévisionnelles et susceptibles
+                  d&apos;évoluer. Aucune promesse de plus-value ne saurait
+                  être déduite du présent document, conformément à la loi
+                  Hoguet et au devoir de conseil objectif du mandataire.
+                </Text>
+              </>
+            )}
 
           {/* ── Section 6 — INSEE socio-démo ─────────────────────────── */}
           {Boolean(data.insee) && data.insee && (

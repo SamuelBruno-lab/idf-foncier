@@ -39,3 +39,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ─── Documents privés / nominatifs Diara CAMARA (Eurealimmo Réseau) ───
+# Ces fichiers contiennent des éléments nominatifs et des conditions
+# tarifaires confidentielles qui NE DOIVENT PAS être déployés sur
+# Vercel (sinon accessibles publiquement à datamerry.com/legal/...).
+public/legal/memo-diara-eurealimmo-reseau.pdf
+public/legal/contrat-mandat-diara-eurealimmo.pdf
+public/legal/contrat-mandat-diara-eurealimmo.docx
+public/legal/avenant-pilote-collabimmo.pdf
+public/legal/avenant-pilote-collabimmo.docx
+public/legal/build_memo_diara.py
+public/legal/build_contrat_mandat_diara.py
+public/legal/build_avenant_collabimo.py
+public/legal/qa-call-diara.md
+public/legal/~$*
+# Versions secondaires éventuelles
+public/legal/*-v2.pdf
+public/legal/*-v3.pdf
+public/legal/*-v2.docx
+public/legal/*-v3.docx

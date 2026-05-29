@@ -28,9 +28,11 @@ const ODS_BASE =
   "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/" +
   "fr-en-indicateurs-de-resultat-des-lycees-denseignement-general-et-technologique/records";
 
-// On regarde dans un rayon généreux : un visiteur Parisien peut accepter qu'un
-// lycée à 1.5 km soit dans son secteur. Limité à 3 résultats pour rester lisible.
-const DEFAULT_RADIUS_M = 2000;
+// Rayon élargi à 5 km : les vendeurs sont sensibles au lycée du secteur,
+// y compris en banlieue où les lycées sont plus espacés. Le lycée le plus
+// proche peut être à 3-4 km dans le 78 ou le 91. Limité à 3 résultats pour
+// rester lisible dans le PDF.
+const DEFAULT_RADIUS_M = 5000;
 const TTL_DAYS = 365;
 const TIMEOUT_MS = 5000;
 
@@ -268,7 +270,7 @@ export async function getLyceesBac(
   const { data, cached } = await fetchWithCache<LyceesBacResult>(
     hash,
     { lat, lon },
-    "lycees_bac",
+    "lycees_bac_5km",
     TTL_DAYS,
     () => fetchLyceesFromOds(lat, lon, radius_m),
     0,

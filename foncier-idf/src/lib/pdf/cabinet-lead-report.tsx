@@ -144,6 +144,14 @@ export type CabinetLeadReportData = {
   ecoles?: {
     count: number;
     par_type: Record<string, number>;
+    /** Top écoles avec leur nom officiel (Annuaire Éducation Nationale) */
+    top?: Array<{
+      nom: string;
+      type: string;
+      statut: "public" | "prive" | "inconnu";
+      distance_m: number;
+      walk_minutes: number;
+    }>;
   } | null;
 
   /** Top 3 lycées avec taux de réussite bac (data.education.gouv.fr) */
@@ -1442,72 +1450,36 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             );
           })()}
 
-          {/* ── Section Équipements de proximité (Fix #3) ──────────────────
-              Sport / loisirs + écoles maternelles / élémentaires / collèges.
-              Sans filtre wikipedia — c'est de l'équipement LOCAL qui pèse
-              dans la décision d'une famille (école adjacente, stade à 5 min,
-              piscine de quartier).
-              Le LYCÉE notable est traité dans la section dédiée plus bas. */}
-          {Boolean(data.proximite_locale) && data.proximite_locale && (
-            (data.proximite_locale.sport.length > 0 ||
-              data.proximite_locale.scolaire.length > 0) && (
+          {/* ── Section Équipements sportifs (Fix #3, sport seulement) ─────
+              Sport / loisirs (stades, piscines, complexes sportifs) via
+              Overpass. Le SCOLAIRE est traité dans la section "Écoles" via
+              l'Annuaire Éducation Nationale (noms officiels précis).
+              Le LYCÉE notable est traité dans sa section dédiée. */}
+          {Boolean(data.proximite_locale) &&
+            data.proximite_locale &&
+            data.proximite_locale.sport.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Équipements de proximité</Text>
-
-                {data.proximite_locale.sport.length > 0 && (
-                  <View style={{ marginBottom: 6 }}>
-                    <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 3 }}>
-                      Sport &amp; loisirs ({data.proximite_locale.sport.length})
+                <Text style={styles.sectionTitle}>
+                  Sport &amp; loisirs à proximité
+                </Text>
+                <View style={{ marginBottom: 4 }}>
+                  {data.proximite_locale.sport.map((eq, i) => (
+                    <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                      • {eq.nom}
+                      {" — "}
+                      {eq.distance_m < 100
+                        ? "à proximité immédiate"
+                        : eq.distance_m < 1000
+                          ? `${eq.distance_m} m`
+                          : `${(eq.distance_m / 1000).toFixed(1)} km`}
+                      {eq.proximite === "adjacent" && (
+                        <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
+                      )}
                     </Text>
-                    {data.proximite_locale.sport.map((eq, i) => (
-                      <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
-                        • {eq.nom}
-                        {" — "}
-                        {eq.distance_m < 100
-                          ? "à proximité immédiate"
-                          : eq.distance_m < 1000
-                            ? `${eq.distance_m} m`
-                            : `${(eq.distance_m / 1000).toFixed(1)} km`}
-                        {eq.proximite === "adjacent" && (
-                          <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
-                        )}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
-                {data.proximite_locale.scolaire.length > 0 && (
-                  <View style={{ marginBottom: 4 }}>
-                    <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 3 }}>
-                      Écoles à pied ({data.proximite_locale.scolaire.length})
-                    </Text>
-                    {data.proximite_locale.scolaire.map((eq, i) => {
-                      const label =
-                        eq.type === "maternelle"
-                          ? "École maternelle"
-                          : eq.type === "college"
-                            ? "Collège"
-                            : "École";
-                      return (
-                        <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
-                          • {label} {eq.nom}
-                          {" — "}
-                          {eq.distance_m < 100
-                            ? "à proximité immédiate"
-                            : eq.distance_m < 1000
-                              ? `${eq.distance_m} m`
-                              : `${(eq.distance_m / 1000).toFixed(1)} km`}
-                          {eq.proximite === "adjacent" && (
-                            <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
-                          )}
-                        </Text>
-                      );
-                    })}
-                  </View>
-                )}
+                  ))}
+                </View>
               </>
-            )
-          )}
+            )}
 
           {/* ── Section Lycées + Taux de réussite Bac ────────────────────
               FILTRE ÉDITORIAL VENDEUR (v3 — calibré métier) :
@@ -1647,7 +1619,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             );
           })()}
 
-          {/* ── Section 3 — Écoles (maternelle, élémentaire, collège) ─── */}
+          {/* ── Section 3 — Écoles (avec noms officiels Annuaire EN) ──── */}
           {Boolean(data.ecoles) && data.ecoles && data.ecoles.count > 0 && (
             <>
               <Text style={styles.sectionTitle}>Écoles à proximité</Text>
@@ -1656,13 +1628,41 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                   <Text style={styles.detailLabel}>Total</Text>
                   <Text style={styles.detailValue}>{data.ecoles.count} dans 1,5 km</Text>
                 </View>
-                {Object.entries(data.ecoles.par_type).map(([type, count]) => (
+                {Object.entries(data.ecoles.par_type).slice(0, 3).map(([type, count]) => (
                   <View key={type} style={styles.detailItem}>
                     <Text style={styles.detailLabel}>{type}</Text>
                     <Text style={styles.detailValue}>{count}</Text>
                   </View>
                 ))}
               </View>
+              {data.ecoles.top && data.ecoles.top.length > 0 && (
+                <View style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 4 }}>
+                    Les {Math.min(data.ecoles.top.length, 4)} plus proches (Annuaire Éducation Nationale) :
+                  </Text>
+                  {data.ecoles.top.map((e, i) => {
+                    const statutLabel =
+                      e.statut === "public"
+                        ? "Public"
+                        : e.statut === "prive"
+                          ? "Privé"
+                          : "";
+                    return (
+                      <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                        • {e.nom}
+                        {statutLabel ? ` (${statutLabel})` : ""}
+                        {" — "}
+                        {e.distance_m < 100
+                          ? "à proximité immédiate"
+                          : e.distance_m < 1000
+                            ? `${e.distance_m} m`
+                            : `${(e.distance_m / 1000).toFixed(1)} km`}
+                        {e.walk_minutes ? ` · ${e.walk_minutes} min à pied` : ""}
+                      </Text>
+                    );
+                  })}
+                </View>
+              )}
             </>
           )}
 

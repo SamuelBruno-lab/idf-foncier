@@ -535,6 +535,16 @@ export async function POST(
       ? {
           count: ecoles.count,
           par_type: ecoles.par_type,
+          // Top 4 écoles les plus proches AVEC noms officiels Annuaire
+          // Éducation Nationale (École maternelle TIMBAUD-DEWERPE, etc.).
+          // Plus précis qu'Overpass qui peut tagger mal ou pas tagger du tout.
+          top: ecoles.ecoles.slice(0, 4).map((e) => ({
+            nom: e.nom,
+            type: e.type,
+            statut: e.statut,
+            distance_m: e.distance_m,
+            walk_minutes: e.walk_minutes,
+          })),
         }
       : null,
     lycees_bac: lyceesBac && lyceesBac.available

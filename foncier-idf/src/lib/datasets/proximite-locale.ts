@@ -38,6 +38,7 @@
  */
 
 import { addressHash, fetchWithCache } from "./_cache";
+import { getSupabaseServerClient } from "../supabase-server";
 
 const DEFAULT_RADIUS_M = 1200;
 const TTL_DAYS = 30;
@@ -306,13 +307,67 @@ out center tags;
 // API publique
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Tente d'abord la table Supabase dim_poi_local (ingestion batch fiable),
+ * fallback Overpass si DB vide pour la zone.
+ */
+async function fetchFromDb(
+  lat: number,
+  lon: number,
+  radius_m: number,
+): Promise<EquipementLocal[]> {
+  try {
+    const sb = getSupabaseServerClient();
+    const { data, error } = await sb.rpc("find_nearby_poi_local", {
+      p_lat: lat,
+      p_lon: lon,
+      p_max_distance_m: radius_m,
+      p_categories: null,
+      p_limit: 12,
+    });
+    if (error) {
+      console.warn("[proximite-locale] db rpc error:", error.message);
+      return [];
+    }
+    if (!data || !Array.isArray(data) || data.length === 0) return [];
+    return data.map(
+      (r: {
+        id: number;
+        nom: string;
+        type_local: string;
+        lat: number;
+        lon: number;
+        distance_m: number;
+      }) => ({
+        osm_id: r.id,
+        nom: r.nom,
+        type: r.type_local as EquipementType,
+        lat: r.lat,
+        lon: r.lon,
+        distance_m: r.distance_m,
+        proximite: proximiteFromDistance(r.distance_m),
+      }),
+    );
+  } catch (err) {
+    console.warn(
+      `[proximite-locale] db exception: ${err instanceof Error ? err.message : "unknown"}`,
+    );
+    return [];
+  }
+}
+
 async function computeProximiteLocale(
   lat: number,
   lon: number,
   radius_m: number,
 ): Promise<ProximiteLocaleResult> {
   const now = new Date().toISOString();
-  const elements = await fetchFromOverpass(lat, lon, radius_m);
+  // 1) Essai DB (fiable, rapide ~50ms) — populée par pipeline batch Overpass
+  let elements = await fetchFromDb(lat, lon, radius_m);
+  // 2) Fallback Overpass live (lent, fragile) si DB vide
+  if (elements.length === 0) {
+    elements = await fetchFromOverpass(lat, lon, radius_m);
+  }
 
   if (elements.length === 0) {
     return {

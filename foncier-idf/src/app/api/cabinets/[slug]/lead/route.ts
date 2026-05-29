@@ -363,6 +363,32 @@ export async function POST(
       )
     : null;
 
+  // FALLBACK transports : si Overpass a échoué (rate limit, timeout) mais
+  // qu'on a une gare via dim_gares/PRIM, on injecte un stop unique pour
+  // ne pas afficher "0 arrêts" qui ruine la crédibilité du rapport.
+  if (
+    transports &&
+    transports.stops.length === 0 &&
+    parisDistance?.nearest_major_station
+  ) {
+    const g = parisDistance.nearest_major_station;
+    transports.stops = [
+      {
+        osm_id: 0,
+        nom: g.nom,
+        type: g.type,
+        reseau: g.reseau ?? null,
+        ligne: g.ligne ?? null,
+        lat: 0,
+        lon: 0,
+        distance_m: g.distance_m,
+        walk_minutes: g.walk_minutes,
+      },
+    ];
+    transports.count = 1;
+    transports.par_type = { [g.type]: 1 };
+  }
+
   // Extraction des GARES À PROXIMITÉ depuis transportsLarge (rayon 5 km
   // déjà fetché). Rayon adaptatif selon zone :
   //   - Paris intra-muros : 1000 m (les gares y sont denses)
@@ -378,25 +404,51 @@ export async function POST(
     return 2500;
   }
   const gareRadius = top ? detectGareRadius(top.code_insee) : 2500;
-  const garesProches =
-    transportsLarge && transportsLarge.stops
-      ? transportsLarge.stops
-          .filter((s) => {
-            const t = (s.type ?? "").toLowerCase();
-            return (
-              (t === "rer" ||
-                t === "train" ||
-                t === "metro" ||
-                t === "tramway" ||
-                t === "tram") &&
-              s.distance_m <= gareRadius
-            );
-          })
-          // Tri par distance puis dédoublonnage par nom (Drancy gare RER,
-          // Drancy gare Transilien peuvent être 2 entrées proches)
-          .sort((a, b) => a.distance_m - b.distance_m)
-          .slice(0, 4)
-      : [];
+  let garesProches: Array<{
+    nom: string;
+    type: string;
+    ligne: string | null;
+    distance_m: number;
+    walk_minutes: number;
+  }> = [];
+  if (transportsLarge && transportsLarge.stops) {
+    garesProches = transportsLarge.stops
+      .filter((s) => {
+        const t = (s.type ?? "").toLowerCase();
+        return (
+          (t === "rer" ||
+            t === "train" ||
+            t === "metro" ||
+            t === "tramway" ||
+            t === "tram") &&
+          s.distance_m <= gareRadius
+        );
+      })
+      .sort((a, b) => a.distance_m - b.distance_m)
+      .slice(0, 4)
+      .map((s) => ({
+        nom: s.nom,
+        type: s.type,
+        ligne: s.ligne,
+        distance_m: s.distance_m,
+        walk_minutes: s.walk_minutes,
+      }));
+  }
+  // Fallback : si Overpass transportsLarge est aussi vide, on injecte
+  // au minimum la nearest_major_station de paris_distance (qui vient de
+  // dim_gares Supabase ou de PRIM — sources fiables non-Overpass).
+  if (garesProches.length === 0 && parisDistance?.nearest_major_station) {
+    const g = parisDistance.nearest_major_station;
+    garesProches = [
+      {
+        nom: g.nom,
+        type: g.type,
+        ligne: g.ligne ?? null,
+        distance_m: g.distance_m,
+        walk_minutes: g.walk_minutes,
+      },
+    ];
+  }
 
   // 5a) Ajustement par bucket de surface (Fix #1)
   // Si le voisinage est dominé par un bucket différent du bien à estimer,
@@ -524,28 +576,47 @@ export async function POST(
     generated_at: new Date(),
     // Données opensource enrichies
     paris_distance: parisDistance,
-    // Filtre éditorial : on retire les arrêts de bus et les stops OSM
-    // génériques ("stop") de la liste affichée — ils encombrent le PDF
-    // et n'apportent pas d'argument vendeur fort (vs RER/Métro/Tram/Train
-    // qui sont des arguments structurants pour un acheteur).
-    // Le score d'accessibilité OSM original (qui inclut les bus) est
-    // conservé tel quel — c'est un indicateur agrégé légitime.
+    // Filtre éditorial : on retire les arrêts de bus de la liste affichée
+    // s'il y a d'autres modes structurants (RER/métro/tram/train).
+    // SINON (zone exclusivement desservie par bus), on GARDE les bus —
+    // mieux vaut afficher "12 bus à 900 m" que "0 arrêts" qui fait peur.
     transports: transports
       ? (() => {
-          const nonBusStops = transports.stops.filter((s) => {
-            const t = (s.type ?? "").toLowerCase();
-            return t !== "bus" && t !== "stop";
-          });
-          const nonBusParType = Object.fromEntries(
-            Object.entries(transports.par_type).filter(
-              ([type]) => type !== "bus" && type !== "stop",
-            ),
+          const isStructurant = (t: string) => {
+            const v = t.toLowerCase();
+            return (
+              v === "rer" ||
+              v === "metro" ||
+              v === "tram" ||
+              v === "tramway" ||
+              v === "train" ||
+              v === "ferry"
+            );
+          };
+          const structurants = transports.stops.filter((s) =>
+            isStructurant(s.type ?? ""),
           );
+          // Si on a au moins UN mode structurant, on filtre les bus.
+          // Sinon on garde tout (bus inclus, mieux que vide).
+          const hasStructurant = structurants.length > 0;
+          const finalStops = hasStructurant
+            ? transports.stops.filter((s) => {
+                const t = (s.type ?? "").toLowerCase();
+                return t !== "stop"; // on retire toujours les "stop" génériques
+              })
+            : transports.stops;
+          const finalParType = hasStructurant
+            ? Object.fromEntries(
+                Object.entries(transports.par_type).filter(
+                  ([type]) => type !== "stop",
+                ),
+              )
+            : transports.par_type;
           return {
             score_accessibilite: transports.score_accessibilite,
-            count: nonBusStops.length,
-            par_type: nonBusParType,
-            top_stops: nonBusStops.slice(0, 6),
+            count: finalStops.length,
+            par_type: finalParType,
+            top_stops: finalStops.slice(0, 6),
             radius_m: transportsRadius,
           };
         })()

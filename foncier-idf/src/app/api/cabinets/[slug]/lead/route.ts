@@ -245,7 +245,6 @@ export async function POST(
   const zoneRadius = top
     ? detectZoneRadius(top.code_insee)
     : { transports: 1500, equipements: 1500 };
-  const isParisIntraMuros = top ? top.code_insee.startsWith("75") : false;
   const transportsRadius = zoneRadius.transports;
   const equipementsRadius = zoneRadius.equipements;
 
@@ -464,17 +463,24 @@ export async function POST(
         }
       : null,
     // Fix #3 — Équipements LOCAUX (sport + écoles)
+    // Le helper sépare déjà sport et scolaire à la classification ;
+    // les casts explicites rassurent TypeScript sur les unions strictes.
     proximite_locale: proximiteLocale && proximiteLocale.available
       ? {
           sport: proximiteLocale.sport.map((e) => ({
             nom: e.nom,
-            type: e.type,
+            type: e.type as
+              | "stade"
+              | "complexe_sportif"
+              | "piscine"
+              | "terrain"
+              | "fitness",
             distance_m: e.distance_m,
             proximite: e.proximite,
           })),
           scolaire: proximiteLocale.scolaire.map((e) => ({
             nom: e.nom,
-            type: e.type,
+            type: e.type as "maternelle" | "ecole" | "college",
             distance_m: e.distance_m,
             proximite: e.proximite,
           })),

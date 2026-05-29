@@ -25,6 +25,7 @@ export type DatasetKey =
   | "idfm_journey"
   | "price_evolution"
   | "lycees_bac"
+  | "lycees_bac_5km"
   | "points_interet"
   // Ajouts pour les 3 nouveaux helpers (commit 242843b)
   | "price_ceiling"

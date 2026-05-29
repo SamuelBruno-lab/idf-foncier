@@ -251,7 +251,7 @@ async function computeFromDb(
     prix_m2_max_observe,
     prix_total_p95,
     prix_total_max_observe,
-    nb_ventes_bucket: filtered.length,
+    nb_ventes_bucket,
     confiance,
     source: "dvf_points",
     fetched_at: now,

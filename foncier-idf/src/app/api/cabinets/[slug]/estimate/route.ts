@@ -174,7 +174,12 @@ export async function GET(
     });
 
     prix_m2_p10 = capped.prix_m2_p10;
-    prix_m2_median = capped.prix_m2_median;
+    // capped.prix_m2_median peut être null si capping vidait la valeur
+    // (ne devrait jamais arriver en pratique car médiane préservée), mais
+    // TS strict exige le narrowing — on ne remplace que si valeur définie.
+    if (capped.prix_m2_median != null) {
+      prix_m2_median = capped.prix_m2_median;
+    }
     prix_m2_p90 = capped.prix_m2_p90;
   }
 

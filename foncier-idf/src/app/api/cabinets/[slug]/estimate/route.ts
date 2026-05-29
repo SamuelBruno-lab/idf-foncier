@@ -183,6 +183,20 @@ export async function GET(
     prix_m2_p90 = capped.prix_m2_p90;
   }
 
+  // 4c) GARDE-FOU ABSOLU — si pour une raison X (helper en échec silencieux,
+  // commune sans données, cache stale, etc.) le capping n'a pas joué, on
+  // borne quand même le P90 à 1,5 × médiane. Sur un marché sain, le ratio
+  // P90/médiane reste sous 1,4. Au-delà = on est dans des outliers
+  // statistiques qui n'ont rien à faire dans une estim vendeur.
+  // Pour Drancy 62m² : si médiane = 3 831 €/m², plafond ≤ 5 746 €/m²
+  // → soit 356 k€ max (vs 469 k€ actuel = 1,97× médiane, hors marché réel)
+  if (prix_m2_p90 != null && prix_m2_median > 0) {
+    const ratio = prix_m2_p90 / prix_m2_median;
+    if (ratio > 1.5) {
+      prix_m2_p90 = Math.round(prix_m2_median * 1.5);
+    }
+  }
+
   // 5) Log usage cabinet (non bloquant, pour Stripe billing futur)
   if (cabinet.api_key_id) {
     void sb.from("api_usage_log").insert({

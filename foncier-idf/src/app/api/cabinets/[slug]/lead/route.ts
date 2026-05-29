@@ -421,6 +421,25 @@ export async function POST(
     ceiling: communePriceCeiling,
   });
 
+  // 5c) GARDE-FOU ABSOLU : P90 ≤ 1,5 × médiane (parité avec /api/estimate)
+  // Sécurité si le helper de capping échoue silencieusement.
+  if (
+    cappedEstim.prix_m2_p90 != null &&
+    cappedEstim.prix_m2_median != null &&
+    cappedEstim.prix_m2_median > 0
+  ) {
+    const ratio = cappedEstim.prix_m2_p90 / cappedEstim.prix_m2_median;
+    if (ratio > 1.5) {
+      const newP90 = Math.round(cappedEstim.prix_m2_median * 1.5);
+      cappedEstim.prix_m2_p90 = newP90;
+      cappedEstim.prix_total_p90 =
+        insertPayload.surface != null && insertPayload.surface > 0
+          ? Math.round(newP90 * insertPayload.surface)
+          : null;
+      cappedEstim.capped = true;
+    }
+  }
+
   // 6) Génération PDF
   const pdfData: CabinetLeadReportData = {
     cabinet_name: cabinet.cabinet_name,

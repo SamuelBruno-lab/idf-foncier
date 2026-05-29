@@ -27,6 +27,9 @@ export type DatasetKey =
   | "lycees_bac"
   | "lycees_bac_5km"
   | "points_interet"
+  // ecoles_v2 : bump pour purger les caches négatifs accumulés (timeouts
+  // antérieurs sur data.education.gouv.fr) et activer shouldCache.
+  | "ecoles_v2"
   // Ajouts pour les 3 nouveaux helpers (commit 242843b)
   | "price_ceiling"
   // v2 du plafond commune : invalidation cache après refonte logique

@@ -196,10 +196,15 @@ export async function getEcoles(
   const { data, cached } = await fetchWithCache<EcolesResult>(
     hash,
     { lat, lon },
-    "ecoles",
+    // v2 : bump du namespace pour invalider les caches négatifs accumulés
+    // (résultats vides issus des timeouts API précédents).
+    "ecoles_v2",
     TTL_DAYS,
     () => fetchEcolesFromODS(lat, lon, radiusM, limit),
     0, // gratuit
+    // shouldCache : on REFUSE de cacher les résultats vides — sinon en cas
+    // de timeout API ODS, on s'auto-empoisonne pour 30 jours.
+    (result: EcolesResult) => result.available && result.count > 0,
   );
 
   return { ...data, cached };

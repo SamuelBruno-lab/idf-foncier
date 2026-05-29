@@ -25,7 +25,11 @@ export type DatasetKey =
   | "idfm_journey"
   | "price_evolution"
   | "lycees_bac"
-  | "points_interet";
+  | "points_interet"
+  // Ajouts pour les 3 nouveaux helpers (commit 242843b)
+  | "price_ceiling"
+  | "surface_adjustment"
+  | "proximite_locale";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

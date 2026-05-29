@@ -452,16 +452,23 @@ export async function POST(
         }
       : null,
     // Métadonnées ajustement de bucket de surface (Fix #1)
-    surface_adjustment: adjustedEstim.applied && surfaceAdjustment
-      ? {
-          bucket_dominant: surfaceAdjustment.bucket_dominant,
-          bucket_cible: surfaceAdjustment.bucket_cible,
-          pct_ajustement: adjustedEstim.pct,
-          ratio: adjustedEstim.ratio,
-          nb_ventes_voisinage: surfaceAdjustment.nb_ventes_voisinage,
-          confiance: surfaceAdjustment.confiance,
-        }
-      : null,
+    // Note : surfaceAdjustment.bucket_dominant peut être null si pas assez
+    // de données voisinage, mais dans ce cas applied est nécessairement false
+    // (applySurfaceAdjustment skip aussi sur confiance low/none). On le
+    // re-narrowe explicitement pour rassurer TS.
+    surface_adjustment:
+      adjustedEstim.applied &&
+      surfaceAdjustment &&
+      surfaceAdjustment.bucket_dominant != null
+        ? {
+            bucket_dominant: surfaceAdjustment.bucket_dominant,
+            bucket_cible: surfaceAdjustment.bucket_cible,
+            pct_ajustement: adjustedEstim.pct,
+            ratio: adjustedEstim.ratio,
+            nb_ventes_voisinage: surfaceAdjustment.nb_ventes_voisinage,
+            confiance: surfaceAdjustment.confiance,
+          }
+        : null,
     // Fix #3 — Équipements LOCAUX (sport + écoles)
     // Le helper sépare déjà sport et scolaire à la classification ;
     // les casts explicites rassurent TypeScript sur les unions strictes.

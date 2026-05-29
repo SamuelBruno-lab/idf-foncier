@@ -295,7 +295,12 @@ export type CabinetLeadReportData = {
 function buildStyles(primary: string) {
   return StyleSheet.create({
     page: {
-      padding: 40,
+      // Marges réduites pour tenir tout le rapport sur 2 pages.
+      // Avant : 40px partout → page 3 quasi vide. Maintenant 28-30px.
+      paddingTop: 28,
+      paddingBottom: 28,
+      paddingLeft: 32,
+      paddingRight: 32,
       fontSize: 10,
       fontFamily: "Helvetica",
       color: "#0f172a",
@@ -393,8 +398,9 @@ function buildStyles(primary: string) {
       fontSize: 11,
       fontWeight: 700,
       color: primary,
-      marginTop: 14,
-      marginBottom: 8,
+      // Marges compressées pour tenir le rapport sur 2 pages.
+      marginTop: 9,
+      marginBottom: 4,
     },
     detailGrid: {
       flexDirection: "row",
@@ -1328,31 +1334,6 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                     </Text>
                   </View>
 
-                  {/* Bloc détail technique du meilleur itinéraire */}
-                  <View style={{ marginTop: 8, padding: 10, backgroundColor: "#f1f5f9", borderRadius: 6 }}>
-                    <Text style={{ fontSize: 9, color: "#475569", marginBottom: 6 }}>
-                      Détail itinéraire le plus rapide ({data.paris_distance.journey_to_paris.total_duration_min} min total
-                      {" · "}{data.paris_distance.journey_to_paris.walking_duration_min} min marche
-                      {" · "}{data.paris_distance.journey_to_paris.nb_transfers} correspondance{data.paris_distance.journey_to_paris.nb_transfers > 1 ? "s" : ""}) :
-                    </Text>
-                    {data.paris_distance.journey_to_paris.sections
-                      .filter((s) => s.type !== "wait")
-                      .map((s, i) => (
-                        <Text key={i} style={{ fontSize: 9, color: "#0f172a", marginBottom: 2 }}>
-                          {s.type === "walking" || s.type === "transfer"
-                            ? `🚶 ${s.duration_min} min de marche${s.distance_m ? ` (${s.distance_m} m)` : ""}`
-                            : `🚆 ${s.line ?? "Transit"} · ${s.duration_min} min · ${s.from ?? ""} → ${s.to ?? ""}`}
-                        </Text>
-                      ))}
-                    {data.paris_distance.journey_to_paris.alternatives.length > 1 && (
-                      <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
-                        Alternatives : {data.paris_distance.journey_to_paris.alternatives
-                          .slice(1)
-                          .map((a) => `${a.duration_min} min via ${a.primary_lines.join(" + ") || "marche"}`)
-                          .join(" — ")}
-                      </Text>
-                    )}
-                  </View>
                 </>
               )}
             </>
@@ -1391,7 +1372,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                   </>
                 );
               })()}
-              {!data.paris_distance?.is_paris && (
+              {!data.paris_distance?.is_paris && data.transports.score_accessibilite > 0 && (
                 <View style={styles.detailGrid}>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Score accessibilité</Text>
@@ -1638,52 +1619,76 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             );
           })()}
 
-          {/* ── Section 3 — Écoles (avec noms officiels Annuaire EN) ──── */}
-          {Boolean(data.ecoles) && data.ecoles && data.ecoles.count > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Écoles à proximité</Text>
-              <View style={styles.detailGrid}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Total</Text>
-                  <Text style={styles.detailValue}>{data.ecoles.count} dans 1,5 km</Text>
-                </View>
-                {Object.entries(data.ecoles.par_type).slice(0, 3).map(([type, count]) => (
-                  <View key={type} style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>{type}</Text>
-                    <Text style={styles.detailValue}>{count}</Text>
-                  </View>
-                ))}
-              </View>
-              {data.ecoles.top && data.ecoles.top.length > 0 && (
-                <View style={{ marginTop: 6 }}>
-                  <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 4 }}>
-                    Les {Math.min(data.ecoles.top.length, 4)} plus proches (Annuaire Éducation Nationale) :
-                  </Text>
-                  {data.ecoles.top.map((e, i) => {
-                    const statutLabel =
-                      e.statut === "public"
-                        ? "Public"
-                        : e.statut === "prive"
-                          ? "Privé"
-                          : "";
-                    return (
-                      <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
-                        • {e.nom}
-                        {statutLabel ? ` (${statutLabel})` : ""}
-                        {" — "}
-                        {e.distance_m < 100
-                          ? "à proximité immédiate"
-                          : e.distance_m < 1000
-                            ? `${e.distance_m} m`
-                            : `${(e.distance_m / 1000).toFixed(1)} km`}
-                        {e.walk_minutes ? ` · ${e.walk_minutes} min à pied` : ""}
-                      </Text>
-                    );
-                  })}
-                </View>
-              )}
-            </>
-          )}
+          {/* ── Section 3 — Écoles à proximité ──────────────────────────
+              Union de 2 sources : Annuaire EN (noms officiels) + dim_poi_local
+              (seed manuel par commune, ex. École TIMBAUD-DEWERPE pour Drancy).
+              On dédoublonne par nom et on garde max 4 entrées. */}
+          {(() => {
+            type EcoleEntry = {
+              nom: string;
+              statut?: "public" | "prive" | "inconnu";
+              distance_m: number;
+              walk_minutes?: number;
+              source: "ode" | "dpl";
+            };
+            const list: EcoleEntry[] = [];
+            if (data.ecoles?.top) {
+              for (const e of data.ecoles.top) {
+                list.push({
+                  nom: e.nom,
+                  statut: e.statut,
+                  distance_m: e.distance_m,
+                  walk_minutes: e.walk_minutes,
+                  source: "ode",
+                });
+              }
+            }
+            if (data.proximite_locale?.scolaire) {
+              for (const e of data.proximite_locale.scolaire) {
+                if (
+                  list.some(
+                    (x) =>
+                      x.nom.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+                      e.nom.toLowerCase().replace(/[^a-z0-9]/g, ""),
+                  )
+                )
+                  continue;
+                list.push({
+                  nom: e.nom,
+                  distance_m: e.distance_m,
+                  source: "dpl",
+                });
+              }
+            }
+            if (list.length === 0) return null;
+            const top4 = list.sort((a, b) => a.distance_m - b.distance_m).slice(0, 4);
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Écoles à proximité</Text>
+                {top4.map((e, i) => {
+                  const statutLabel =
+                    e.statut === "public"
+                      ? " (Public)"
+                      : e.statut === "prive"
+                        ? " (Privé)"
+                        : "";
+                  const distLabel =
+                    e.distance_m < 100
+                      ? "à proximité immédiate"
+                      : e.distance_m < 1000
+                        ? `${e.distance_m} m`
+                        : `${(e.distance_m / 1000).toFixed(1)} km`;
+                  return (
+                    <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                      • {e.nom}
+                      {statutLabel} — {distLabel}
+                      {e.walk_minutes ? ` · ${e.walk_minutes} min à pied` : ""}
+                    </Text>
+                  );
+                })}
+              </>
+            );
+          })()}
 
           {/* ── Section 4 — Services quotidien ───────────────────────── */}
           {/* Idem que Transports : à Paris intra-muros tout est à 200 m à pied,
@@ -1872,21 +1877,22 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
             </>
           )}
 
-          {/* Note méthodologie */}
-          <View style={[styles.expertNote, { marginTop: 18 }]}>
-            <Text style={styles.expertNoteTitle}>Méthodologie</Text>
-            <Text>
-              Toutes les données ci-dessus sont issues de sources <Text style={{ fontWeight: 700 }}>opensource publiques</Text> :
-              transactions notariées DVF (data.gouv.fr), arrêts de transports et services
-              quotidiens via OpenStreetMap (Overpass), Annuaire Éducation Nationale
-              (data.education.gouv.fr), INSEE Filosofi pour le revenu médian. Les scores
-              d&apos;accessibilité aux transports et aux services quotidiens à pied sont des heuristiques DATAMERRY
-              basées sur la quantité, le type et la distance des points d&apos;intérêt.
-              {"\n\n"}
-              Pour une visite physique gratuite et un avis d&apos;expert affiné, un agent
-              {" "}{data.cabinet_name} vous recontacte sous 24h ouvrées.
-            </Text>
-          </View>
+          {/* Méthodologie compressée pour tenir la page 2 (au lieu de
+              déborder sur une page 3 vide). Mention condensée intégrée
+              en bas de la page 2 au lieu d'un bloc séparé. */}
+          <Text
+            style={{
+              fontSize: 7,
+              color: "#94a3b8",
+              marginTop: 8,
+              lineHeight: 1.3,
+              fontStyle: "italic",
+            }}
+          >
+            Sources : DVF (notaires) · OSM Overpass · Annuaire Éducation Nationale ·
+            INSEE Filosofi · IDFM PRIM. Scores accessibilité = heuristiques DATAMERRY®.
+            Pour une visite physique gratuite et un avis d&apos;expert affiné, un agent {data.cabinet_name} vous recontacte sous 24h ouvrées.
+          </Text>
 
           {/* Footer page 2 */}
           <View style={styles.footer}>

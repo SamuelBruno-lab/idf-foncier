@@ -38,7 +38,11 @@ const DEFAULT_YEARS_BACK = 8;
 //         AU MOINS une transaction notariée. Pour la commune entière le
 //         capping P95 et le garde-fou 1,5× médiane restent en place donc
 //         pas de risque de surévaluation par 1-2 outliers.
-const MIN_VENTES_PAR_AN = 2;
+// 1 vente/an = ultra permissif. La courbe peut bruiter sur les petits
+// clusters mais le garde-fou 1,5× médiane et le capping P95 commune
+// neutralisent les outliers en aval. Mieux vaut afficher une courbe
+// micro-marché « best effort » que basculer 100% commune.
+const MIN_VENTES_PAR_AN = 1;
 
 export type ClusterPriceYear = {
   annee: number;

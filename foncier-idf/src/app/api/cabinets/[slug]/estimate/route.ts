@@ -15,6 +15,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
 import { pointInPolygon } from "@/lib/geo";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  getCommunePriceCeiling,
+  capEstimationsByCommuneCeiling,
+} from "@/lib/datasets/commune-price-ceiling";
+import {
+  getSurfaceBucketAdjustment,
+  applySurfaceAdjustment,
+} from "@/lib/datasets/surface-bucket-adjustment";
 
 type ZoneRow = {
   id: string;
@@ -120,7 +128,57 @@ export async function GET(
 
   const surface_safe = surface && surface > 0 ? surface : null;
 
-  // 4) Log usage cabinet (non bloquant, pour Stripe billing futur)
+  // 4) AJUSTEMENT + CAPPING (parité avec le pipeline du PDF /lead)
+  // Sans cela, le widget affichait 469k€ pour un 62m² Drancy (P90 brut
+  // du cluster hérité des petites surfaces). Avec capping + ajustement,
+  // le widget affiche la même valeur réaliste que le PDF généré ensuite.
+  let prix_m2_p10 = match.prix_m2_p10;
+  let prix_m2_median = match.prix_m2_median;
+  let prix_m2_p90 = match.prix_m2_p90;
+
+  if (surface_safe != null && ["Appartement", "Maison"].includes(typeLocal)) {
+    const [surfaceAdjustment, communePriceCeiling] = await Promise.all([
+      getSurfaceBucketAdjustment({
+        lat: top.lat,
+        lon: top.lon,
+        code_commune: top.code_insee,
+        type_local: typeLocal,
+        surface_m2: surface_safe,
+        years_back: 5,
+      }).catch(() => null),
+      getCommunePriceCeiling({
+        lat: top.lat,
+        lon: top.lon,
+        code_commune: top.code_insee,
+        type_local: typeLocal,
+        surface_m2: surface_safe,
+        years_back: 5,
+      }).catch(() => null),
+    ]);
+
+    // 4a) Ajustement de bucket de surface
+    const adjusted = applySurfaceAdjustment({
+      prix_m2_p10,
+      prix_m2_median,
+      prix_m2_p90,
+      adjustment: surfaceAdjustment,
+    });
+
+    // 4b) Capping par le plafond P95 commune
+    const capped = capEstimationsByCommuneCeiling({
+      prix_m2_p10: adjusted.prix_m2_p10,
+      prix_m2_median: adjusted.prix_m2_median,
+      prix_m2_p90: adjusted.prix_m2_p90,
+      surface_m2: surface_safe,
+      ceiling: communePriceCeiling,
+    });
+
+    prix_m2_p10 = capped.prix_m2_p10;
+    prix_m2_median = capped.prix_m2_median;
+    prix_m2_p90 = capped.prix_m2_p90;
+  }
+
+  // 5) Log usage cabinet (non bloquant, pour Stripe billing futur)
   if (cabinet.api_key_id) {
     void sb.from("api_usage_log").insert({
       api_key_id: cabinet.api_key_id,
@@ -140,10 +198,13 @@ export async function GET(
   return NextResponse.json({
     available: true,
     address: top.label,
-    prix_m2_median: match.prix_m2_median,
-    prix_m2_p10: match.prix_m2_p10,
-    prix_m2_p90: match.prix_m2_p90,
-    prix_total_median: surface_safe ? Math.round(match.prix_m2_median * surface_safe) : null,
+    prix_m2_median,
+    prix_m2_p10,
+    prix_m2_p90,
+    prix_total_median:
+      surface_safe && prix_m2_median != null
+        ? Math.round(prix_m2_median * surface_safe)
+        : null,
     nb_ventes: match.count,
   });
 }

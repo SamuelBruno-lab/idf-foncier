@@ -68,7 +68,12 @@ def get_db_dsn() -> str:
     if not m:
         raise SystemExit("ERROR : NEXT_PUBLIC_SUPABASE_URL invalide")
     project = m.group(1)
-    return f"postgresql://postgres.{project}:{key}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
+    # Session pooler (port 5432) au lieu du transaction pooler (6543).
+    # Pour les batch jobs longs (22k+ inserts), le session pooler est beaucoup
+    # plus stable : pas de timeout d'inactivité agressif, supporte les
+    # transactions longues sans casser la connexion.
+    # Référence : https://supabase.com/docs/guides/database/connecting-to-postgres
+    return f"postgresql://postgres.{project}:{key}@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -313,28 +318,69 @@ WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 
 # Types Wikidata à interroger UN PAR UN (pour éviter timeout serveur public)
 # Chaque type = requête SPARQL séparée, ~5-30s chacune.
+# Format : (QID, label, min_sitelinks_filter)
+#
+# min_sitelinks_filter : seuil minimum de sitelinks Wikidata pour qu'un POI
+# soit ingéré. Permet de filtrer le bruit (ex : 45 000 paroisses en France
+# alors que seules ~150 églises sont vraiment notables : Notre-Dame de Paris,
+# Sacré-Cœur, Sainte-Chapelle, cathédrales gothiques majeures...).
+#
+# Critère métier : les Français sont majoritairement non-pratiquants. Une
+# église de quartier n'est pas un argument vendeur. Une cathédrale ou une
+# basilique iconique, si.
+#
+# Valeurs typiques :
+#   0  → on garde tout (musées, opéras, sites archéologiques = peu nombreux)
+#   3  → filtre léger (théâtres, jardins remarquables)
+#   5  → filtre modéré (châteaux : Versailles, Chambord, Vincennes... pas
+#                       les manoirs privés)
+#   15 → filtre fort (églises : seulement les iconiques internationales)
+#
+# Référence : sitelinks Wikidata = nombre de Wikipedia linguistiques qui ont
+# une page sur l'item. Un sitelinks=30 = item connu mondialement.
+
 WIKIDATA_TYPES = [
-    ("Q33506", "musée"),
-    ("Q22698", "parc urbain"),
-    ("Q839954", "site archéologique"),
-    ("Q174782", "place"),
-    ("Q16970", "église"),
-    ("Q23413", "château"),
-    ("Q24354", "opéra"),
-    ("Q1497375", "théâtre"),
-    ("Q22652", "jardin remarquable"),
-    ("Q1567431", "site naturel remarquable"),
+    # POI culturels / patrimoniaux
+    ("Q33506",   "musée",                     0),
+    ("Q22698",   "parc urbain",               0),
+    ("Q839954",  "site archéologique",        0),
+    ("Q174782",  "place",                     0),
+    ("Q16970",   "église",                   15),   # ← seulement les iconiques
+    ("Q23413",   "château",                   5),   # ← Versailles, Chambord, Vincennes...
+    ("Q24354",   "opéra",                     0),
+    ("Q1497375", "théâtre",                   3),   # ← théâtres majeurs uniquement
+    ("Q22652",   "jardin remarquable",        0),
+    ("Q1567431", "site naturel remarquable",  0),
+    # POI sportifs / événementiels (lieux notoires impactant la valeur immo)
+    ("Q483110",   "stade",                    0),   # Stade de France, Parc des Princes, etc.
+    ("Q1244442",  "vélodrome",                0),   # Gerland, Marseille, Saint-Quentin
+    ("Q1647458",  "hippodrome",               0),   # Longchamp, Chantilly, Auteuil, Vincennes
+    ("Q15116915", "salle omnisport",          0),   # Accor Arena (Bercy), Halle Tony Garnier
+    ("Q1217726",  "salle de concert",         3),   # Zénith, Olympia, Pleyel...
+    ("Q1076486",  "complexe sportif",         3),   # INSEP, Roland-Garros, CNF
 ]
 
 
-def build_sparql_for_type(type_qid: str) -> str:
-    """Requête SPARQL pour UN type de POI en France avec article Wikipedia FR."""
+def build_sparql_for_type(type_qid: str, min_sitelinks: int = 0) -> str:
+    """Requête SPARQL pour UN type de POI en France avec article Wikipedia FR.
+
+    Args:
+        type_qid: identifiant Wikidata du type (ex 'Q16970' pour église).
+        min_sitelinks: seuil minimum de sitelinks Wikidata. Filtre le bruit
+                       (ex : on ne veut pas les 45 000 paroisses françaises,
+                       seulement les ~150 églises iconiques avec >= 15
+                       sitelinks comme Notre-Dame, Sacré-Cœur, etc.).
+    """
+    sitelinks_filter = (
+        f"FILTER(?sitelinks >= {min_sitelinks})" if min_sitelinks > 0 else ""
+    )
     return f"""
 SELECT DISTINCT ?item ?itemLabel ?coord ?wikipedia ?sitelinks ?inseeCode WHERE {{
   ?item wdt:P31/wdt:P279* wd:{type_qid} .
   ?item wdt:P17 wd:Q142 .              # en France
   ?item wdt:P625 ?coord .              # avec coordonnées
   ?item wikibase:sitelinks ?sitelinks .
+  {sitelinks_filter}
   OPTIONAL {{ ?item wdt:P374 ?inseeCode . }}
   ?wikipedia schema:about ?item ;
              schema:isPartOf <https://fr.wikipedia.org/> .
@@ -355,37 +401,54 @@ def fetch_wikidata() -> list[dict]:
     Si une type timeout, on log et on continue avec les suivants.
     """
     all_bindings: list[dict] = []
-    print("📡 Wikidata SPARQL — 10 types de POI (musées, parcs, places, etc.) …")
+    print(f"📡 Wikidata SPARQL — {len(WIKIDATA_TYPES)} types de POI (culturels + sportifs/événementiels) …")
 
-    for type_qid, type_label in WIKIDATA_TYPES:
-        query = build_sparql_for_type(type_qid)
-        try:
-            r = requests.post(
-                WIKIDATA_SPARQL,
-                data={"query": query, "format": "json"},
-                headers={
-                    "Accept": "application/sparql-results+json",
-                    "User-Agent": USER_AGENT,
-                },
-                timeout=90,
-            )
-            if r.status_code != 200:
-                print(f"  ⚠️ Wikidata {type_label} ({type_qid}): HTTP {r.status_code}")
-                # Backoff léger avant le suivant
-                time.sleep(3)
-                continue
-            data = r.json()
-            bindings = data.get("results", {}).get("bindings", [])
-            # On attache le type label à chaque binding pour parser plus tard
-            for b in bindings:
-                b["_type_label"] = {"value": type_label}
-            all_bindings.extend(bindings)
-            print(f"  ✓ {type_label} ({type_qid}): {len(bindings)} POI")
-            # Rate limit gentil — Wikidata est tolérant mais courtois
-            time.sleep(1)
-        except requests.RequestException as e:
-            print(f"  ⚠️ Wikidata {type_label} network error : {e}")
+    for type_qid, type_label, min_sitelinks in WIKIDATA_TYPES:
+        query = build_sparql_for_type(type_qid, min_sitelinks=min_sitelinks)
+
+        # Retry 3 fois avec backoff exponentiel pour gérer les HTTP 502/504
+        # fréquents sur Wikidata Query Service (serveur public partagé).
+        bindings = None
+        for attempt in range(1, 4):
+            try:
+                r = requests.post(
+                    WIKIDATA_SPARQL,
+                    data={"query": query, "format": "json"},
+                    headers={
+                        "Accept": "application/sparql-results+json",
+                        "User-Agent": USER_AGENT,
+                    },
+                    timeout=120,
+                )
+                if r.status_code == 200:
+                    bindings = r.json().get("results", {}).get("bindings", [])
+                    break
+                # 502/503/504 = serveur surchargé → on retente après pause
+                if r.status_code in (429, 502, 503, 504):
+                    backoff = 5 * attempt  # 5s, 10s, 15s
+                    print(f"  ⚠️ Wikidata {type_label} attempt {attempt}/3: HTTP {r.status_code} → retry dans {backoff}s")
+                    time.sleep(backoff)
+                    continue
+                # Erreur définitive (400, 403, etc.)
+                print(f"  ⚠️ Wikidata {type_label} ({type_qid}): HTTP {r.status_code} (erreur définitive, skip)")
+                break
+            except requests.RequestException as e:
+                backoff = 5 * attempt
+                print(f"  ⚠️ Wikidata {type_label} network error attempt {attempt}/3 : {e} → retry dans {backoff}s")
+                time.sleep(backoff)
+
+        if bindings is None:
+            print(f"  ❌ Wikidata {type_label} ({type_qid}): abandon après 3 tentatives")
             continue
+
+        # Attache le type label à chaque binding pour parser plus tard
+        for b in bindings:
+            b["_type_label"] = {"value": type_label}
+        all_bindings.extend(bindings)
+        filter_label = f" [sitelinks>={min_sitelinks}]" if min_sitelinks > 0 else ""
+        print(f"  ✓ {type_label} ({type_qid}){filter_label}: {len(bindings)} POI")
+        # Rate limit gentil — Wikidata est tolérant mais courtois
+        time.sleep(1)
 
     print(f"  ✓ Wikidata TOTAL : {len(all_bindings)} POI récupérés")
     return all_bindings
@@ -438,6 +501,26 @@ def parse_wikidata_binding(b: dict) -> dict | None:
         ptype, cat = "parc", "jardin_remarquable"
     elif "site naturel" in type_label:
         ptype, cat = "site_naturel", "site_naturel"
+    # POI sportifs / événementiels (nouveaux types)
+    elif "vélodrome" in type_label or "velodrome" in type_label:
+        ptype, cat = "velodrome", "velodrome"
+    elif "hippodrome" in type_label or "racetrack" in type_label or "racecourse" in type_label:
+        ptype, cat = "hippodrome", "hippodrome"
+    elif (
+        "arena" in type_label
+        or "salle couverte" in type_label
+        or "indoor arena" in type_label
+        or "salle omnisport" in type_label
+        or "salle de concert" in type_label
+        or "concert hall" in type_label
+    ):
+        ptype, cat = "arena", "arena_couverte"
+    elif "complexe sportif" in type_label or "sports complex" in type_label or "sports venue" in type_label:
+        ptype, cat = "complexe_sportif", "complexe_sportif"
+    elif "stade" in type_label or "stadium" in type_label:
+        # Doit être APRÈS vélodrome/hippodrome car ce sont des sous-classes
+        # de stadium dans Wikidata, et on veut les classer plus précisément.
+        ptype, cat = "stade", "stade"
     else:
         ptype, cat = "autre", type_label[:60]
 
@@ -520,26 +603,97 @@ def upsert_poi(rows: Iterable[dict], dsn: str, bootstrap: bool = False) -> None:
             updated_at = now()
     """
 
+    # SQL fallback (ni wikidata, ni merimee) : ON CONFLICT DO NOTHING
+    sql_no_external_id = sql.replace(
+        "ON CONFLICT\n        ON CONSTRAINT uniq_poi_wikidata\n"
+        "        DO UPDATE SET\n"
+        "            nom = EXCLUDED.nom,\n"
+        "            wikipedia_url = COALESCE(EXCLUDED.wikipedia_url, dim_poi.wikipedia_url),\n"
+        "            notabilite_score = GREATEST(EXCLUDED.notabilite_score, dim_poi.notabilite_score),\n"
+        "            updated_at = now()",
+        "ON CONFLICT DO NOTHING",
+    )
+
     inserted = 0
+    first_error_logged = False  # Pour afficher l'erreur originale en détail (les suivantes en compact)
+    error_counts: dict[str, int] = {}  # Agrégation des erreurs par type
+
     with psycopg.connect(dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
+            # Désactive le statement_timeout au niveau session pour ce batch job.
+            # Le pooler Supabase 5432 (session pooler) impose un timeout par défaut
+            # qui plante TRUNCATE et inserts lourds. SET avant tout autre statement.
+            cur.execute("SET statement_timeout = 0")
+            cur.execute("SET lock_timeout = '60s'")
+            cur.execute("SET idle_in_transaction_session_timeout = 0")
+            conn.commit()
+
+            # Le TRUNCATE doit être commité AVANT la boucle, sinon il fait partie
+            # de la même transaction que les inserts (et si un insert échoue, on
+            # rollback aussi le TRUNCATE, ce qui n'est pas ce qu'on veut).
             if bootstrap:
                 print("  ↪ mode bootstrap : TRUNCATE public.dim_poi")
                 cur.execute("TRUNCATE TABLE public.dim_poi")
+                conn.commit()
+
+            # Commit toutes les BATCH_SIZE rows pour ne pas saturer le pooler
+            # Supabase (le pooler peut couper la connexion sur transaction trop
+            # longue avec 20k+ statements en attente).
+            BATCH_SIZE = 1000
+            batch_count = 0
+
             for row in rows_list:
+                # SAVEPOINT par insert → isolation transactionnelle.
+                # Si UN insert échoue, on rollback uniquement à ce savepoint
+                # (pas toute la transaction), les inserts précédents sont préservés.
                 try:
+                    cur.execute("SAVEPOINT poi_insert")
                     if row.get("merimee_id"):
                         cur.execute(sql_merimee, row)
                     elif row.get("wikidata_id"):
                         cur.execute(sql, row)
                     else:
-                        # No external id → insert as-is
-                        cur.execute(sql.replace("ON CONFLICT\n        ON CONSTRAINT uniq_poi_wikidata\n        DO UPDATE SET\n            nom = EXCLUDED.nom,\n            wikipedia_url = COALESCE(EXCLUDED.wikipedia_url, dim_poi.wikipedia_url),\n            notabilite_score = GREATEST(EXCLUDED.notabilite_score, dim_poi.notabilite_score),\n            updated_at = now()", "ON CONFLICT DO NOTHING"), row)
+                        cur.execute(sql_no_external_id, row)
+                    cur.execute("RELEASE SAVEPOINT poi_insert")
                     inserted += 1
+                    batch_count += 1
+                    # Commit intermédiaire pour borner la taille de la transaction
+                    if batch_count >= BATCH_SIZE:
+                        conn.commit()
+                        print(f"     ↪ commit intermédiaire à {inserted}/{len(rows_list)} ...")
+                        batch_count = 0
                 except Exception as e:
-                    print(f"  ⚠️ Insert error pour {row.get('nom')}: {e}")
+                    # ROLLBACK au savepoint pour réinitialiser le state de la
+                    # transaction (sinon les inserts suivants échouent avec
+                    # "current transaction is aborted").
+                    try:
+                        cur.execute("ROLLBACK TO SAVEPOINT poi_insert")
+                    except Exception:
+                        pass  # state déjà cassé, on continue
+
+                    err_msg = str(e).splitlines()[0] if str(e) else "(erreur sans message)"
+                    err_type = err_msg.split(":")[0][:80]  # signature courte pour agrégation
+                    error_counts[err_type] = error_counts.get(err_type, 0) + 1
+
+                    if not first_error_logged:
+                        preview = {
+                            k: v for k, v in row.items()
+                            if k in ("nom", "type", "categorie", "lat", "lon",
+                                      "wikidata_id", "merimee_id", "code_insee_commune",
+                                      "dept", "notabilite_score", "source")
+                        }
+                        print(f"  ⚠️ Première erreur (cause racine) pour {row.get('nom')!r} :")
+                        print(f"     → {err_msg}")
+                        print(f"     → row preview : {preview}")
+                        first_error_logged = True
+
             conn.commit()
+
     print(f"  ✓ {inserted} POI insérés/mis à jour")
+    if error_counts:
+        print(f"  ⚠️ {sum(error_counts.values())} erreurs au total, ventilées par type :")
+        for err_type, count in sorted(error_counts.items(), key=lambda x: -x[1])[:10]:
+            print(f"     {count:>5} × {err_type}")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

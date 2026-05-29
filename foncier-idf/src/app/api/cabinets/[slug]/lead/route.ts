@@ -505,14 +505,31 @@ export async function POST(
     generated_at: new Date(),
     // Données opensource enrichies
     paris_distance: parisDistance,
+    // Filtre éditorial : on retire les arrêts de bus et les stops OSM
+    // génériques ("stop") de la liste affichée — ils encombrent le PDF
+    // et n'apportent pas d'argument vendeur fort (vs RER/Métro/Tram/Train
+    // qui sont des arguments structurants pour un acheteur).
+    // Le score d'accessibilité OSM original (qui inclut les bus) est
+    // conservé tel quel — c'est un indicateur agrégé légitime.
     transports: transports
-      ? {
-          score_accessibilite: transports.score_accessibilite,
-          count: transports.count,
-          par_type: transports.par_type,
-          top_stops: transports.stops.slice(0, 6),
-          radius_m: transportsRadius,
-        }
+      ? (() => {
+          const nonBusStops = transports.stops.filter((s) => {
+            const t = (s.type ?? "").toLowerCase();
+            return t !== "bus" && t !== "stop";
+          });
+          const nonBusParType = Object.fromEntries(
+            Object.entries(transports.par_type).filter(
+              ([type]) => type !== "bus" && type !== "stop",
+            ),
+          );
+          return {
+            score_accessibilite: transports.score_accessibilite,
+            count: nonBusStops.length,
+            par_type: nonBusParType,
+            top_stops: nonBusStops.slice(0, 6),
+            radius_m: transportsRadius,
+          };
+        })()
       : null,
     ecoles: ecoles
       ? {

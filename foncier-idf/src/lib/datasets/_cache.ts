@@ -33,7 +33,9 @@ export type DatasetKey =
   // (P95 bucket + P95 global croisés, capping même en confiance low)
   | "price_ceiling_v2"
   | "surface_adjustment"
-  | "proximite_locale";
+  | "proximite_locale"
+  // v2 : Overpass cascade 3 mirrors + fallback nom + timeout 20s
+  | "proximite_locale_v2";
 
 /**
  * Hash stable d'une coordonnée GPS arrondie à 4 décimales (~11m).

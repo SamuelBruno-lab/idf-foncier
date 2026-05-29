@@ -41,8 +41,16 @@ import { addressHash, fetchWithCache } from "./_cache";
 
 const DEFAULT_RADIUS_M = 1200;
 const TTL_DAYS = 30;
-const TIMEOUT_MS = 8000;
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+// Overpass main est parfois lent (10-15s sur queries multi-tags).
+// 20s est défensif : si ça timeout vraiment, c'est qu'Overpass est down.
+const TIMEOUT_MS = 20000;
+// Plusieurs miroirs Overpass — on essaie successivement si le premier
+// timeout. Le main est le plus à jour mais aussi le plus chargé.
+const OVERPASS_URLS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
+];
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -175,15 +183,62 @@ type OverpassResponse = {
   elements?: OverpassElement[];
 };
 
+/**
+ * Génère un nom de fallback raisonnable quand le tag `name` est absent
+ * (cas fréquent pour les maternelles et stades de quartier — OSM mal taggé).
+ */
+function fallbackName(
+  type: EquipementType,
+  tags: Record<string, string>,
+): string {
+  // Cherche un nom alternatif dans les tags
+  const alt =
+    tags["name:fr"] ??
+    tags["short_name"] ??
+    tags["official_name"] ??
+    tags["operator"] ??
+    tags["brand"];
+  if (alt && alt.trim().length >= 3) return alt.trim();
+
+  // Fallback générique par type
+  const labels: Record<EquipementType, string> = {
+    stade: "Stade",
+    complexe_sportif: "Complexe sportif",
+    piscine: "Piscine",
+    terrain: "Terrain de sport",
+    fitness: "Salle de sport",
+    maternelle: "École maternelle",
+    ecole: "École",
+    college: "Collège",
+  };
+  return labels[type];
+}
+
+async function tryFetchOverpass(
+  url: string,
+  query: string,
+): Promise<OverpassResponse | null> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as OverpassResponse;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchFromOverpass(
   lat: number,
   lon: number,
   radius_m: number,
 ): Promise<EquipementLocal[]> {
-  // Query : on récupère tous les éléments leisure/amenity dans le rayon, avec
-  // center (pour way/relation) pour obtenir des coords toujours.
   const query = `
-[out:json][timeout:30];
+[out:json][timeout:25];
 (
   node["leisure"~"^(stadium|sports_centre|swimming_pool|pitch|track|fitness_centre)$"](around:${radius_m},${lat},${lon});
   way["leisure"~"^(stadium|sports_centre|swimming_pool|pitch|track|fitness_centre)$"](around:${radius_m},${lat},${lon});
@@ -194,55 +249,57 @@ async function fetchFromOverpass(
 out center tags;
   `.trim();
 
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!res.ok) return [];
-    const json = (await res.json()) as OverpassResponse;
-    const elements = json.elements ?? [];
-
-    const equipements: EquipementLocal[] = [];
-    const seen = new Set<number>();
-
-    for (const el of elements) {
-      if (seen.has(el.id)) continue;
-      const tags = el.tags;
-      // Narrowing explicite pour TypeScript : on vérifie tags + name ici
-      // plutôt que d'appeler hasUsableName qui ne propage pas le type.
-      if (!tags || !tags.name || tags.name.trim().length < 3) continue;
-      const type = classifyEquipement(tags);
-      if (!type) continue;
-
-      const elLat = el.lat ?? el.center?.lat;
-      const elLon = el.lon ?? el.center?.lon;
-      if (elLat == null || elLon == null) continue;
-
-      const distance_m = Math.round(haversineM(lat, lon, elLat, elLon));
-      if (distance_m > radius_m) continue;
-
-      seen.add(el.id);
-      equipements.push({
-        osm_id: el.id,
-        nom: tags.name,
-        type,
-        lat: elLat,
-        lon: elLon,
-        distance_m,
-        proximite: proximiteFromDistance(distance_m),
-      });
-    }
-
-    return equipements;
-  } catch (err) {
-    console.warn(
-      `[proximite-locale] overpass error: ${err instanceof Error ? err.message : "unknown"}`,
-    );
+  // Cascade sur les 3 miroirs Overpass — résilience aux downtimes
+  let json: OverpassResponse | null = null;
+  for (const url of OVERPASS_URLS) {
+    json = await tryFetchOverpass(url, query);
+    if (json) break;
+    console.warn(`[proximite-locale] overpass ${url} failed, trying next`);
+  }
+  if (!json) {
+    console.warn("[proximite-locale] all overpass mirrors failed");
     return [];
   }
+  const elements = json.elements ?? [];
+
+  const equipements: EquipementLocal[] = [];
+  const seen = new Set<number>();
+
+  for (const el of elements) {
+    if (seen.has(el.id)) continue;
+    const tags = el.tags;
+    if (!tags) continue;
+    const type = classifyEquipement(tags);
+    if (!type) continue;
+
+    const elLat = el.lat ?? el.center?.lat;
+    const elLon = el.lon ?? el.center?.lon;
+    if (elLat == null || elLon == null) continue;
+
+    const distance_m = Math.round(haversineM(lat, lon, elLat, elLon));
+    if (distance_m > radius_m) continue;
+
+    // Nom : si pas de tag `name`, on génère un nom de fallback (École
+    // maternelle, Stade, etc.) — sinon on perd l'équipement alors qu'il
+    // est utile vendeur ("École maternelle à 80 m" reste informatif).
+    const nom =
+      tags.name && tags.name.trim().length >= 3
+        ? tags.name.trim()
+        : fallbackName(type, tags);
+
+    seen.add(el.id);
+    equipements.push({
+      osm_id: el.id,
+      nom,
+      type,
+      lat: elLat,
+      lon: elLon,
+      distance_m,
+      proximite: proximiteFromDistance(distance_m),
+    });
+  }
+
+  return equipements;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -321,7 +378,7 @@ export async function getProximiteLocale(
   const { data, cached } = await fetchWithCache<ProximiteLocaleResult>(
     cacheHash,
     { lat, lon },
-    "proximite_locale",
+    "proximite_locale_v2",
     TTL_DAYS,
     () => computeProximiteLocale(lat, lon, radius_m),
     0,

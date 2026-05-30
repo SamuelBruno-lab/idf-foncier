@@ -114,6 +114,164 @@ type DvfPoint = {
   lon: number | null;
 };
 
+// Fallback ULTIME : prend les ventes DVF dans un rayon autour de l'adresse,
+// SANS dépendre des clusters HDBSCAN. Utilisé quand :
+//   - aucun cluster HDBSCAN n'existe pour la commune+type (petites communes)
+//   - le cluster existe mais ne matche pas (adresse hors hull + centroid loin)
+//   - le cluster matche mais < 2 années avec ventes
+// On vise un quartier piéton (400m) ; si < 5 ventes total, on étend à 800m.
+async function computeFromRadiusOnly(
+  lat: number,
+  lon: number,
+  code_commune: string,
+  type_local: string,
+  years_back: number,
+): Promise<ClusterPriceEvolutionResult> {
+  const sb = getSupabaseServerClient();
+  const now = new Date().toISOString();
+  const yearMin = new Date().getFullYear() - years_back;
+
+  const haversineM = (la1: number, lo1: number, la2: number, lo2: number) => {
+    const R = 6371000;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(la2 - la1);
+    const dLon = toRad(lo2 - lo1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  // Bbox ±800m pour permettre l'extension si 400m insuffisant
+  const DEG_LAT_800 = 0.0072;
+  const DEG_LON_800 = 0.0072 / Math.cos((lat * Math.PI) / 180);
+
+  const { data: dvfRaw } = await sb
+    .from("dvf_points")
+    .select("prix_m2, annee, lat, lon")
+    .eq("code_commune", code_commune)
+    .eq("type_local", type_local)
+    .gte("annee", yearMin)
+    .not("prix_m2", "is", null)
+    .gte("lat", lat - DEG_LAT_800)
+    .lte("lat", lat + DEG_LAT_800)
+    .gte("lon", lon - DEG_LON_800)
+    .lte("lon", lon + DEG_LON_800)
+    .limit(20000);
+
+  const dvfPoints = (dvfRaw ?? []) as DvfPoint[];
+  const valid = dvfPoints.filter(
+    (p) =>
+      p.lat != null &&
+      p.lon != null &&
+      p.prix_m2 != null &&
+      p.annee != null &&
+      p.prix_m2 >= 500 &&
+      p.prix_m2 <= 50000,
+  );
+
+  // Essai 400m
+  let inRadius = valid.filter((p) => haversineM(lat, lon, p.lat!, p.lon!) <= 400);
+  // Élargit à 800m si < 5 ventes
+  if (inRadius.length < 5) {
+    inRadius = valid.filter((p) => haversineM(lat, lon, p.lat!, p.lon!) <= 800);
+  }
+
+  if (inRadius.length === 0) {
+    return {
+      available: false,
+      reason: "no_dvf_in_radius",
+      zone_id: null,
+      nb_total_ventes_cluster: 0,
+      centroid_lat: null,
+      centroid_lon: null,
+      type_local,
+      years: [],
+      variation_pct_total: null,
+      variation_pct_5y: null,
+      annee_min: null,
+      annee_max: null,
+      match_method: "none",
+      source: "dvf_points (radius_only)",
+      fetched_at: now,
+    };
+  }
+
+  const byYear = new Map<number, number[]>();
+  for (const p of inRadius) {
+    const y = p.annee as number;
+    const arr = byYear.get(y) ?? [];
+    arr.push(p.prix_m2 as number);
+    byYear.set(y, arr);
+  }
+
+  const years: ClusterPriceYear[] = [];
+  for (const [annee, prices] of byYear.entries()) {
+    if (prices.length < MIN_VENTES_PAR_AN) continue;
+    const sorted = [...prices].sort((a, b) => a - b);
+    years.push({
+      annee,
+      prix_m2_median: Math.round(median(sorted)),
+      prix_m2_p25: Math.round(percentile(sorted, 0.25)),
+      prix_m2_p75: Math.round(percentile(sorted, 0.75)),
+      nb_ventes: prices.length,
+    });
+  }
+  years.sort((a, b) => a.annee - b.annee);
+
+  if (years.length < 2) {
+    return {
+      available: false,
+      reason: "radius_only_lt2_years",
+      zone_id: null,
+      nb_total_ventes_cluster: inRadius.length,
+      centroid_lat: null,
+      centroid_lon: null,
+      type_local,
+      years: [],
+      variation_pct_total: null,
+      variation_pct_5y: null,
+      annee_min: null,
+      annee_max: null,
+      match_method: "radius_400m",
+      source: "dvf_points (radius_only)",
+      fetched_at: now,
+    };
+  }
+
+  const first = years[0];
+  const last = years[years.length - 1];
+  const variation_pct_total =
+    first.prix_m2_median > 0
+      ? Math.round(((last.prix_m2_median - first.prix_m2_median) / first.prix_m2_median) * 100)
+      : null;
+  const targetBaseYear = last.annee - 5;
+  const baseYear = years.find((y) => y.annee === targetBaseYear);
+  const variation_pct_5y =
+    baseYear && baseYear.prix_m2_median > 0
+      ? Math.round(
+          ((last.prix_m2_median - baseYear.prix_m2_median) / baseYear.prix_m2_median) * 100,
+        )
+      : null;
+
+  return {
+    available: true,
+    zone_id: null,
+    nb_total_ventes_cluster: inRadius.length,
+    centroid_lat: lat,
+    centroid_lon: lon,
+    type_local,
+    years,
+    variation_pct_total,
+    variation_pct_5y,
+    annee_min: first.annee,
+    annee_max: last.annee,
+    match_method: "radius_400m",
+    source: "dvf_points (radius_only)",
+    fetched_at: now,
+  };
+}
+
 async function computeFromDb(
   lat: number,
   lon: number,
@@ -133,23 +291,8 @@ async function computeFromDb(
 
   const rows = (zones ?? []) as ZoneRow[];
   if (rows.length === 0) {
-    return {
-      available: false,
-      reason: "no_cluster_in_commune",
-      zone_id: null,
-      nb_total_ventes_cluster: 0,
-      centroid_lat: null,
-      centroid_lon: null,
-      type_local,
-      years: [],
-      variation_pct_total: null,
-      variation_pct_5y: null,
-      annee_min: null,
-      annee_max: null,
-      match_method: "none",
-      source: "dvf_points + dvf_hdbscan_zones",
-      fetched_at: now,
-    };
+    // Pas de cluster HDBSCAN pour cette commune → fallback DIRECT radius 400m
+    return computeFromRadiusOnly(lat, lon, code_commune, type_local, years_back);
   }
 
   // 2. Trouve le cluster matchant (pointInPolygon, fallback nearest centroid)
@@ -172,23 +315,8 @@ async function computeFromDb(
   }
 
   if (!match || !match.hull_coords) {
-    return {
-      available: false,
-      reason: "no_match",
-      zone_id: null,
-      nb_total_ventes_cluster: 0,
-      centroid_lat: null,
-      centroid_lon: null,
-      type_local,
-      years: [],
-      variation_pct_total: null,
-      variation_pct_5y: null,
-      annee_min: null,
-      annee_max: null,
-      match_method: "none",
-      source: "dvf_points + dvf_hdbscan_zones",
-      fetched_at: now,
-    };
+    // Aucun cluster ne matche (ni hull ni centroid) → fallback radius 400m
+    return computeFromRadiusOnly(lat, lon, code_commune, type_local, years_back);
   }
 
   // 3. Bounding box du hull pour pré-filtre SQL rapide
@@ -258,23 +386,8 @@ async function computeFromDb(
   }
 
   if (inCluster.length === 0) {
-    return {
-      available: false,
-      reason: "no_points_in_cluster",
-      zone_id: match.id,
-      nb_total_ventes_cluster: 0,
-      centroid_lat: match.centroid_lat,
-      centroid_lon: match.centroid_lon,
-      type_local,
-      years: [],
-      variation_pct_total: null,
-      variation_pct_5y: null,
-      annee_min: null,
-      annee_max: null,
-      match_method: matchMethod,
-      source: "dvf_points + dvf_hdbscan_zones",
-      fetched_at: now,
-    };
+    // Cluster matché mais aucune vente dedans ni dans 400m → fallback radius
+    return computeFromRadiusOnly(lat, lon, code_commune, type_local, years_back);
   }
 
   // 6. Groupage par année + médianes
@@ -300,24 +413,9 @@ async function computeFromDb(
   }
   years.sort((a, b) => a.annee - b.annee);
 
-  if (years.length === 0) {
-    return {
-      available: false,
-      reason: "no_year_with_min_ventes",
-      zone_id: match.id,
-      nb_total_ventes_cluster: inCluster.length,
-      centroid_lat: match.centroid_lat,
-      centroid_lon: match.centroid_lon,
-      type_local,
-      years: [],
-      variation_pct_total: null,
-      variation_pct_5y: null,
-      annee_min: null,
-      annee_max: null,
-      match_method: matchMethod,
-      source: "dvf_points + dvf_hdbscan_zones",
-      fetched_at: now,
-    };
+  if (years.length < 2) {
+    // < 2 années avec ventes dans cluster → fallback radius 400m
+    return computeFromRadiusOnly(lat, lon, code_commune, type_local, years_back);
   }
 
   // 7. Variations cumulées
@@ -379,7 +477,7 @@ export async function getClusterPriceEvolution(args: {
   const { data, cached } = await fetchWithCache<ClusterPriceEvolutionResult>(
     cacheHash,
     { lat, lon },
-    "price_evolution_v2",
+    "price_evolution_v3",
     TTL_DAYS,
     () => computeFromDb(lat, lon, code_commune, type_local, years_back),
     0,

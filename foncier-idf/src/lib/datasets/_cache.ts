@@ -26,6 +26,10 @@ export type DatasetKey =
   | "price_evolution"
   // v2 : fallback radius 400m si polygon HDBSCAN trop étroit
   | "price_evolution_v2"
+  // v3 : fallback ULTIME radius_only quand aucun cluster HDBSCAN ne matche
+  // (élimine 'no_cluster_in_commune', 'no_match', 'no_points_in_cluster',
+  // 'no_year_with_min_ventes' qui bascullaient à commune-only)
+  | "price_evolution_v3"
   | "lycees_bac"
   | "lycees_bac_5km"
   | "points_interet"

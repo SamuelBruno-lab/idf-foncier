@@ -1726,7 +1726,11 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               {data.price_evolution.scope === "cluster" && data.price_evolution.nb_total_ventes_cluster != null && (
                 <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
                   Agrégation sur {data.price_evolution.nb_total_ventes_cluster} ventes notariées DVF dans le micro-marché
-                  ({data.price_evolution.type_local}, polygon HDBSCAN officiel).
+                  ({data.price_evolution.type_local}
+                  {data.price_evolution.match_method === "radius_400m"
+                    ? ", rayon 400 m autour de l'adresse"
+                    : ", polygon HDBSCAN officiel"}
+                  ).
                 </Text>
               )}
               <PriceEvolutionChart

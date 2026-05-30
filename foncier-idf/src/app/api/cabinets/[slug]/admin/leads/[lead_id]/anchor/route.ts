@@ -142,7 +142,7 @@ export async function POST(
   }
 
   // 5. Renvoie l'état d'ancrage à jour pour affichage immédiat
-  const { data: anchor } = await sb
+  const { data: anchorRaw } = await sb
     .from("dim_mandate_anchor")
     .select(
       "id, mandate_hash_sha256, anchor_status, merkle_root_batch_id, " +
@@ -151,6 +151,9 @@ export async function POST(
     )
     .eq("lead_id", lead_id)
     .maybeSingle();
+
+  // Cast via unknown — Supabase ne type pas les select() concaténés
+  const anchor = anchorRaw as unknown as { id: string } | null;
 
   return NextResponse.json({
     success: true,

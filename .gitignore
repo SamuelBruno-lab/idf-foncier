@@ -21,3 +21,8 @@ foncier-idf/.env.*.local
 
 # Analysis outputs (peuvent contenir des données sensibles)
 analyses/output/
+
+# Scraping eurealimmo Botble (gros volumes binaires — archive locale uniquement)
+eurealimmo-scrape/media/
+eurealimmo-scrape/pages/
+eurealimmo-scrape/styles/

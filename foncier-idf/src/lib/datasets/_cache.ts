@@ -36,6 +36,8 @@ export type DatasetKey =
   // ecoles_v2 : bump pour purger les caches négatifs accumulés (timeouts
   // antérieurs sur data.education.gouv.fr) et activer shouldCache.
   | "ecoles_v2"
+  // ecoles_v3 : rayon élargi 1.5km → 2.5km pour capturer le lycée en banlieue
+  | "ecoles_v3"
   // Ajouts pour les 3 nouveaux helpers (commit 242843b)
   | "price_ceiling"
   // v2 du plafond commune : invalidation cache après refonte logique

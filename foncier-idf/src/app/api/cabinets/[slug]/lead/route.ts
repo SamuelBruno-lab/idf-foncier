@@ -688,16 +688,49 @@ export async function POST(
       ? {
           count: ecoles.count,
           par_type: ecoles.par_type,
-          // Top 4 écoles les plus proches AVEC noms officiels Annuaire
-          // Éducation Nationale (École maternelle TIMBAUD-DEWERPE, etc.).
-          // Plus précis qu'Overpass qui peut tagger mal ou pas tagger du tout.
-          top: ecoles.ecoles.slice(0, 4).map((e) => ({
-            nom: e.nom,
-            type: e.type,
-            statut: e.statut,
-            distance_m: e.distance_m,
-            walk_minutes: e.walk_minutes,
-          })),
+          // Sélection 1 plus proche par CYCLE SCOLAIRE (maternelle, élémentaire,
+          // collège, lycée). Garantit que la famille voit la couverture complète
+          // du cursus, pas seulement les maternelles/primaires qui dominent
+          // numériquement (et masquent le lycée à 1,2 km).
+          // Le helper Annuaire EN renvoie déjà trié par distance.
+          top: (() => {
+            const seenCycles = new Set<string>();
+            const selected: typeof ecoles.ecoles = [];
+            const classifyCycle = (type: string): string => {
+              const t = type.toLowerCase();
+              if (t.includes("maternel")) return "maternelle";
+              if (t.includes("élémentaire") || t.includes("elementaire") || t.includes("primaire")) return "elementaire";
+              if (t.includes("collège") || t.includes("college")) return "college";
+              if (t.includes("lycée") || t.includes("lycee")) return "lycee";
+              return "autre";
+            };
+            for (const e of ecoles.ecoles) {
+              const cycle = classifyCycle(e.type);
+              if (cycle === "autre") continue;
+              if (seenCycles.has(cycle)) continue;
+              seenCycles.add(cycle);
+              selected.push(e);
+              if (selected.length >= 4) break;
+            }
+            // Si moins de 4 cycles trouvés, complète avec les plus proches restantes
+            if (selected.length < 4) {
+              const usedIds = new Set(selected.map((e) => e.identifiant));
+              for (const e of ecoles.ecoles) {
+                if (usedIds.has(e.identifiant)) continue;
+                selected.push(e);
+                if (selected.length >= 4) break;
+              }
+            }
+            return selected
+              .sort((a, b) => a.distance_m - b.distance_m)
+              .map((e) => ({
+                nom: e.nom,
+                type: e.type,
+                statut: e.statut,
+                distance_m: e.distance_m,
+                walk_minutes: e.walk_minutes,
+              }));
+          })(),
         }
       : null,
     lycees_bac: lyceesBac && lyceesBac.available

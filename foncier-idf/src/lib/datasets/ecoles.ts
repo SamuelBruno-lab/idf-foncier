@@ -14,8 +14,11 @@
 
 import { addressHash, fetchWithCache, haversineMeters } from "./_cache";
 
-const DEFAULT_RADIUS_M = 1500; // 1.5 km = à pied / vélo en zone dense
-const DEFAULT_LIMIT = 30; // au-delà on commence à saturer le rapport
+// 2.5 km = à pied/vélo zone dense + capture du lycée le plus proche en banlieue
+// (les lycées sont moins denses que maternelles/primaires : 1 pour 5-15 communes
+// en banlieue éloignée, donc 1.5 km est insuffisant pour les couvrir).
+const DEFAULT_RADIUS_M = 2500;
+const DEFAULT_LIMIT = 50; // au-delà on commence à saturer le rapport
 const TTL_DAYS = 30;
 
 const ODS_BASE =
@@ -196,9 +199,8 @@ export async function getEcoles(
   const { data, cached } = await fetchWithCache<EcolesResult>(
     hash,
     { lat, lon },
-    // v2 : bump du namespace pour invalider les caches négatifs accumulés
-    // (résultats vides issus des timeouts API précédents).
-    "ecoles_v2",
+    // v3 : rayon élargi 1.5km → 2.5km pour capturer le lycée en banlieue
+    "ecoles_v3",
     TTL_DAYS,
     () => fetchEcolesFromODS(lat, lon, radiusM, limit),
     0, // gratuit

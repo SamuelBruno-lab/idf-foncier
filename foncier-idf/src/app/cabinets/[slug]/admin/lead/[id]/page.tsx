@@ -54,6 +54,27 @@ type Lead = {
   vente_date: string | null;
   vente_compromis_date: string | null;
   notes_agent: string | null;
+  // Migration 37 — pipeline signature
+  signature_provider: "yousign" | "docusign" | "paper_upload" | null;
+  signature_status:
+    | "not_started"
+    | "pdf_generated"
+    | "sent_for_signature"
+    | "signed_electronic"
+    | "uploaded_paper"
+    | "matched_ok"
+    | "mismatch_pending_review"
+    | "cancelled"
+    | null;
+  signed_pdf_url: string | null;
+  signature_mismatch_alerts: Array<{
+    field: string;
+    expected: string | number | null;
+    found: string | number | null;
+    severity: "high" | "medium" | "low";
+    reason: string;
+  }> | null;
+  signature_match_attempts: number;
 };
 
 type HistoryRow = {
@@ -414,6 +435,16 @@ export default function LeadDetailPage({
           primary={primary}
           saving={saving}
           onSubmit={patchLead}
+        />
+
+        {/* ── SIGNATURE ÉLECTRONIQUE OU PAPIER UPLOAD ───────────────────── */}
+        <SignatureCard
+          lead={lead}
+          slug={slug}
+          leadId={leadId}
+          primary={primary}
+          onUploaded={() => load(slug, leadId)}
+          onToast={showToast}
         />
 
         {/* ── WORKFLOW VENTE ─────────────────────────────────────────────── */}
@@ -1040,6 +1071,363 @@ function BlockchainCard({
         </>
       )}
     </Card>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Signature électronique (Yousign Y1 Q1) OU upload PDF papier
+// ══════════════════════════════════════════════════════════════════════════
+
+function SignatureCard({
+  lead,
+  slug,
+  leadId,
+  primary,
+  onUploaded,
+  onToast,
+}: {
+  lead: Lead;
+  slug: string;
+  leadId: string;
+  primary: string;
+  onUploaded: () => void;
+  onToast: (kind: "ok" | "err", msg: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(true);
+
+  async function handleUpload(file: File) {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      onToast("err", "Fichier trop volumineux (max 20 Mo)");
+      return;
+    }
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      onToast("err", "Le fichier doit être un PDF");
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(
+        `/api/cabinets/${slug}/admin/leads/${leadId}/signature/upload`,
+        { method: "POST", body: formData },
+      );
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        match_ok?: boolean;
+        match_score?: number;
+        alerts?: Lead["signature_mismatch_alerts"];
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || !j.ok) {
+        onToast("err", j.message ?? j.error ?? `Échec upload (${res.status})`);
+        return;
+      }
+      if (j.match_ok) {
+        onToast("ok", `Mandat validé (score ${j.match_score}/100)`);
+      } else {
+        const n = j.alerts?.length ?? 0;
+        onToast("err", `Mismatch détecté sur ${n} champ${n > 1 ? "s" : ""} (à revoir)`);
+      }
+      onUploaded();
+    } catch (e) {
+      onToast("err", "Erreur réseau : " + (e instanceof Error ? e.message : "inconnue"));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const status = lead.signature_status;
+  const provider = lead.signature_provider;
+  const alerts = lead.signature_mismatch_alerts ?? [];
+  const isMatched = status === "matched_ok";
+  const isMismatch = status === "mismatch_pending_review";
+
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Signature du mandat</SectionTitle>
+
+      {/* État : pas encore lancé */}
+      {!status && !lead.mandat_signe_at && (
+        <>
+          <p style={{ fontSize: 13, color: "#475569", marginTop: 10, lineHeight: 1.5 }}>
+            Le mandat n&apos;est juridiquement opposable qu&apos;une fois <strong>signé</strong>.
+            Deux options selon ton client :
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <SignatureOption
+              icon="📧"
+              title="Signature électronique"
+              desc="Yousign / DocuSign — eIDAS qualifiée. Idéal pour clients à l'aise avec le digital."
+              primary={primary}
+              comingSoon
+            />
+            <SignatureOption
+              icon="📄"
+              title="Mandat papier signé"
+              desc="Faire signer en physique puis uploader le PDF scanné. Vérification automatique des champs."
+              primary={primary}
+              uploading={uploading}
+              onUpload={handleUpload}
+            />
+          </div>
+        </>
+      )}
+
+      {/* État : matched OK */}
+      {isMatched && (
+        <>
+          <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "4px 12px",
+                background: "#dcfce7",
+                color: "#065f46",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              ✓ Signature validée
+            </span>
+            <span style={{ fontSize: 11, color: "#64748b" }}>
+              {provider === "paper_upload" ? "Mandat papier uploadé" : "Signature électronique"}
+              {" — "}tous les champs CRM correspondent au PDF
+            </span>
+          </div>
+          {lead.signed_pdf_url && (
+            <div style={{ marginTop: 10 }}>
+              <a
+                href={lead.signed_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, color: primary, textDecoration: "none" }}
+              >
+                📎 Voir le PDF signé →
+              </a>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* État : mismatch pending review */}
+      {isMismatch && alerts.length > 0 && (
+        <>
+          <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "4px 12px",
+                background: "#fef3c7",
+                color: "#78350f",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              ⚠️ {alerts.length} divergence{alerts.length > 1 ? "s" : ""} détectée{alerts.length > 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: 11, color: "#64748b" }}>
+              Tentative n°{lead.signature_match_attempts}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAlerts((v) => !v)}
+              style={{
+                background: "none",
+                border: "none",
+                color: primary,
+                fontSize: 11,
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+              }}
+            >
+              {showAlerts ? "Masquer détails" : "Voir détails"}
+            </button>
+          </div>
+
+          {showAlerts && (
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {alerts.map((a, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "8px 12px",
+                    background: a.severity === "high" ? "#fee2e2" : a.severity === "medium" ? "#fef3c7" : "#f1f5f9",
+                    borderLeft: `3px solid ${a.severity === "high" ? "#ef4444" : a.severity === "medium" ? "#f59e0b" : "#94a3b8"}`,
+                    borderRadius: 4,
+                    fontSize: 11,
+                    color: "#0f172a",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: a.severity === "high" ? "#991b1b" : a.severity === "medium" ? "#78350f" : "#475569" }}>
+                    {SEVERITY_LABEL[a.severity]} · {FIELD_LABEL[a.field] ?? a.field}
+                  </div>
+                  <div style={{ marginTop: 4, lineHeight: 1.5 }}>{a.reason}</div>
+                  <div style={{ marginTop: 4, color: "#64748b", fontFamily: "monospace", fontSize: 10 }}>
+                    CRM : <strong>{String(a.expected ?? "—")}</strong> — PDF : <strong>{String(a.found ?? "—")}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {lead.signed_pdf_url && (
+              <a
+                href={lead.signed_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: "8px 14px",
+                  background: "transparent",
+                  color: primary,
+                  border: `1.5px solid ${primary}`,
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-block",
+                }}
+              >
+                📎 Voir le PDF
+              </a>
+            )}
+            <label
+              htmlFor="reupload-pdf"
+              style={{
+                padding: "8px 14px",
+                background: primary,
+                color: "white",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: uploading ? "not-allowed" : "pointer",
+                opacity: uploading ? 0.5 : 1,
+                display: "inline-block",
+              }}
+            >
+              {uploading ? "Upload…" : "Re-uploader un nouveau PDF"}
+            </label>
+            <input
+              id="reupload-pdf"
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: "none" }}
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {/* État : déjà signé mais via une autre voie (manuel CRM) */}
+      {!status && lead.mandat_signe_at && (
+        <p style={{ fontSize: 12, color: "#64748b", marginTop: 10, fontStyle: "italic" }}>
+          Mandat marqué comme signé via le formulaire ci-dessus. Pour bénéficier de la vérification
+          automatique CRM ↔ PDF, uploade le PDF papier signé du mandat (eIDAS-compliant).
+        </p>
+      )}
+    </Card>
+  );
+}
+
+const SEVERITY_LABEL: Record<string, string> = {
+  high: "⛔ Critique",
+  medium: "⚠️ Important",
+  low: "ℹ️ Mineur",
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  mandat_type: "Type de mandat",
+  mandat_modalite: "Modalité",
+  mandat_duree_mois: "Durée (mois)",
+  mandat_commission_pct: "Commission %",
+  mandat_prix_net_vendeur: "Prix net vendeur",
+  mandat_prix_max: "Budget max",
+  address: "Adresse",
+  surface: "Surface",
+  type_bien: "Type de bien",
+  visitor_name: "Nom du mandant",
+  mandat_signe_at: "Date de signature",
+};
+
+function SignatureOption({
+  icon,
+  title,
+  desc,
+  primary,
+  comingSoon,
+  uploading,
+  onUpload,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+  primary: string;
+  comingSoon?: boolean;
+  uploading?: boolean;
+  onUpload?: (file: File) => void;
+}) {
+  return (
+    <div
+      style={{
+        padding: 14,
+        background: "white",
+        border: `1.5px solid ${comingSoon ? "#e2e8f0" : primary}`,
+        borderRadius: 10,
+        opacity: comingSoon ? 0.6 : 1,
+      }}
+    >
+      <div style={{ fontSize: 20 }}>{icon}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginTop: 6 }}>{title}</div>
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, lineHeight: 1.5 }}>{desc}</div>
+      {comingSoon ? (
+        <div style={{ marginTop: 10, fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          Disponible Y1 Q1 2027 (abonnement Yousign requis)
+        </div>
+      ) : (
+        <div style={{ marginTop: 10 }}>
+          <label
+            htmlFor="upload-pdf-mandat"
+            style={{
+              padding: "7px 12px",
+              background: primary,
+              color: "white",
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: uploading ? "not-allowed" : "pointer",
+              opacity: uploading ? 0.5 : 1,
+              display: "inline-block",
+            }}
+          >
+            {uploading ? "Analyse en cours…" : "📎 Uploader le PDF signé"}
+          </label>
+          <input
+            id="upload-pdf-mandat"
+            type="file"
+            accept="application/pdf,.pdf"
+            style={{ display: "none" }}
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f && onUpload) onUpload(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

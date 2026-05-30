@@ -197,6 +197,33 @@ export type CabinetLeadReportData = {
     }>;
   } | null;
 
+  /** Enseignement supérieur (universités, grandes écoles, IUT, IEP, instituts) */
+  etablissements_sup?: {
+    count: number;
+    par_categorie: {
+      universite: number;
+      ecole_ingenieur: number;
+      ecole_commerce: number;
+      iep: number;
+      institut: number;
+      autre: number;
+    };
+    top: Array<{
+      nom: string;
+      categorie:
+        | "universite"
+        | "ecole_ingenieur"
+        | "ecole_commerce"
+        | "iep"
+        | "institut"
+        | "autre";
+      secteur: "public" | "prive" | "inconnu";
+      commune: string;
+      distance_m: number;
+      prestige: boolean;
+    }>;
+  } | null;
+
   /** Top 2 points d'intérêts notables (OSM + wikipedia filter) */
   points_interet?: {
     count: number;
@@ -1797,6 +1824,86 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                     </View>
                   );
                 })}
+              </>
+            );
+          })()}
+
+          {/* ── Enseignement supérieur ───────────────────────────────────
+              Universités, grandes écoles, IUT, IEP, instituts.
+              Source : data.enseignementsup-recherche.gouv.fr (ESR).
+              Badge PRESTIGE pour les noms reconnus (HEC, Polytechnique,
+              Sciences Po, Sorbonne, Centrale, etc.).
+              Affichage groupé par catégorie pour lisibilité. */}
+          {data.etablissements_sup && data.etablissements_sup.top.length > 0 && (() => {
+            const CATEGORIE_LABEL: Record<string, string> = {
+              universite: "Universités",
+              ecole_ingenieur: "Écoles d'ingénieurs",
+              ecole_commerce: "Écoles de commerce",
+              iep: "Sciences Po / IEP",
+              institut: "Instituts",
+              autre: "Autres",
+            };
+            // Groupe par catégorie en respectant l'ordre d'apparition (par
+            // distance) — l'ordre d'itération Map préserve l'insertion.
+            const groups = new Map<string, typeof data.etablissements_sup.top>();
+            for (const e of data.etablissements_sup.top) {
+              const arr = groups.get(e.categorie) ?? [];
+              arr.push(e);
+              groups.set(e.categorie, arr);
+            }
+            // Ordre éditorial : prestige avant tout, puis universités, ingé, commerce, IEP, instituts
+            const ORDER = ["ecole_ingenieur", "ecole_commerce", "iep", "universite", "institut", "autre"];
+            const ordered = ORDER.filter((c) => groups.has(c));
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Enseignement supérieur à proximité</Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Rayon 10 km · Source : Ministère de l&apos;Enseignement supérieur et de la Recherche.
+                </Text>
+                {ordered.map((cat) => (
+                  <View key={cat} style={{ marginBottom: 4 }}>
+                    <Text style={{ fontSize: 10, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>
+                      {CATEGORIE_LABEL[cat] ?? cat}
+                    </Text>
+                    {(groups.get(cat) ?? []).map((e, i) => {
+                      const statutLabel =
+                        e.secteur === "public"
+                          ? " (Public)"
+                          : e.secteur === "prive"
+                            ? " (Privé)"
+                            : "";
+                      const distLabel =
+                        e.distance_m < 1000
+                          ? `${e.distance_m} m`
+                          : `${(e.distance_m / 1000).toFixed(1)} km`;
+                      return (
+                        <View
+                          key={i}
+                          style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4, marginBottom: 1 }}
+                        >
+                          <Text style={{ fontSize: 10, color: "#0f172a" }}>
+                            • {e.nom}
+                            {statutLabel} — {distLabel}
+                          </Text>
+                          {e.prestige && (
+                            <View
+                              style={{
+                                paddingHorizontal: 4,
+                                paddingVertical: 1,
+                                backgroundColor: data.primary_color,
+                                borderRadius: 3,
+                              }}
+                            >
+                              <Text style={{ fontSize: 7, color: "#ffffff", fontWeight: 700 }}>
+                                PRESTIGE
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
               </>
             );
           })()}

@@ -34,6 +34,8 @@ export type DatasetKey =
   | "lycees_bac_5km"
   // Bac professionnel IVAL (parallèle au GT)
   | "lycees_pro_5km"
+  // Enseignement supérieur : universités, grandes écoles, IUT, IEP, instituts
+  | "etablissements_sup_10km"
   | "points_interet"
   // ecoles_v2 : bump pour purger les caches négatifs accumulés (timeouts
   // antérieurs sur data.education.gouv.fr) et activer shouldCache.

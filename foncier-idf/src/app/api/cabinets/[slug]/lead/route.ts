@@ -47,6 +47,7 @@ import {
 import { getProximiteLocale } from "@/lib/datasets/proximite-locale";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
 import { getLyceesPro } from "@/lib/datasets/lycees-pro";
+import { getEtablissementsSup } from "@/lib/datasets/etablissements-sup";
 import { getPointsInteret } from "@/lib/datasets/points-interet";
 import {
   findNearbyGrandsProjets,
@@ -261,6 +262,7 @@ export async function POST(
     surfaceAdjustment,
     lyceesBac,
     lyceesPro,
+    etablissementsSup,
     pointsInteret,
     proximiteLocale,
     grandsProjets,
@@ -337,6 +339,9 @@ export async function POST(
         // qui ne couvre que général + techno. Mention "85 % de réussite Bac pro"
         // = argument concret pour vendeur en zone industrielle/banlieue.
         getLyceesPro(top.lat, top.lon).catch(() => null),
+        // Enseignement SUPÉRIEUR (universités, grandes écoles, IUT, IEP).
+        // Rayon 10 km : étudiant accepte 30 min de trajet. Source ESR.
+        getEtablissementsSup(top.lat, top.lon).catch(() => null),
         // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
         // Sert à enrichir la phrase argumentaire "proche de … comme la
         // Place des Vosges et le Centre Pompidou".
@@ -768,6 +773,22 @@ export async function POST(
             taux_mention_pro: l.taux_mention_pro,
             distance_m: l.distance_m,
             annee_session: l.annee_session,
+          })),
+        }
+      : null,
+    // Enseignement supérieur : universités, grandes écoles, IUT, IEP, instituts.
+    // Source : data.enseignementsup-recherche.gouv.fr (ESR).
+    etablissements_sup: etablissementsSup && etablissementsSup.available
+      ? {
+          count: etablissementsSup.count,
+          par_categorie: etablissementsSup.par_categorie,
+          top: etablissementsSup.top.map((e) => ({
+            nom: e.nom,
+            categorie: e.categorie,
+            secteur: e.secteur,
+            commune: e.commune,
+            distance_m: e.distance_m,
+            prestige: e.prestige,
           })),
         }
       : null,

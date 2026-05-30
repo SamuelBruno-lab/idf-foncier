@@ -1,8 +1,15 @@
 "use client";
 
 /**
- * Détail d'un lead — infos visiteur, bien, estimation, caractéristiques
- * wizard, historique des transitions de statuts, action change-status.
+ * Détail d'un lead — pipeline CRM/ERP complet :
+ *   - Infos visiteur + bien + estimation DATAMERRY
+ *   - Workflow visite : planifier / marquer réalisée
+ *   - Workflow mandat : type (vente/recherche/location), modalité, durée,
+ *     commission, prix net vendeur ou budget max, numéro registre auto
+ *   - Workflow vente : prix final, dates compromis et vente
+ *   - Ancrage blockchain : bouton "Ancrer dans registre des mandats" qui
+ *     calcule le SHA256 canonique et le queue pour le batch Solana Y2
+ *   - Historique des transitions de statuts
  *
  * URL : /cabinets/{slug}/admin/lead/{id}
  */
@@ -29,6 +36,24 @@ type Lead = {
   email_to_cabinet_sent: boolean;
   email_to_visitor_sent: boolean;
   created_at: string;
+  // Migration 36 — champs mandat
+  mandat_type: "vente" | "recherche" | "location" | null;
+  mandat_modalite: "simple" | "exclusif" | "semi_exclusif" | null;
+  mandat_signe_at: string | null;
+  mandat_duree_mois: number | null;
+  mandat_date_fin: string | null;
+  mandat_commission_pct: number | null;
+  mandat_prix_net_vendeur: number | null;
+  mandat_prix_max: number | null;
+  mandat_numero_registre: string | null;
+  mandat_criteres_recherche: Record<string, unknown> | null;
+  visite_planifiee_at: string | null;
+  visite_realisee_at: string | null;
+  visite_notes: string | null;
+  vente_prix_final: number | null;
+  vente_date: string | null;
+  vente_compromis_date: string | null;
+  notes_agent: string | null;
 };
 
 type HistoryRow = {
@@ -37,6 +62,21 @@ type HistoryRow = {
   changed_at: string;
   changed_by_email: string | null;
   note: string | null;
+};
+
+type AnchorRow = {
+  id: string;
+  mandate_hash_sha256: string;
+  anchor_status: "pending" | "batched" | "anchored" | "failed" | "opted_out";
+  merkle_root_batch_id: string | null;
+  solana_tx_sig: string | null;
+  solana_slot: number | null;
+  anchored_at: string | null;
+  triggered_by_email: string | null;
+  retry_count: number;
+  created_at: string;
+  updated_at: string;
+  error_message?: string | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -51,9 +91,46 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_KEYS = ["new", "contacted", "rdv_planifie", "mandat_signe", "vendu", "non_vendu", "lost"];
 
+const MANDAT_TYPE_LABELS: Record<string, string> = {
+  vente: "Mandat de vente",
+  recherche: "Mandat de recherche",
+  location: "Mandat de location",
+};
+
+const MANDAT_MODALITE_LABELS: Record<string, string> = {
+  simple: "Simple (non exclusif)",
+  exclusif: "Exclusif",
+  semi_exclusif: "Semi-exclusif",
+};
+
+const ANCHOR_STATUS_LABELS: Record<string, string> = {
+  pending: "En file d'attente",
+  batched: "Inclus dans le batch Merkle",
+  anchored: "Ancré on-chain Solana",
+  failed: "Échec — peut être relancé",
+  opted_out: "Exclu volontairement",
+};
+
+const ANCHOR_STATUS_COLORS: Record<string, string> = {
+  pending: "#f59e0b",
+  batched: "#8b5cf6",
+  anchored: "#10b981",
+  failed: "#ef4444",
+  opted_out: "#94a3b8",
+};
+
 const fmt = (n: number | null | undefined) =>
   n != null && Number.isFinite(n)
     ? new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)
+    : "—";
+
+const fmtDate = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
     : "—";
 
 const fmtDateTime = (iso: string) =>
@@ -65,6 +142,20 @@ const fmtDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
+/** Pour les inputs datetime-local : "YYYY-MM-DDTHH:mm" (sans fuseau). */
+const toDateTimeLocal = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** Pour les inputs date : "YYYY-MM-DD". */
+const toDateInput = (iso: string | null): string => {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+};
+
 export default function LeadDetailPage({
   params,
 }: {
@@ -74,10 +165,13 @@ export default function LeadDetailPage({
   const [leadId, setLeadId] = useState("");
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [anchor, setAnchor] = useState<AnchorRow | null>(null);
   const [cabinet, setCabinet] = useState<{ cabinet_name: string; primary_color: string } | null>(null);
   const [noteText, setNoteText] = useState("");
   const [newStatus, setNewStatus] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [anchoring, setAnchoring] = useState(false);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const router = useRouter();
 
   const load = useCallback(async (s: string, id: string) => {
@@ -90,9 +184,14 @@ export default function LeadDetailPage({
       return;
     }
     if (leadRes.ok) {
-      const data = (await leadRes.json()) as { lead: Lead; history: HistoryRow[] };
+      const data = (await leadRes.json()) as {
+        lead: Lead;
+        history: HistoryRow[];
+        anchor: AnchorRow | null;
+      };
       setLead(data.lead);
       setHistory(data.history);
+      setAnchor(data.anchor);
       setNewStatus(data.lead.status);
     }
     if (cabRes.ok) setCabinet(await cabRes.json());
@@ -107,6 +206,34 @@ export default function LeadDetailPage({
     })();
   }, [params, load]);
 
+  function showToast(kind: "ok" | "err", msg: string) {
+    setToast({ kind, msg });
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  // ── PATCH générique sur le lead ───────────────────────────────────────────
+  async function patchLead(patch: Partial<Lead>) {
+    if (!lead || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/cabinets/${slug}/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+        showToast("err", j.detail ?? j.error ?? "Erreur");
+        return;
+      }
+      await load(slug, leadId);
+      showToast("ok", "Enregistré");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Change status ─────────────────────────────────────────────────────────
   async function applyChange() {
     if (!lead || saving) return;
     if (newStatus === lead.status && !noteText.trim()) return;
@@ -122,8 +249,42 @@ export default function LeadDetailPage({
       });
       setNoteText("");
       await load(slug, leadId);
+      showToast("ok", `Statut → ${STATUS_LABELS[newStatus] ?? newStatus}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // ── Ancrer dans registre blockchain ──────────────────────────────────────
+  async function triggerAnchor() {
+    if (!lead || anchoring) return;
+    if (!lead.mandat_signe_at) {
+      showToast("err", "Renseigne d'abord la date de signature du mandat");
+      return;
+    }
+    if (!lead.mandat_type) {
+      showToast("err", "Renseigne d'abord le type de mandat");
+      return;
+    }
+    setAnchoring(true);
+    try {
+      const res = await fetch(`/api/cabinets/${slug}/admin/leads/${leadId}/anchor`, {
+        method: "POST",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        anchor?: AnchorRow;
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || !j.success) {
+        showToast("err", j.message ?? j.error ?? "Échec ancrage");
+        return;
+      }
+      await load(slug, leadId);
+      showToast("ok", "Mandat ancré (status pending)");
+    } finally {
+      setAnchoring(false);
     }
   }
 
@@ -140,7 +301,7 @@ export default function LeadDetailPage({
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", padding: 16 }}>
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {/* Back link */}
         <a
           href={`/cabinets/${slug}/admin`}
@@ -150,60 +311,56 @@ export default function LeadDetailPage({
         </a>
 
         {/* Header */}
-        <div
-          style={{
-            marginTop: 12,
-            padding: 24,
-            background: "white",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
-            {lead.visitor_name}
-          </div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-            <a href={`mailto:${lead.visitor_email}`} style={{ color: primary, textDecoration: "none" }}>
-              {lead.visitor_email}
-            </a>
-            {lead.visitor_phone && (
-              <>
-                {" · "}
-                <a href={`tel:${lead.visitor_phone}`} style={{ color: primary, textDecoration: "none" }}>
-                  {lead.visitor_phone}
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
+                {lead.visitor_name}
+              </div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                <a href={`mailto:${lead.visitor_email}`} style={{ color: primary, textDecoration: "none" }}>
+                  {lead.visitor_email}
                 </a>
-              </>
+                {lead.visitor_phone && (
+                  <>
+                    {" · "}
+                    <a href={`tel:${lead.visitor_phone}`} style={{ color: primary, textDecoration: "none" }}>
+                      {lead.visitor_phone}
+                    </a>
+                  </>
+                )}
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "inline-block",
+                  padding: "4px 12px",
+                  background: primary + "15",
+                  color: primary,
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {STATUS_LABELS[lead.status] ?? lead.status}
+              </div>
+            </div>
+            {lead.mandat_numero_registre && (
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Registre carte T
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", fontFamily: "monospace" }}>
+                  {lead.mandat_numero_registre}
+                </div>
+              </div>
             )}
           </div>
-          <div
-            style={{
-              marginTop: 12,
-              display: "inline-block",
-              padding: "4px 12px",
-              background: primary + "15",
-              color: primary,
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            {STATUS_LABELS[lead.status] ?? lead.status}
-          </div>
-        </div>
+        </Card>
 
         {/* Bien */}
-        <div
-          style={{
-            marginTop: 16,
-            padding: 20,
-            background: "white",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <h2 style={{ fontSize: 11, color: primary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
-            Bien
-          </h2>
+        <Card>
+          <SectionTitle primary={primary}>Bien</SectionTitle>
           <div style={{ marginTop: 10 }}>
             <DetailRow label="Adresse" value={lead.address} />
             <DetailRow label="Type" value={lead.type_bien} />
@@ -218,72 +375,75 @@ export default function LeadDetailPage({
             )}
             {Boolean(a.usage) && <DetailRow label="Usage" value={String(a.usage)} />}
           </div>
-        </div>
+        </Card>
 
         {/* Estimation */}
         {lead.prix_total_median != null && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 20,
-              background: "white",
-              borderRadius: 12,
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <h2 style={{ fontSize: 11, color: primary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
-              Estimation DATAMERRY
-            </h2>
+          <Card>
+            <SectionTitle primary={primary}>Estimation DATAMERRY</SectionTitle>
             <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
               <Stat label="Estimation centrale" value={`${fmt(lead.prix_total_median)} €`} highlight={primary} />
               {lead.prix_m2_median != null && (
                 <Stat label="Prix m² médian" value={`${fmt(lead.prix_m2_median)} €/m²`} />
               )}
               {lead.prix_m2_p10 != null && lead.surface && (
-                <Stat
-                  label="Plancher"
-                  value={`${fmt(Math.round(lead.prix_m2_p10 * lead.surface))} €`}
-                />
+                <Stat label="Plancher" value={`${fmt(Math.round(lead.prix_m2_p10 * lead.surface))} €`} />
               )}
               {lead.prix_m2_p90 != null && lead.surface && (
-                <Stat
-                  label="Plafond"
-                  value={`${fmt(Math.round(lead.prix_m2_p90 * lead.surface))} €`}
-                />
+                <Stat label="Plafond" value={`${fmt(Math.round(lead.prix_m2_p90 * lead.surface))} €`} />
               )}
               {lead.nb_ventes != null && (
                 <Stat label="Ventes DVF dans la zone" value={`${lead.nb_ventes}`} />
               )}
             </div>
-          </div>
+          </Card>
+        )}
+
+        {/* ── WORKFLOW VISITE ────────────────────────────────────────────── */}
+        <VisiteForm
+          lead={lead}
+          primary={primary}
+          saving={saving}
+          onSubmit={patchLead}
+        />
+
+        {/* ── WORKFLOW MANDAT ───────────────────────────────────────────── */}
+        <MandatForm
+          lead={lead}
+          primary={primary}
+          saving={saving}
+          onSubmit={patchLead}
+        />
+
+        {/* ── WORKFLOW VENTE ─────────────────────────────────────────────── */}
+        {(lead.status === "mandat_signe" || lead.status === "vendu" || lead.vente_prix_final != null) && (
+          <VenteForm
+            lead={lead}
+            primary={primary}
+            saving={saving}
+            onSubmit={patchLead}
+          />
+        )}
+
+        {/* ── ANCRAGE BLOCKCHAIN ─────────────────────────────────────────── */}
+        {lead.mandat_signe_at && (
+          <BlockchainCard
+            lead={lead}
+            anchor={anchor}
+            primary={primary}
+            anchoring={anchoring}
+            onAnchor={triggerAnchor}
+          />
         )}
 
         {/* Change status */}
-        <div
-          style={{
-            marginTop: 16,
-            padding: 20,
-            background: "white",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <h2 style={{ fontSize: 11, color: primary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
-            Changer le statut
-          </h2>
+        <Card>
+          <SectionTitle primary={primary}>Changer le statut</SectionTitle>
           <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              style={{
-                padding: "10px 14px",
-                border: "1.5px solid #cbd5e1",
-                borderRadius: 8,
-                fontSize: 14,
-                fontFamily: "inherit",
-                outline: "none",
-                minWidth: 180,
-              }}
+              style={selectStyle}
             >
               {STATUS_KEYS.map((k) => (
                 <option key={k} value={k}>
@@ -297,51 +457,24 @@ export default function LeadDetailPage({
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               maxLength={1000}
-              style={{
-                flex: 1,
-                padding: "10px 14px",
-                border: "1.5px solid #cbd5e1",
-                borderRadius: 8,
-                fontSize: 14,
-                fontFamily: "inherit",
-                outline: "none",
-                minWidth: 200,
-              }}
+              style={{ ...inputStyle, flex: 1, minWidth: 200 }}
             />
             <button
               onClick={applyChange}
               disabled={saving || (newStatus === lead.status && !noteText.trim())}
-              style={{
-                background: primary,
-                color: "white",
-                border: "none",
-                borderRadius: 8,
-                padding: "10px 18px",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: saving ? "not-allowed" : "pointer",
-                fontFamily: "inherit",
-                opacity: saving ? 0.6 : 1,
-              }}
+              style={buttonStyle(primary, saving)}
             >
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>
-        </div>
+        </Card>
+
+        {/* Notes agent libre */}
+        <NotesAgentCard lead={lead} primary={primary} saving={saving} onSubmit={patchLead} />
 
         {/* History */}
-        <div
-          style={{
-            marginTop: 16,
-            padding: 20,
-            background: "white",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <h2 style={{ fontSize: 11, color: primary, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
-            Historique
-          </h2>
+        <Card>
+          <SectionTitle primary={primary}>Historique</SectionTitle>
           <div style={{ marginTop: 12 }}>
             {history.length === 0 ? (
               <div style={{ fontSize: 13, color: "#94a3b8" }}>Aucun historique.</div>
@@ -372,13 +505,547 @@ export default function LeadDetailPage({
               ))
             )}
           </div>
-        </div>
+        </Card>
 
         <div style={{ marginTop: 24, textAlign: "center", fontSize: 11, color: "#94a3b8" }}>
           Propulsé par <strong>DATAMERRY®</strong>
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: toast.kind === "ok" ? "#10b981" : "#ef4444",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 700,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+          }}
+        >
+          {toast.msg}
+        </div>
+      )}
     </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Sous-composants formulaires workflow
+// ══════════════════════════════════════════════════════════════════════════
+
+function VisiteForm({
+  lead,
+  primary,
+  saving,
+  onSubmit,
+}: {
+  lead: Lead;
+  primary: string;
+  saving: boolean;
+  onSubmit: (p: Partial<Lead>) => void;
+}) {
+  const [planifiee, setPlanifiee] = useState(toDateTimeLocal(lead.visite_planifiee_at));
+  const [realisee, setRealisee] = useState(toDateTimeLocal(lead.visite_realisee_at));
+  const [notes, setNotes] = useState(lead.visite_notes ?? "");
+
+  useEffect(() => {
+    setPlanifiee(toDateTimeLocal(lead.visite_planifiee_at));
+    setRealisee(toDateTimeLocal(lead.visite_realisee_at));
+    setNotes(lead.visite_notes ?? "");
+  }, [lead]);
+
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Visite</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
+        <Field label="Visite planifiée le">
+          <input
+            type="datetime-local"
+            value={planifiee}
+            onChange={(e) => setPlanifiee(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Visite réalisée le">
+          <input
+            type="datetime-local"
+            value={realisee}
+            onChange={(e) => setRealisee(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+      </div>
+      <Field label="Notes de visite">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="État réel, prestations, vue, exposition, vétusté, points forts/faibles…"
+          style={{ ...inputStyle, resize: "vertical" }}
+        />
+      </Field>
+      <div style={{ marginTop: 10 }}>
+        <button
+          onClick={() =>
+            onSubmit({
+              visite_planifiee_at: planifiee ? new Date(planifiee).toISOString() : null,
+              visite_realisee_at: realisee ? new Date(realisee).toISOString() : null,
+              visite_notes: notes.trim() || null,
+            })
+          }
+          disabled={saving}
+          style={buttonStyle(primary, saving)}
+        >
+          {saving ? "Enregistrement…" : "Enregistrer visite"}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function MandatForm({
+  lead,
+  primary,
+  saving,
+  onSubmit,
+}: {
+  lead: Lead;
+  primary: string;
+  saving: boolean;
+  onSubmit: (p: Partial<Lead>) => void;
+}) {
+  const [type, setType] = useState<string>(lead.mandat_type ?? "");
+  const [modalite, setModalite] = useState<string>(lead.mandat_modalite ?? "");
+  const [signeAt, setSigneAt] = useState(toDateInput(lead.mandat_signe_at));
+  const [duree, setDuree] = useState<string>(lead.mandat_duree_mois?.toString() ?? "3");
+  const [com, setCom] = useState<string>(lead.mandat_commission_pct?.toString() ?? "");
+  const [prixNet, setPrixNet] = useState<string>(lead.mandat_prix_net_vendeur?.toString() ?? "");
+  const [prixMax, setPrixMax] = useState<string>(lead.mandat_prix_max?.toString() ?? "");
+
+  useEffect(() => {
+    setType(lead.mandat_type ?? "");
+    setModalite(lead.mandat_modalite ?? "");
+    setSigneAt(toDateInput(lead.mandat_signe_at));
+    setDuree(lead.mandat_duree_mois?.toString() ?? "3");
+    setCom(lead.mandat_commission_pct?.toString() ?? "");
+    setPrixNet(lead.mandat_prix_net_vendeur?.toString() ?? "");
+    setPrixMax(lead.mandat_prix_max?.toString() ?? "");
+  }, [lead]);
+
+  const isVente = type === "vente";
+  const isRecherche = type === "recherche";
+
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Mandat</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
+        <Field label="Type de mandat" required>
+          <select value={type} onChange={(e) => setType(e.target.value)} style={selectStyle}>
+            <option value="">— Choisir —</option>
+            <option value="vente">Mandat de vente (vendeur)</option>
+            <option value="recherche">Mandat de recherche (acquéreur)</option>
+            <option value="location">Mandat de location</option>
+          </select>
+        </Field>
+        {isVente && (
+          <Field label="Modalité">
+            <select value={modalite} onChange={(e) => setModalite(e.target.value)} style={selectStyle}>
+              <option value="">— Choisir —</option>
+              <option value="simple">Simple (non exclusif)</option>
+              <option value="exclusif">Exclusif</option>
+              <option value="semi_exclusif">Semi-exclusif</option>
+            </select>
+          </Field>
+        )}
+        <Field label="Date de signature">
+          <input
+            type="date"
+            value={signeAt}
+            onChange={(e) => setSigneAt(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Durée (mois)" hint="1 à 36 mois">
+          <input
+            type="number"
+            min={1}
+            max={36}
+            value={duree}
+            onChange={(e) => setDuree(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Commission (% TTC)" hint="3-7 % pour vente, 1-3 % pour recherche">
+          <input
+            type="number"
+            min={0}
+            max={20}
+            step={0.1}
+            value={com}
+            onChange={(e) => setCom(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        {isVente && (
+          <Field label="Prix net vendeur (€)">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={prixNet}
+              onChange={(e) => setPrixNet(e.target.value)}
+              style={inputStyle}
+            />
+          </Field>
+        )}
+        {isRecherche && (
+          <Field label="Budget max acquéreur (€)">
+            <input
+              type="number"
+              min={0}
+              step={10000}
+              value={prixMax}
+              onChange={(e) => setPrixMax(e.target.value)}
+              style={inputStyle}
+            />
+          </Field>
+        )}
+      </div>
+      {lead.mandat_date_fin && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "#64748b" }}>
+          Date de fin calculée : <strong>{fmtDate(lead.mandat_date_fin)}</strong>
+        </div>
+      )}
+      <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={() =>
+            onSubmit({
+              mandat_type: (type || null) as Lead["mandat_type"],
+              mandat_modalite: isVente ? ((modalite || null) as Lead["mandat_modalite"]) : null,
+              mandat_signe_at: signeAt ? new Date(signeAt + "T12:00:00").toISOString() : null,
+              mandat_duree_mois: duree ? Number(duree) : null,
+              mandat_commission_pct: com ? Number(com) : null,
+              mandat_prix_net_vendeur: isVente && prixNet ? Number(prixNet) : null,
+              mandat_prix_max: isRecherche && prixMax ? Number(prixMax) : null,
+            })
+          }
+          disabled={saving || !type}
+          style={buttonStyle(primary, saving || !type)}
+        >
+          {saving ? "Enregistrement…" : lead.mandat_signe_at ? "Mettre à jour mandat" : "Signer le mandat"}
+        </button>
+        {lead.mandat_signe_at && (
+          <span style={{ fontSize: 11, color: "#64748b", alignSelf: "center" }}>
+            Mandat n° <strong>{lead.mandat_numero_registre ?? "—"}</strong> signé le {fmtDate(lead.mandat_signe_at)}
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function VenteForm({
+  lead,
+  primary,
+  saving,
+  onSubmit,
+}: {
+  lead: Lead;
+  primary: string;
+  saving: boolean;
+  onSubmit: (p: Partial<Lead>) => void;
+}) {
+  const [prixFinal, setPrixFinal] = useState<string>(lead.vente_prix_final?.toString() ?? "");
+  const [compromisDate, setCompromisDate] = useState(toDateInput(lead.vente_compromis_date));
+  const [venteDate, setVenteDate] = useState(toDateInput(lead.vente_date));
+
+  useEffect(() => {
+    setPrixFinal(lead.vente_prix_final?.toString() ?? "");
+    setCompromisDate(toDateInput(lead.vente_compromis_date));
+    setVenteDate(toDateInput(lead.vente_date));
+  }, [lead]);
+
+  const com = lead.mandat_commission_pct;
+  const comEstimee = prixFinal && com ? Math.round(Number(prixFinal) * com / 100) : null;
+
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Vente</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 12 }}>
+        <Field label="Prix final (€)">
+          <input
+            type="number"
+            min={0}
+            step={1000}
+            value={prixFinal}
+            onChange={(e) => setPrixFinal(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Compromis signé le">
+          <input
+            type="date"
+            value={compromisDate}
+            onChange={(e) => setCompromisDate(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Acte authentique le">
+          <input
+            type="date"
+            value={venteDate}
+            onChange={(e) => setVenteDate(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+      </div>
+      {comEstimee != null && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "#15803d", fontWeight: 600 }}>
+          Commission estimée : <strong>{fmt(comEstimee)} €</strong> ({com} %)
+        </div>
+      )}
+      <div style={{ marginTop: 12 }}>
+        <button
+          onClick={() =>
+            onSubmit({
+              vente_prix_final: prixFinal ? Number(prixFinal) : null,
+              vente_compromis_date: compromisDate || null,
+              vente_date: venteDate || null,
+            })
+          }
+          disabled={saving}
+          style={buttonStyle(primary, saving)}
+        >
+          {saving ? "Enregistrement…" : "Enregistrer vente"}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function NotesAgentCard({
+  lead,
+  primary,
+  saving,
+  onSubmit,
+}: {
+  lead: Lead;
+  primary: string;
+  saving: boolean;
+  onSubmit: (p: Partial<Lead>) => void;
+}) {
+  const [notes, setNotes] = useState(lead.notes_agent ?? "");
+  useEffect(() => setNotes(lead.notes_agent ?? ""), [lead]);
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Notes agent</SectionTitle>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={4}
+        placeholder="Suivi qualitatif libre : motivation vendeur, contraintes, négociation, etc."
+        style={{ ...inputStyle, marginTop: 10, resize: "vertical" }}
+      />
+      <div style={{ marginTop: 10 }}>
+        <button
+          onClick={() => onSubmit({ notes_agent: notes.trim() || null })}
+          disabled={saving}
+          style={buttonStyle(primary, saving)}
+        >
+          {saving ? "Enregistrement…" : "Enregistrer notes"}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function BlockchainCard({
+  lead,
+  anchor,
+  primary,
+  anchoring,
+  onAnchor,
+}: {
+  lead: Lead;
+  anchor: AnchorRow | null;
+  primary: string;
+  anchoring: boolean;
+  onAnchor: () => void;
+}) {
+  const [showHash, setShowHash] = useState(false);
+  const statusColor = anchor ? ANCHOR_STATUS_COLORS[anchor.anchor_status] : "#94a3b8";
+  return (
+    <Card>
+      <SectionTitle primary={primary}>Registre blockchain — Solana</SectionTitle>
+      {anchor ? (
+        <>
+          <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "4px 12px",
+                background: statusColor + "22",
+                color: statusColor,
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {ANCHOR_STATUS_LABELS[anchor.anchor_status]}
+            </span>
+            {anchor.retry_count > 0 && (
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                Tentative n°{anchor.retry_count + 1}
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12, color: "#475569" }}>
+            <div>
+              Hash SHA256 :{" "}
+              <code style={{ fontSize: 11, color: "#0f172a", fontFamily: "monospace" }}>
+                {showHash ? anchor.mandate_hash_sha256 : anchor.mandate_hash_sha256.slice(0, 16) + "…"}
+              </code>{" "}
+              <button
+                type="button"
+                onClick={() => setShowHash((v) => !v)}
+                style={{ background: "none", border: "none", color: primary, fontSize: 11, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+              >
+                {showHash ? "masquer" : "voir"}
+              </button>
+            </div>
+            {anchor.solana_tx_sig && (
+              <div style={{ marginTop: 4 }}>
+                Tx Solana :{" "}
+                <a
+                  href={`https://explorer.solana.com/tx/${anchor.solana_tx_sig}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: primary, textDecoration: "none", fontFamily: "monospace", fontSize: 11 }}
+                >
+                  {anchor.solana_tx_sig.slice(0, 16)}…
+                </a>
+              </div>
+            )}
+            {anchor.anchored_at && (
+              <div style={{ marginTop: 4 }}>Ancré le {fmtDateTime(anchor.anchored_at)}</div>
+            )}
+            {anchor.error_message && (
+              <div style={{ marginTop: 4, color: "#ef4444" }}>
+                Erreur : {anchor.error_message}
+              </div>
+            )}
+          </div>
+          {anchor.anchor_status === "failed" && (
+            <div style={{ marginTop: 12 }}>
+              <button onClick={onAnchor} disabled={anchoring} style={buttonStyle(primary, anchoring)}>
+                {anchoring ? "Relance…" : "Relancer l'ancrage"}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: "#475569", marginTop: 10, lineHeight: 1.5 }}>
+            Place ce mandat dans la file d'attente pour ancrage on-chain Solana. Seule l'empreinte
+            cryptographique SHA256 sera publiée (jamais les données personnelles). Le Merkle Root
+            mensuel sera ancré automatiquement sur Solana, garantissant l'antériorité du mandat.
+          </p>
+          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
+            Conformité : CNIL délibération 2018-303 (blockchain &amp; RGPD), loi Hoguet n° 70-9.
+          </p>
+          <div style={{ marginTop: 12 }}>
+            <button
+              onClick={onAnchor}
+              disabled={anchoring || !lead.mandat_signe_at}
+              style={buttonStyle(primary, anchoring || !lead.mandat_signe_at)}
+            >
+              {anchoring ? "Ancrage…" : "Ancrer dans le registre blockchain"}
+            </button>
+            {!lead.mandat_signe_at && (
+              <span style={{ marginLeft: 10, fontSize: 11, color: "#ef4444" }}>
+                Renseigne d&apos;abord la date de signature du mandat
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// UI primitives
+// ══════════════════════════════════════════════════════════════════════════
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        padding: 20,
+        background: "white",
+        borderRadius: 12,
+        border: "1px solid #e2e8f0",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ primary, children }: { primary: string; children: React.ReactNode }) {
+  return (
+    <h2
+      style={{
+        fontSize: 11,
+        color: primary,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        margin: 0,
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  required,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          fontSize: 11,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+        {required && <span style={{ color: "#ef4444" }}> *</span>}
+      </span>
+      {children}
+      {hint && <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{hint}</span>}
+    </label>
   );
 }
 
@@ -414,3 +1081,33 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
     </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  padding: "9px 12px",
+  border: "1.5px solid #cbd5e1",
+  borderRadius: 8,
+  fontSize: 13,
+  fontFamily: "inherit",
+  outline: "none",
+  width: "100%",
+  boxSizing: "border-box",
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  background: "white",
+  cursor: "pointer",
+};
+
+const buttonStyle = (color: string, disabled?: boolean): React.CSSProperties => ({
+  background: color,
+  color: "white",
+  border: "none",
+  borderRadius: 8,
+  padding: "10px 18px",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontFamily: "inherit",
+  opacity: disabled ? 0.5 : 1,
+});

@@ -89,7 +89,9 @@ export async function POST(
     return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
   }
 
-  const lead = leadRaw as LeadRow;
+  // Cast via unknown — Supabase ne sait pas inférer le shape exact depuis
+  // une string select() concaténée, mais on connaît la forme à l'exécution.
+  const lead = leadRaw as unknown as LeadRow;
 
   // 2. Validations préalables
   if (!lead.mandat_signe_at) {

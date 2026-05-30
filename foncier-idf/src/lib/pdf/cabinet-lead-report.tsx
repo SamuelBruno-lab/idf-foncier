@@ -1467,14 +1467,9 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                     <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
                       • {eq.nom}
                       {" — "}
-                      {eq.distance_m < 100
-                        ? "à proximité immédiate"
-                        : eq.distance_m < 1000
-                          ? `${eq.distance_m} m`
-                          : `${(eq.distance_m / 1000).toFixed(1)} km`}
-                      {eq.proximite === "adjacent" && (
-                        <Text style={{ color: "#15803d", fontSize: 9 }}> · adjacent</Text>
-                      )}
+                      {eq.distance_m < 1000
+                        ? `${eq.distance_m} m`
+                        : `${(eq.distance_m / 1000).toFixed(1)} km`}
                     </Text>
                   ))}
                 </View>

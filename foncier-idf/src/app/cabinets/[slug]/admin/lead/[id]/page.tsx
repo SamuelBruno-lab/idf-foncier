@@ -410,6 +410,7 @@ export default function LeadDetailPage({
         {/* ── WORKFLOW MANDAT ───────────────────────────────────────────── */}
         <MandatForm
           lead={lead}
+          anchor={anchor}
           primary={primary}
           saving={saving}
           onSubmit={patchLead}
@@ -613,11 +614,13 @@ function VisiteForm({
 
 function MandatForm({
   lead,
+  anchor,
   primary,
   saving,
   onSubmit,
 }: {
   lead: Lead;
+  anchor: AnchorRow | null;
   primary: string;
   saving: boolean;
   onSubmit: (p: Partial<Lead>) => void;
@@ -724,30 +727,95 @@ function MandatForm({
           Date de fin calculée : <strong>{fmtDate(lead.mandat_date_fin)}</strong>
         </div>
       )}
-      <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button
-          onClick={() =>
-            onSubmit({
-              mandat_type: (type || null) as Lead["mandat_type"],
-              mandat_modalite: isVente ? ((modalite || null) as Lead["mandat_modalite"]) : null,
-              mandat_signe_at: signeAt ? new Date(signeAt + "T12:00:00").toISOString() : null,
-              mandat_duree_mois: duree ? Number(duree) : null,
-              mandat_commission_pct: com ? Number(com) : null,
-              mandat_prix_net_vendeur: isVente && prixNet ? Number(prixNet) : null,
-              mandat_prix_max: isRecherche && prixMax ? Number(prixMax) : null,
-            })
-          }
-          disabled={saving || !type}
-          style={buttonStyle(primary, saving || !type)}
-        >
-          {saving ? "Enregistrement…" : lead.mandat_signe_at ? "Mettre à jour mandat" : "Signer le mandat"}
-        </button>
-        {lead.mandat_signe_at && (
-          <span style={{ fontSize: 11, color: "#64748b", alignSelf: "center" }}>
-            Mandat n° <strong>{lead.mandat_numero_registre ?? "—"}</strong> signé le {fmtDate(lead.mandat_signe_at)}
-          </span>
-        )}
-      </div>
+      {/* Label dynamique selon l'état d'ancrage blockchain :
+            - jamais signé        → "Signer le mandat"
+            - signé + pending     → "Mettre à jour mandat" (autorisé jusqu'à publication mensuelle)
+            - signé + anchored    → "Créer un avenant" (immuable on-chain, nouvelle entrée Y2) */}
+      {(() => {
+        const isAnchored = anchor?.anchor_status === "anchored";
+        const isSigned = Boolean(lead.mandat_signe_at);
+        let buttonLabel: string;
+        if (saving) buttonLabel = "Enregistrement…";
+        else if (!isSigned) buttonLabel = "Signer le mandat";
+        else if (isAnchored) buttonLabel = "Créer un avenant";
+        else buttonLabel = "Mettre à jour mandat";
+
+        return (
+          <>
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={() => {
+                  if (isAnchored) {
+                    alert(
+                      "Le mandat est ancré on-chain (immuable). " +
+                        "La création d'avenants sera disponible quand le smart contract Solana sera déployé (Y2). " +
+                        "Pour l'instant, contacte DATAMERRY pour traiter cette modification.",
+                    );
+                    return;
+                  }
+                  onSubmit({
+                    mandat_type: (type || null) as Lead["mandat_type"],
+                    mandat_modalite: isVente ? ((modalite || null) as Lead["mandat_modalite"]) : null,
+                    mandat_signe_at: signeAt ? new Date(signeAt + "T12:00:00").toISOString() : null,
+                    mandat_duree_mois: duree ? Number(duree) : null,
+                    mandat_commission_pct: com ? Number(com) : null,
+                    mandat_prix_net_vendeur: isVente && prixNet ? Number(prixNet) : null,
+                    mandat_prix_max: isRecherche && prixMax ? Number(prixMax) : null,
+                  });
+                }}
+                disabled={saving || !type}
+                style={buttonStyle(primary, saving || !type)}
+              >
+                {buttonLabel}
+              </button>
+              {isSigned && (
+                <span style={{ fontSize: 11, color: "#64748b", alignSelf: "center" }}>
+                  Mandat n° <strong>{lead.mandat_numero_registre ?? "—"}</strong> signé le {fmtDate(lead.mandat_signe_at)}
+                </span>
+              )}
+            </div>
+
+            {/* Warnings contextuels selon l'état d'ancrage */}
+            {isSigned && !isAnchored && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  background: "#fef3c7",
+                  borderLeft: "3px solid #f59e0b",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  color: "#78350f",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Phase de grâce :</strong> le mandat n&apos;est pas encore publié on-chain.
+                Toute modification recalcule le hash et reste possible jusqu&apos;à la publication
+                mensuelle Solana (Merkle Root agrégé).
+              </div>
+            )}
+            {isSigned && isAnchored && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  background: "#dcfce7",
+                  borderLeft: "3px solid #10b981",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  color: "#065f46",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Mandat scellé on-chain.</strong> Le hash est immuable depuis la
+                publication. Toute modification doit faire l&apos;objet d&apos;un{" "}
+                <strong>avenant</strong> (nouveau document juridique → nouvelle entrée
+                ancrée séparément).
+              </div>
+            )}
+          </>
+        );
+      })()}
     </Card>
   );
 }

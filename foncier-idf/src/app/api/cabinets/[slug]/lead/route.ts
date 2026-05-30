@@ -364,7 +364,24 @@ export async function POST(
           () => [] as GrandProjetRow[],
         ),
       ])
-    : [null, null, null, null, null, null, null, null, null, null, null, null, [] as GrandProjetRow[]];
+    : [
+        null, // transports
+        null, // transportsLarge
+        null, // ecoles
+        null, // services
+        null, // inseeIris
+        null, // priceEvolution (cluster)
+        null, // communePriceEvolution
+        null, // communePriceCeiling
+        null, // surfaceAdjustment
+        null, // lyceesBac
+        null, // lyceesPro
+        null, // etablissementsSup
+        null, // ecolesSanteFiness
+        null, // pointsInteret
+        null, // proximiteLocale
+        [] as GrandProjetRow[], // grandsProjets
+      ];
 
   // Distance + temps trajet Paris.
   // computeParisDistance est async : il interroge d'abord dim_gares (source

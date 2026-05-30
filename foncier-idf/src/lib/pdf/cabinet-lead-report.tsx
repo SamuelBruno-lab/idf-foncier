@@ -1559,7 +1559,10 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                 - Section masquée si aucun lycée n'atteint 80 %
               Source : data.education.gouv.fr IVAL + DEPP juillet 2024. */}
           {(() => {
-            const SEUIL_ABSOLU_RESPECTABILITE = 80; // %
+            // Seuil 80 % était trop strict pour les lycées de banlieue (ZEP)
+            // → on baisse à 75 % (= moyenne nationale brute, hors mention).
+            // Le fallback "Lycées du secteur" reste actif si aucun ne qualifie.
+            const SEUIL_ABSOLU_RESPECTABILITE = 75; // %
             const lyceesEnrichis = (data.lycees_bac?.top ?? []).map((l) => {
               const moyAcad = getBacMoyenneDept(l.dept);
               const tauxG = l.taux_reussite_general;

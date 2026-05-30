@@ -24,6 +24,8 @@ export type DatasetKey =
   | "dpe"
   | "idfm_journey"
   | "price_evolution"
+  // v2 : fallback radius 400m si polygon HDBSCAN trop étroit
+  | "price_evolution_v2"
   | "lycees_bac"
   | "lycees_bac_5km"
   | "points_interet"

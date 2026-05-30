@@ -247,7 +247,7 @@ export type CabinetLeadReportData = {
     /** Nb total de ventes utilisées (cluster scope). */
     nb_total_ventes_cluster?: number;
     /** "hull" = polygon exact, "centroid" = fallback nearest cluster. */
-    match_method?: "hull" | "centroid" | "none" | null;
+    match_method?: "hull" | "centroid" | "radius_400m" | "none" | null;
     /**
      * Référence comparative commune entière (2e courbe superposée au cluster).
      * Permet de visualiser si le micro-marché sur/sous-performe la commune

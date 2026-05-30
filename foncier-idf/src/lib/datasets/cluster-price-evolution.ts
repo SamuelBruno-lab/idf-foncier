@@ -70,7 +70,7 @@ export type ClusterPriceEvolutionResult = {
   annee_min: number | null;
   annee_max: number | null;
   /** Méthode de matching ('hull' = polygon exact, 'centroid' = fallback nearest). */
-  match_method: "hull" | "centroid" | "none";
+  match_method: "hull" | "centroid" | "radius_400m" | "none";
   source: string;
   fetched_at: string;
 };
@@ -192,12 +192,16 @@ async function computeFromDb(
   }
 
   // 3. Bounding box du hull pour pré-filtre SQL rapide
+  // ÉTENDUE D'AU MOINS ±450m AUTOUR DE L'ADRESSE pour permettre le
+  // fallback rayon 400m si le hull HDBSCAN est trop étroit.
   const lats = match.hull_coords.map((c) => c[0]);
   const lons = match.hull_coords.map((c) => c[1]);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
+  const RADIUS_FALLBACK_DEG_LAT = 0.0045; // ~500m
+  const RADIUS_FALLBACK_DEG_LON = 0.0045 / Math.cos((lat * Math.PI) / 180);
+  const minLat = Math.min(Math.min(...lats), lat - RADIUS_FALLBACK_DEG_LAT);
+  const maxLat = Math.max(Math.max(...lats), lat + RADIUS_FALLBACK_DEG_LAT);
+  const minLon = Math.min(Math.min(...lons), lon - RADIUS_FALLBACK_DEG_LON);
+  const maxLon = Math.max(Math.max(...lons), lon + RADIUS_FALLBACK_DEG_LON);
 
   // 4. Query DVF dans la bbox + plage d'années + type
   const yearMin = new Date().getFullYear() - years_back;
@@ -217,11 +221,41 @@ async function computeFromDb(
   const dvfPoints = (dvfRaw ?? []) as DvfPoint[];
 
   // 5. Post-filtre pointInPolygon + filtre prix outliers
-  const inCluster = dvfPoints.filter((p) => {
+  let inCluster = dvfPoints.filter((p) => {
     if (p.lat == null || p.lon == null || p.prix_m2 == null || p.annee == null) return false;
     if (p.prix_m2 < 500 || p.prix_m2 > 50000) return false;
     return pointInPolygon([p.lat, p.lon], match!.hull_coords!);
   });
+
+  // 5bis. FALLBACK RAYON 400m AUTOUR DE L'ADRESSE
+  // Si le polygon HDBSCAN strict est trop étroit (cluster mal calibré,
+  // adresse en bordure de hull) → on bascule sur un rayon 400m autour
+  // de l'adresse — c'est ce que l'utilisateur perçoit comme « son
+  // micro-marché » de toute façon (1 quartier piéton).
+  // Activé si < 5 ventes dans le polygon strict.
+  let matchScope: "hull" | "radius_400m" = "hull";
+  if (inCluster.length < 5) {
+    const haversineM = (la1: number, lo1: number, la2: number, lo2: number) => {
+      const R = 6371000;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const dLat = toRad(la2 - la1);
+      const dLon = toRad(lo2 - lo1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+    const radiusFiltered = dvfPoints.filter((p) => {
+      if (p.lat == null || p.lon == null || p.prix_m2 == null || p.annee == null)
+        return false;
+      if (p.prix_m2 < 500 || p.prix_m2 > 50000) return false;
+      return haversineM(lat, lon, p.lat, p.lon) <= 400;
+    });
+    if (radiusFiltered.length > inCluster.length) {
+      inCluster = radiusFiltered;
+      matchScope = "radius_400m";
+    }
+  }
 
   if (inCluster.length === 0) {
     return {
@@ -315,7 +349,7 @@ async function computeFromDb(
     variation_pct_5y,
     annee_min: first.annee,
     annee_max: last.annee,
-    match_method: matchMethod,
+    match_method: matchScope === "radius_400m" ? "radius_400m" : matchMethod,
     source: "dvf_points + dvf_hdbscan_zones",
     fetched_at: now,
   };
@@ -345,7 +379,7 @@ export async function getClusterPriceEvolution(args: {
   const { data, cached } = await fetchWithCache<ClusterPriceEvolutionResult>(
     cacheHash,
     { lat, lon },
-    "price_evolution",
+    "price_evolution_v2",
     TTL_DAYS,
     () => computeFromDb(lat, lon, code_commune, type_local, years_back),
     0,

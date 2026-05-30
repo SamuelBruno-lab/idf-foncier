@@ -170,6 +170,33 @@ export type CabinetLeadReportData = {
     }>;
   } | null;
 
+  /** Top 3 lycées professionnels avec taux de réussite bac pro */
+  lycees_pro?: {
+    count: number;
+    top: Array<{
+      nom: string;
+      statut: "public" | "prive" | "inconnu";
+      commune: string;
+      dept: string | null;
+      taux_reussite_pro: number | null;
+      taux_mention_pro: number | null;
+      distance_m: number;
+      annee_session: number | null;
+    }>;
+  } | null;
+
+  /** Top 3 Centres de Formation d'Apprentis (CAP/BEP, Annuaire EN) */
+  cfa?: {
+    count: number;
+    top: Array<{
+      nom: string;
+      type: string;
+      statut: "public" | "prive" | "inconnu";
+      distance_m: number;
+      walk_minutes: number;
+    }>;
+  } | null;
+
   /** Top 2 points d'intérêts notables (OSM + wikipedia filter) */
   points_interet?: {
     count: number;
@@ -1557,6 +1584,18 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                       : l.statut === "prive"
                         ? "Privé sous contrat"
                         : "—";
+                  // Médailles éditoriales (calibrées métier) :
+                  //   OR     = taux_mention_general ≥ 60 %     (élite académique)
+                  //               OR dépassement_mention ≥ +10 pts vs académie
+                  //   ARGENT = taux_reussite_general ≥ 95 %    (très bon niveau)
+                  //               OR dépassement_general ≥ +10 pts vs académie
+                  // Cumulables : un lycée peut afficher OR + ARGENT.
+                  const hasGold =
+                    (l.taux_mention_general != null && l.taux_mention_general >= 60) ||
+                    (l.depassement_mention != null && l.depassement_mention >= 10);
+                  const hasSilver =
+                    (l.taux_reussite_general != null && l.taux_reussite_general >= 95) ||
+                    (l.depassement_general != null && l.depassement_general >= 10);
                   return (
                     <View
                       key={i}
@@ -1569,9 +1608,39 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                         borderLeftColor: data.primary_color,
                       }}
                     >
-                      <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
-                        {l.nom}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+                          {l.nom}
+                        </Text>
+                        {hasGold && (
+                          <View
+                            style={{
+                              paddingHorizontal: 5,
+                              paddingVertical: 1,
+                              backgroundColor: "#fbbf24",
+                              borderRadius: 3,
+                            }}
+                          >
+                            <Text style={{ fontSize: 8, color: "#78350f", fontWeight: 700 }}>
+                              OR · MENTIONS
+                            </Text>
+                          </View>
+                        )}
+                        {hasSilver && (
+                          <View
+                            style={{
+                              paddingHorizontal: 5,
+                              paddingVertical: 1,
+                              backgroundColor: "#cbd5e1",
+                              borderRadius: 3,
+                            }}
+                          >
+                            <Text style={{ fontSize: 8, color: "#334155", fontWeight: 700 }}>
+                              ARGENT · RÉUSSITE
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>
                         {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
                         {l.annee_session ? ` · Session ${l.annee_session}` : ""}
@@ -1613,6 +1682,157 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               </>
             );
           })()}
+
+          {/* ── Lycées professionnels (bac pro) ─────────────────────────
+              Section parallèle au GT. Filtre éditorial : seuil 75% (bac pro
+              a une moyenne nationale plus basse que GT, ~85% vs 91%).
+              Médailles :
+                OR     = taux_mention_pro ≥ 40 % (très bon niveau pour pro)
+                ARGENT = taux_reussite_pro ≥ 90 % */}
+          {data.lycees_pro && data.lycees_pro.top.length > 0 && (() => {
+            const SEUIL = 75;
+            const qualifies = data.lycees_pro.top
+              .filter((l) => l.taux_reussite_pro != null && l.taux_reussite_pro >= SEUIL)
+              .sort((a, b) => {
+                const ta = a.taux_reussite_pro ?? 0;
+                const tb = b.taux_reussite_pro ?? 0;
+                if (tb !== ta) return tb - ta;
+                return a.distance_m - b.distance_m;
+              })
+              .slice(0, 2);
+            // Fallback : si aucun ≥ 75 %, on affiche quand même le plus proche
+            const fallback = qualifies.length === 0
+              ? [...data.lycees_pro.top].sort((a, b) => a.distance_m - b.distance_m).slice(0, 1)
+              : [];
+            const toShow = qualifies.length > 0 ? qualifies : fallback;
+            if (toShow.length === 0) return null;
+            return (
+              <>
+                <Text style={styles.sectionTitle}>
+                  {qualifies.length > 0
+                    ? "Lycées professionnels — taux de réussite Bac pro"
+                    : "Lycée professionnel du secteur"}
+                </Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Source IVAL DEPP — session la plus récente publiée.
+                </Text>
+                {toShow.map((l, i) => {
+                  const statutLabel =
+                    l.statut === "public"
+                      ? "Public"
+                      : l.statut === "prive"
+                        ? "Privé sous contrat"
+                        : "—";
+                  const hasGold =
+                    l.taux_mention_pro != null && l.taux_mention_pro >= 40;
+                  const hasSilver =
+                    l.taux_reussite_pro != null && l.taux_reussite_pro >= 90;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        marginBottom: 8,
+                        padding: 8,
+                        backgroundColor: "#f8fafc",
+                        borderRadius: 6,
+                        borderLeftWidth: 3,
+                        borderLeftColor: data.primary_color,
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+                          {l.nom}
+                        </Text>
+                        {hasGold && (
+                          <View
+                            style={{
+                              paddingHorizontal: 5,
+                              paddingVertical: 1,
+                              backgroundColor: "#fbbf24",
+                              borderRadius: 3,
+                            }}
+                          >
+                            <Text style={{ fontSize: 8, color: "#78350f", fontWeight: 700 }}>
+                              OR · MENTIONS
+                            </Text>
+                          </View>
+                        )}
+                        {hasSilver && (
+                          <View
+                            style={{
+                              paddingHorizontal: 5,
+                              paddingVertical: 1,
+                              backgroundColor: "#cbd5e1",
+                              borderRadius: 3,
+                            }}
+                          >
+                            <Text style={{ fontSize: 8, color: "#334155", fontWeight: 700 }}>
+                              ARGENT · RÉUSSITE
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 9, color: "#64748b", marginTop: 2 }}>
+                        {statutLabel} · {l.commune} · {l.distance_m} m à vol d&apos;oiseau
+                        {l.annee_session ? ` · Session ${l.annee_session}` : ""}
+                      </Text>
+                      <View style={{ flexDirection: "row", gap: 16, marginTop: 5, flexWrap: "wrap" }}>
+                        {l.taux_reussite_pro != null && (
+                          <Text style={{ fontSize: 10 }}>
+                            <Text style={{ color: "#64748b" }}>Bac pro : </Text>
+                            <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                              {l.taux_reussite_pro} %
+                            </Text>
+                          </Text>
+                        )}
+                        {l.taux_mention_pro != null && (
+                          <Text style={{ fontSize: 10 }}>
+                            <Text style={{ color: "#64748b" }}>Mention : </Text>
+                            <Text style={{ fontWeight: 700, color: data.primary_color }}>
+                              {l.taux_mention_pro} %
+                            </Text>
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            );
+          })()}
+
+          {/* ── CFA / Apprentissage (CAP, BEP) ──────────────────────────
+              Extraction depuis Annuaire EN filtré sur les centres de formation
+              d'apprentis. Argument vendeur pour familles avec adolescents
+              orientés voie pro, ou investisseurs cherchant location étudiants. */}
+          {data.cfa && data.cfa.top.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>CFA & Apprentissage à proximité</Text>
+              <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                Centres de Formation d&apos;Apprentis (CAP, BEP, Bac pro alternance).
+                Source : Annuaire de l&apos;Éducation Nationale.
+              </Text>
+              {data.cfa.top.map((c, i) => {
+                const statutLabel =
+                  c.statut === "public"
+                    ? " (Public)"
+                    : c.statut === "prive"
+                      ? " (Privé)"
+                      : "";
+                const distLabel =
+                  c.distance_m < 1000
+                    ? `${c.distance_m} m`
+                    : `${(c.distance_m / 1000).toFixed(1)} km`;
+                return (
+                  <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 2 }}>
+                    • {c.nom}
+                    {statutLabel} — {distLabel}
+                    {c.walk_minutes ? ` · ${c.walk_minutes} min à pied` : ""}
+                  </Text>
+                );
+              })}
+            </>
+          )}
 
           {/* ── Section 3 — Écoles à proximité ──────────────────────────
               Union de 2 sources : Annuaire EN (noms officiels) + dim_poi_local

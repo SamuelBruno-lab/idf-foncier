@@ -32,6 +32,8 @@ export type DatasetKey =
   | "price_evolution_v3"
   | "lycees_bac"
   | "lycees_bac_5km"
+  // Bac professionnel IVAL (parallèle au GT)
+  | "lycees_pro_5km"
   | "points_interet"
   // ecoles_v2 : bump pour purger les caches négatifs accumulés (timeouts
   // antérieurs sur data.education.gouv.fr) et activer shouldCache.

@@ -46,6 +46,7 @@ import {
 } from "@/lib/datasets/surface-bucket-adjustment";
 import { getProximiteLocale } from "@/lib/datasets/proximite-locale";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
+import { getLyceesPro } from "@/lib/datasets/lycees-pro";
 import { getPointsInteret } from "@/lib/datasets/points-interet";
 import {
   findNearbyGrandsProjets,
@@ -259,6 +260,7 @@ export async function POST(
     communePriceCeiling,
     surfaceAdjustment,
     lyceesBac,
+    lyceesPro,
     pointsInteret,
     proximiteLocale,
     grandsProjets,
@@ -331,6 +333,10 @@ export async function POST(
             }).catch(() => null)
           : Promise.resolve(null),
         getLyceesBac(top.lat, top.lon).catch(() => null),
+        // Lycées d'enseignement PROFESSIONNEL (bac pro). Complète le dataset GT
+        // qui ne couvre que général + techno. Mention "85 % de réussite Bac pro"
+        // = argument concret pour vendeur en zone industrielle/banlieue.
+        getLyceesPro(top.lat, top.lon).catch(() => null),
         // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
         // Sert à enrichir la phrase argumentaire "proche de … comme la
         // Place des Vosges et le Centre Pompidou".
@@ -748,6 +754,49 @@ export async function POST(
             annee_session: l.annee_session,
           })),
         }
+      : null,
+    // Lycées professionnels (bac pro) — dataset IVAL parallèle au GT.
+    lycees_pro: lyceesPro && lyceesPro.available
+      ? {
+          count: lyceesPro.count,
+          top: lyceesPro.top.map((l) => ({
+            nom: l.nom,
+            statut: l.statut,
+            commune: l.commune,
+            dept: l.dept,
+            taux_reussite_pro: l.taux_reussite_pro,
+            taux_mention_pro: l.taux_mention_pro,
+            distance_m: l.distance_m,
+            annee_session: l.annee_session,
+          })),
+        }
+      : null,
+    // CFA (Centres de Formation d'Apprentis) — extraction depuis ecoles.ecoles
+    // qui contient déjà tous les types Annuaire EN. Filtre par type contenant
+    // "centre de formation d'apprentis" / "CFA" / "apprenti". Max 3 plus proches.
+    cfa: ecoles
+      ? (() => {
+          const matchesCfa = (s: string | null | undefined): boolean => {
+            if (!s) return false;
+            const v = s.toLowerCase();
+            return (
+              v.includes("centre de formation") ||
+              v.includes("apprenti") ||
+              v.includes("cfa")
+            );
+          };
+          const cfas = ecoles.ecoles
+            .filter((e) => matchesCfa(e.type) || matchesCfa(e.nature))
+            .slice(0, 3)
+            .map((e) => ({
+              nom: e.nom,
+              type: e.type,
+              statut: e.statut,
+              distance_m: e.distance_m,
+              walk_minutes: e.walk_minutes,
+            }));
+          return cfas.length > 0 ? { count: cfas.length, top: cfas } : null;
+        })()
       : null,
     points_interet: pointsInteret && pointsInteret.available
       ? {

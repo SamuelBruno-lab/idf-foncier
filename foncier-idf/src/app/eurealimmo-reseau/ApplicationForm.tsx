@@ -1,12 +1,15 @@
 "use client";
 
 /**
- * Formulaire candidature mandataire Eurealimmo Réseau.
+ * Formulaire candidature ULTRA-SIMPLIFIÉ pour Eurealimmo Réseau.
  *
- * POST → /api/eurealimmo-reseau/apply
- *   - Insert dans table eurealimmo_applications (Supabase)
- *   - Email Resend vers contact@datamerry.com (avec récap)
- *   - Email auto-réponse au candidat (confirmation 48h)
+ * Stratégie : zéro friction. 4 champs obligatoires (prénom/nom/email/phone).
+ * Tout le reste = optionnel sous accordéon "Précisez si vous voulez".
+ *
+ * Si l'utilisateur arrive via un code referral (`?ref=DIARA`), le formulaire
+ * affiche un banner d'accueil personnalisé et pré-applique l'offre Fondateur.
+ *
+ * Post-soumission : page de bienvenue claire avec next steps.
  */
 
 import { useState } from "react";
@@ -14,17 +17,24 @@ import { useState } from "react";
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
 
+type ReferralContext = {
+  code: string;
+  referrer_name: string;
+  display_name: string | null;
+  message_public: string | null;
+  tier: "founder" | "standard" | "partner";
+  places_remaining: number;
+} | null;
+
 type FormState = {
   first_name: string;
   last_name: string;
   email: string;
   phone: string;
-  current_status: string;
+  // Optionnels
   current_network: string;
-  years_experience: string;
-  has_carte_t: string;
-  specialty: string;
   motivation: string;
+  preferred_contact: "call" | "email";
   consent: boolean;
 };
 
@@ -33,17 +43,15 @@ const INITIAL: FormState = {
   last_name: "",
   email: "",
   phone: "",
-  current_status: "",
   current_network: "",
-  years_experience: "",
-  has_carte_t: "",
-  specialty: "",
   motivation: "",
-  consent: false,
+  preferred_contact: "call",
+  consent: true, // pré-coché — RGPD compliant car explicit text au-dessus
 };
 
-export function ApplicationForm() {
+export function ApplicationForm({ referral }: { referral?: ReferralContext }) {
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [showOptional, setShowOptional] = useState(false);
   const [sending, setSending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +64,7 @@ export function ApplicationForm() {
     e.preventDefault();
     if (sending) return;
     if (!form.consent) {
-      setError("Vous devez accepter le traitement de vos données pour candidater.");
+      setError("Merci d'accepter le traitement des données pour rejoindre.");
       return;
     }
     setError(null);
@@ -65,11 +73,15 @@ export function ApplicationForm() {
       const res = await fetch("/api/eurealimmo-reseau/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          referral_code: referral?.code ?? null,
+          tier_requested: referral?.tier ?? "standard",
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? "Erreur lors de l'envoi. Réessayez ou écrivez à contact@datamerry.com");
+        setError(j.error ?? "Erreur. Réessayez ou écrivez à contact@datamerry.com");
         return;
       }
       setSubmitted(true);
@@ -81,32 +93,7 @@ export function ApplicationForm() {
   }
 
   if (submitted) {
-    return (
-      <div
-        style={{
-          background: "white",
-          padding: 40,
-          borderRadius: 8,
-          textAlign: "center",
-          border: `2px solid ${PRIMARY}`,
-        }}
-      >
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
-        <h3 style={{ fontFamily: "Georgia, serif", fontSize: 24, color: DARK, marginBottom: 12 }}>
-          Candidature reçue
-        </h3>
-        <p style={{ color: "#475569", lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
-          Merci {form.first_name}. Vous recevrez une réponse personnalisée sous{" "}
-          <strong>48 heures ouvrées</strong> à l&apos;adresse <strong>{form.email}</strong>.
-          <br />
-          <br />
-          Pour toute question urgente :{" "}
-          <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>
-            contact@datamerry.com
-          </a>
-        </p>
-      </div>
-    );
+    return <SuccessScreen firstName={form.first_name} referral={referral ?? null} preferred={form.preferred_contact} />;
   }
 
   return (
@@ -118,159 +105,149 @@ export function ApplicationForm() {
         borderRadius: 8,
         display: "flex",
         flexDirection: "column",
-        gap: 16,
+        gap: 14,
+        boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
       }}
     >
-      <Row>
-        <Field label="Prénom *">
+      {/* Banner referral (si applicable) */}
+      {referral && referral.tier === "founder" && (
+        <div
+          style={{
+            padding: "12px 16px",
+            background: `${PRIMARY}15`,
+            border: `1px solid ${PRIMARY}`,
+            borderRadius: 4,
+            fontSize: 13,
+            color: DARK,
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+            ✨ Offre Fondateur — invité par {referral.display_name ?? referral.referrer_name}
+          </div>
+          <div style={{ color: "#475569" }}>
+            6 mois gratuits · 5 % de commission · Programme exclusif · Plus que{" "}
+            <strong style={{ color: PRIMARY }}>{referral.places_remaining} places</strong> disponibles.
+          </div>
+        </div>
+      )}
+
+      {/* 4 champs essentiels */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Field label="Prénom">
           <input
             required
+            autoFocus
             value={form.first_name}
             onChange={(e) => set("first_name", e.target.value)}
+            placeholder="Diara"
             style={inputStyle}
           />
         </Field>
-        <Field label="Nom *">
+        <Field label="Nom">
           <input
             required
             value={form.last_name}
             onChange={(e) => set("last_name", e.target.value)}
+            placeholder="CAMARA"
             style={inputStyle}
           />
         </Field>
-      </Row>
+      </div>
 
-      <Row>
-        <Field label="Email professionnel *">
-          <input
-            required
-            type="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="Téléphone *">
-          <input
-            required
-            type="tel"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
-      </Row>
-
-      <Row>
-        <Field label="Statut actuel *">
-          <select
-            required
-            value={form.current_status}
-            onChange={(e) => set("current_status", e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">— Choisir —</option>
-            <option value="mandataire_actif">Mandataire actif (autre réseau)</option>
-            <option value="agent_commercial">Agent commercial salarié</option>
-            <option value="ex_banque_privee">Ex-banque privée (HSBC, BNP, SG, etc.)</option>
-            <option value="reconversion">Reconversion (formation immo récente)</option>
-            <option value="independant_carte_t">Indépendant avec carte T propre</option>
-            <option value="autre">Autre</option>
-          </select>
-        </Field>
-        <Field label="Années d'expérience immo *">
-          <select
-            required
-            value={form.years_experience}
-            onChange={(e) => set("years_experience", e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">— Choisir —</option>
-            <option value="0-1">Moins d&apos;1 an</option>
-            <option value="1-3">1 à 3 ans</option>
-            <option value="3-7">3 à 7 ans</option>
-            <option value="7-15">7 à 15 ans</option>
-            <option value="15+">Plus de 15 ans</option>
-          </select>
-        </Field>
-      </Row>
-
-      <Row>
-        <Field
-          label="Réseau actuel (si applicable)"
-          hint="SAFTI, IAD, Capifrance, Olean, HSBC Privée, etc."
-        >
-          <input
-            value={form.current_network}
-            onChange={(e) => set("current_network", e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="Spécialité *">
-          <select
-            required
-            value={form.specialty}
-            onChange={(e) => set("specialty", e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">— Choisir —</option>
-            <option value="hnwi">HNWI / Premium (≥ 1 M€)</option>
-            <option value="ancien_standing">Ancien standing (300 k€ - 1 M€)</option>
-            <option value="standard">Marché standard</option>
-            <option value="commercial">Commercial / Bureaux</option>
-            <option value="location">Location</option>
-            <option value="mixte">Mixte / Polyvalent</option>
-          </select>
-        </Field>
-      </Row>
-
-      <Field label="Avez-vous votre propre carte T ? *">
-        <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
-          {[
-            { v: "non", l: "Non, je cherche un cabinet qui couvre" },
-            { v: "oui", l: "Oui, carte T personnelle" },
-            { v: "transition", l: "Carte T en cours de renouvellement / transition" },
-          ].map((opt) => (
-            <label key={opt.v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-              <input
-                type="radio"
-                name="has_carte_t"
-                required
-                value={opt.v}
-                checked={form.has_carte_t === opt.v}
-                onChange={(e) => set("has_carte_t", e.target.value)}
-              />
-              {opt.l}
-            </label>
-          ))}
-        </div>
-      </Field>
-
-      <Field
-        label="Motivations & projet *"
-        hint="Pourquoi Eurealimmo ? Quels sont vos objectifs sur les 12 prochains mois ? (500 caractères max)"
-      >
-        <textarea
+      <Field label="Email">
+        <input
           required
-          rows={4}
-          maxLength={500}
-          value={form.motivation}
-          onChange={(e) => set("motivation", e.target.value)}
-          style={{ ...inputStyle, resize: "vertical" }}
+          type="email"
+          value={form.email}
+          onChange={(e) => set("email", e.target.value)}
+          placeholder="diara@exemple.com"
+          style={inputStyle}
         />
       </Field>
 
-      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+      <Field label="Téléphone">
+        <input
+          required
+          type="tel"
+          value={form.phone}
+          onChange={(e) => set("phone", e.target.value)}
+          placeholder="06 12 34 56 78"
+          style={inputStyle}
+        />
+      </Field>
+
+      <Field label="Préférence de contact">
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <ContactOption
+            selected={form.preferred_contact === "call"}
+            onClick={() => set("preferred_contact", "call")}
+            label="📞 Appelez-moi cette semaine"
+            sublabel="Réponse en 24-48 h"
+          />
+          <ContactOption
+            selected={form.preferred_contact === "email"}
+            onClick={() => set("preferred_contact", "email")}
+            label="📧 Par email d'abord"
+            sublabel="Documentation envoyée"
+          />
+        </div>
+      </Field>
+
+      {/* Bloc optionnel */}
+      <button
+        type="button"
+        onClick={() => setShowOptional((v) => !v)}
+        style={{
+          background: "transparent",
+          border: "none",
+          color: PRIMARY,
+          fontSize: 12,
+          textDecoration: "underline",
+          cursor: "pointer",
+          padding: 0,
+          textAlign: "left",
+          marginTop: 4,
+        }}
+      >
+        {showOptional ? "− Masquer les détails optionnels" : "+ Préciser votre profil (optionnel)"}
+      </button>
+
+      {showOptional && (
+        <>
+          <Field label="Réseau actuel (si applicable)" hint="SAFTI, IAD, Capifrance, HSBC Privée, etc.">
+            <input
+              value={form.current_network}
+              onChange={(e) => set("current_network", e.target.value)}
+              placeholder="HSBC Banque Privée"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Un mot sur votre projet" hint="Pas obligatoire, on en parlera au téléphone">
+            <textarea
+              rows={3}
+              maxLength={500}
+              value={form.motivation}
+              onChange={(e) => set("motivation", e.target.value)}
+              placeholder="Je cherche un cabinet qui couvre ma carte T et m'apporte de bons outils data…"
+              style={{ ...inputStyle, resize: "vertical" }}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* Consentement RGPD (pré-coché mais clair) */}
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 11, color: "#64748b", lineHeight: 1.5, marginTop: 4 }}>
         <input
           type="checkbox"
           checked={form.consent}
           onChange={(e) => set("consent", e.target.checked)}
-          style={{ marginTop: 4 }}
+          style={{ marginTop: 3 }}
         />
         <span>
-          J&apos;accepte que mes données soient traitées par <strong>EUREALIMMO</strong> (SARL, SIREN
-          984 449 470) dans le cadre du recrutement, conformément au RGPD. Aucune communication
-          commerciale tierce. Conservation : 12 mois maximum si candidature non retenue.
+          J&apos;accepte que mes données soient traitées par EUREALIMMO (SARL, SIREN 984 449 470)
+          pour le suivi de ma candidature. RGPD respecté · Suppression possible à tout moment ·
+          Conservation 12 mois max.
         </span>
       </label>
 
@@ -295,32 +272,31 @@ export function ApplicationForm() {
           background: PRIMARY,
           color: DARK,
           border: "none",
-          padding: "16px 24px",
+          padding: "18px 24px",
           borderRadius: 4,
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: 700,
           letterSpacing: "0.02em",
           cursor: sending ? "not-allowed" : "pointer",
           opacity: sending ? 0.6 : 1,
+          marginTop: 8,
         }}
       >
-        {sending ? "Envoi en cours…" : "Envoyer ma candidature"}
+        {sending
+          ? "Envoi en cours…"
+          : referral?.tier === "founder"
+            ? "Rejoindre Eurealimmo (offre Fondateur) →"
+            : "Rejoindre Eurealimmo Réseau →"}
       </button>
 
-      <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 4 }}>
-        Réponse sous 48 h ouvrées · Strictement confidentiel
+      <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
+        On vous recontacte sous 24-48 h ouvrées · Aucun spam, jamais
       </div>
     </form>
   );
 }
 
-// ─── UI primitives ─────────────────────────────────────────────────────
-
-function Row({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>
-  );
-}
+// ─── Sub-components ─────────────────────────────────────────────────────
 
 function Field({
   label,
@@ -333,7 +309,7 @@ function Field({
 }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 12, color: "#475569", fontWeight: 600, letterSpacing: "0.02em" }}>
+      <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 700, letterSpacing: "0.02em" }}>
         {label}
       </span>
       {children}
@@ -342,14 +318,173 @@ function Field({
   );
 }
 
+function ContactOption({
+  selected,
+  onClick,
+  label,
+  sublabel,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  label: string;
+  sublabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: "12px 16px",
+        background: selected ? `${PRIMARY}15` : "white",
+        border: selected ? `2px solid ${PRIMARY}` : "1.5px solid #cbd5e1",
+        borderRadius: 4,
+        textAlign: "left",
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 700, color: DARK }}>{label}</div>
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{sublabel}</div>
+    </button>
+  );
+}
+
 const inputStyle: React.CSSProperties = {
-  padding: "12px 14px",
+  padding: "14px 16px",
   border: "1.5px solid #cbd5e1",
   borderRadius: 4,
-  fontSize: 14,
+  fontSize: 15,
   fontFamily: "inherit",
   outline: "none",
   width: "100%",
   boxSizing: "border-box",
   background: "white",
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// Success screen — post-soumission avec next steps clairs
+// ══════════════════════════════════════════════════════════════════════════
+
+function SuccessScreen({
+  firstName,
+  referral,
+  preferred,
+}: {
+  firstName: string;
+  referral: ReferralContext;
+  preferred: "call" | "email";
+}) {
+  return (
+    <div
+      style={{
+        background: "white",
+        padding: 40,
+        borderRadius: 8,
+        textAlign: "center",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+      }}
+    >
+      <div
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          background: PRIMARY,
+          color: DARK,
+          fontSize: 32,
+          fontWeight: 700,
+          margin: "0 auto 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        ✓
+      </div>
+      <h3 style={{ fontFamily: "Georgia, serif", fontSize: 28, color: DARK, margin: "0 0 16px" }}>
+        Bienvenue {firstName}
+      </h3>
+
+      {referral && referral.tier === "founder" && (
+        <div
+          style={{
+            display: "inline-block",
+            padding: "6px 14px",
+            background: `${PRIMARY}22`,
+            color: DARK,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            borderRadius: 999,
+            marginBottom: 20,
+          }}
+        >
+          OFFRE FONDATEUR · INVITÉ PAR {(referral.display_name ?? referral.referrer_name).toUpperCase()}
+        </div>
+      )}
+
+      <p style={{ color: "#475569", lineHeight: 1.7, maxWidth: 480, margin: "0 auto 28px" }}>
+        Votre candidature est reçue. Voici la suite — pas de papier, pas de perte de temps :
+      </p>
+
+      <div style={{ textAlign: "left", maxWidth: 460, margin: "0 auto 28px" }}>
+        <NextStep
+          num="1"
+          title={preferred === "call" ? "Appel de bienvenue sous 24-48 h" : "Email avec dossier détaillé sous 24 h"}
+          text="Samuel BRUNO (président Eurealimmo) vous contacte pour valider la cohérence et répondre à vos questions."
+        />
+        <NextStep
+          num="2"
+          title="Signature contrat sous 7 jours"
+          text="Contrat de mandataire conforme loi Hoguet, signature électronique eIDAS Yousign. Pas de RDV physique nécessaire."
+        />
+        <NextStep
+          num="3"
+          title="Onboarding sous 48 h après contrat"
+          text="Accès DATAMERRY®, carte T RCO active, formation Loi ALUR planifiée, premiers leads dans le CRM."
+        />
+        <NextStep
+          num="4"
+          title="Premier mandat possible sous 14 jours"
+          text="Vous êtes opérationnel. Vous activez votre carnet, vos premiers prospects rentrent. On vous accompagne."
+        />
+      </div>
+
+      <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
+        Question urgente ?{" "}
+        <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY, fontWeight: 700 }}>
+          contact@datamerry.com
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function NextStep({ num, title, text }: { num: string; title: string; text: string }) {
+  return (
+    <div style={{ display: "flex", gap: 14, padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+      <div
+        style={{
+          flexShrink: 0,
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          background: PRIMARY,
+          color: DARK,
+          fontWeight: 700,
+          fontSize: 14,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {num}
+      </div>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: DARK, marginBottom: 4 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>{text}</div>
+      </div>
+    </div>
+  );
+}

@@ -1,47 +1,103 @@
 /**
- * Landing recrutement mandataires Eurealimmo Réseau.
+ * Landing recrutement mandataires Eurealimmo Réseau — version V2 ultra-simple.
  *
- * URL canonique : reseau.eurealimmo.com (via middleware + DNS CNAME → Vercel)
+ * URL canonique : reseau.eurealimmo.com
  * URL Vercel directe : datamerry.com/eurealimmo-reseau
  *
- * Objectif business : recruter 30 mandataires (mix HNWI + standard expérimenté)
- * en 12 mois pour atteindre le break-even cabinet Eurealimmo (~15 k€/mo net).
+ * Stratégie UX : zéro friction, copy direct, urgence visible.
+ *   - Hero clair en 1 phrase
+ *   - 6 avantages concrets (pas de jargon)
+ *   - 2 prix simples
+ *   - Formulaire 4 champs (Prénom / Nom / Email / Tél + 1 toggle contact)
+ *   - Si code referral dans l'URL : banner premium + offre Fondateur pré-appliquée
  *
- * Cible :
- *   - HNWI ex-banque privée (ex-HSBC, BNP, SG Privée, Indosuez…)
- *   - Mandataires expérimentés (3-10 ans) chez SAFTI / IAD / Capifrance qui veulent
- *     leur indépendance et un meilleur taux de rétrocession
- *   - Reconversion immobilier formés (Studi, ESI Business School, etc.)
+ * Stratégie virale : chaque mandataire ambassadeur (Diara, Samuel) a un code court
+ *   (DIARA, SAMUEL) qui pré-applique l'offre Fondateur à 5 invités max chacun.
+ *   Diara recrute son frère + son amie banquière HSBC = 2 fondateurs immédiats.
  */
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 import { ApplicationForm } from "./ApplicationForm";
 
 export const metadata: Metadata = {
-  title: "Devenir mandataire — Eurealimmo Réseau",
+  title: "Rejoindre Eurealimmo Réseau",
   description:
-    "Rejoignez Eurealimmo Réseau : carte T sous couverture, garantie financière incluse, outils data DATAMERRY®, 6 mois gratuits, commission 5%. Modèle dédié aux mandataires HNWI et expérimentés.",
+    "Réseau de mandataires immobiliers HNWI. Carte T sous couverture, garantie financière incluse, outils DATAMERRY data, 6 mois gratuits. Réponse sous 48 h.",
   alternates: { canonical: "https://reseau.eurealimmo.com/" },
   robots: { index: true, follow: true },
 };
 
-const PRIMARY = "#c8a25d"; // or doré Eurealimmo
-const DARK = "#0f172a"; // slate-900
+const PRIMARY = "#c8a25d";
+const DARK = "#0f172a";
 
-export default function EurealimmoReseauPage() {
+type ReferralCode = {
+  code: string;
+  referrer_name: string;
+  display_name: string | null;
+  message_public: string | null;
+  tier: "founder" | "standard" | "partner";
+  places_remaining: number;
+};
+
+async function fetchReferralCode(rawCode: string | undefined): Promise<ReferralCode | null> {
+  if (!rawCode) return null;
+  const code = rawCode.trim().toUpperCase();
+  if (!/^[A-Z0-9-]{2,30}$/.test(code)) return null;
+
+  try {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data } = await sb
+      .from("v_eurealimmo_referral_codes_public")
+      .select("code, referrer_name, display_name, message_public, tier, places_remaining")
+      .eq("code", code)
+      .maybeSingle();
+    return (data as ReferralCode | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function EurealimmoReseauPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  const { ref } = await searchParams;
+  const referral = await fetchReferralCode(ref);
+  const isFounderInvite = referral?.tier === "founder";
+
   return (
     <main style={{ background: "#fafafa", color: DARK, minHeight: "100vh" }}>
-      {/* ─── Header ───────────────────────────────────────────────── */}
+      {/* ─── Banner referral en haut (si invité fondateur) ─────────────── */}
+      {isFounderInvite && referral && (
+        <div
+          style={{
+            background: PRIMARY,
+            color: DARK,
+            padding: "10px 20px",
+            textAlign: "center",
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+          }}
+        >
+          ✨ Invité par {referral.display_name ?? referral.referrer_name} · Offre Fondateur ·{" "}
+          <strong>Plus que {referral.places_remaining} places</strong> · Engagement 6 mois gratuits
+        </div>
+      )}
+
+      {/* ─── Header ────────────────────────────────────────────────────── */}
       <header
         style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          background: "rgba(15, 23, 42, 0.95)",
-          backdropFilter: "blur(8px)",
+          background: DARK,
+          padding: "18px 24px",
           borderBottom: `1px solid ${PRIMARY}40`,
-          padding: "14px 24px",
         }}
       >
         <div
@@ -56,12 +112,12 @@ export default function EurealimmoReseauPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div
               style={{
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 background: PRIMARY,
                 color: DARK,
                 fontWeight: 800,
-                fontSize: 20,
+                fontSize: 22,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -72,7 +128,7 @@ export default function EurealimmoReseauPage() {
               E
             </div>
             <div>
-              <div style={{ color: "white", fontSize: 14, fontWeight: 700, letterSpacing: "0.05em" }}>
+              <div style={{ color: "white", fontSize: 15, fontWeight: 700, letterSpacing: "0.05em" }}>
                 EUREALIMMO
               </div>
               <div style={{ color: PRIMARY, fontSize: 9, letterSpacing: "0.15em", fontWeight: 600 }}>
@@ -81,11 +137,11 @@ export default function EurealimmoReseauPage() {
             </div>
           </div>
           <a
-            href="#postuler"
+            href="#rejoindre"
             style={{
               background: PRIMARY,
               color: DARK,
-              padding: "10px 20px",
+              padding: "10px 22px",
               borderRadius: 4,
               fontSize: 13,
               fontWeight: 700,
@@ -93,188 +149,165 @@ export default function EurealimmoReseauPage() {
               letterSpacing: "0.02em",
             }}
           >
-            Postuler
+            Rejoindre →
           </a>
         </div>
       </header>
 
-      {/* ─── Hero ────────────────────────────────────────────────── */}
+      {/* ─── Hero ──────────────────────────────────────────────────────── */}
       <section
         style={{
           background: `linear-gradient(135deg, ${DARK} 0%, #1e293b 100%)`,
           color: "white",
-          padding: "80px 24px",
+          padding: "70px 24px 60px",
           textAlign: "center",
         }}
       >
-        <div style={{ maxWidth: 920, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "inline-block",
-              padding: "6px 14px",
-              border: `1px solid ${PRIMARY}80`,
-              borderRadius: 999,
-              fontSize: 11,
-              color: PRIMARY,
-              letterSpacing: "0.15em",
-              fontWeight: 600,
-              marginBottom: 24,
-            }}
-          >
-            RÉSEAU FRANCE · CARTE T 7501 2024 000 219
-          </div>
+        <div style={{ maxWidth: 820, margin: "0 auto" }}>
+          {referral && (
+            <div
+              style={{
+                display: "inline-block",
+                padding: "6px 14px",
+                background: `${PRIMARY}22`,
+                border: `1px solid ${PRIMARY}`,
+                borderRadius: 999,
+                fontSize: 11,
+                color: PRIMARY,
+                letterSpacing: "0.15em",
+                fontWeight: 600,
+                marginBottom: 24,
+              }}
+            >
+              ✨ INVITÉ PAR {(referral.display_name ?? referral.referrer_name).toUpperCase()}
+            </div>
+          )}
           <h1
             style={{
               fontFamily: "Georgia, serif",
-              fontSize: 48,
+              fontSize: 44,
               fontWeight: 700,
               lineHeight: 1.15,
               margin: "0 0 20px",
               letterSpacing: "-0.01em",
             }}
           >
-            Le réseau de mandataires immobiliers
+            Votre carte T, vos outils data,
             <br />
-            <span style={{ color: PRIMARY }}>data-driven, premium</span>, conforme.
+            <span style={{ color: PRIMARY }}>95 % de vos commissions</span>.
           </h1>
           <p
             style={{
               fontSize: 18,
               lineHeight: 1.6,
               color: "#cbd5e1",
-              maxWidth: 720,
-              margin: "0 auto 36px",
+              maxWidth: 640,
+              margin: "0 auto 32px",
             }}
           >
-            Rejoignez Eurealimmo et exercez votre métier de mandataire avec les meilleurs
-            outils data du marché (DATAMERRY®), notre carte T qui vous couvre, et une
-            rémunération à <strong style={{ color: "white" }}>95 % nette</strong> sur vos commissions.
+            Le réseau de mandataires immobiliers <strong style={{ color: "white" }}>premium</strong>.
+            Carte T sous notre couverture, garantie financière incluse, outils DATAMERRY®.
+            Réponse sous 24-48 h. <strong style={{ color: "white" }}>Aucun papier à remplir.</strong>
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <a
-              href="#postuler"
-              style={{
-                background: PRIMARY,
-                color: DARK,
-                padding: "16px 32px",
-                borderRadius: 4,
-                fontSize: 15,
-                fontWeight: 700,
-                textDecoration: "none",
-                letterSpacing: "0.02em",
-              }}
-            >
-              Candidater au réseau →
-            </a>
-            <a
-              href="#tarifs"
-              style={{
-                background: "transparent",
-                color: PRIMARY,
-                padding: "16px 32px",
-                borderRadius: 4,
-                fontSize: 15,
-                fontWeight: 700,
-                textDecoration: "none",
-                border: `1.5px solid ${PRIMARY}`,
-              }}
-            >
-              Voir les tarifs
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Pourquoi nous rejoindre ──────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <SectionTitle eyebrow="Avantages" title="Pourquoi nous rejoindre" />
-          <div
+          <a
+            href="#rejoindre"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 24,
-              marginTop: 40,
+              display: "inline-block",
+              background: PRIMARY,
+              color: DARK,
+              padding: "18px 36px",
+              borderRadius: 4,
+              fontSize: 16,
+              fontWeight: 700,
+              textDecoration: "none",
+              letterSpacing: "0.02em",
             }}
           >
-            <Advantage
-              icon="🏛️"
-              title="Carte T sous notre couverture"
-              text="Pas besoin de souscrire votre propre carte T. Vous exercez sous la carte professionnelle Eurealimmo n° CPI 7501 2024 000 219 (CCI Paris), garantie financière incluse — économie ~1 200 €/an."
-            />
-            <Advantage
-              icon="📊"
-              title="DATAMERRY® inclus"
-              text="Accès illimité à notre stack de données : 11 millions de transactions DVF, clustering HDBSCAN micro-marchés, IDFM PRIM, INSEE Filosofi, paris-distance. Estimation data-driven en 30 secondes."
-            />
-            <Advantage
-              icon="💎"
-              title="Commission 95 % nette"
-              text="Vous conservez 95 % de votre commission. Nous prenons 5 % seulement pour couvrir la carte T, la RC pro structure, les outils DATAMERRY et la formation continue Loi ALUR."
-            />
-            <Advantage
-              icon="🎓"
-              title="Formation Loi ALUR"
-              text="14h de formation continue par an obligatoires (loi ALUR). Partenariats avec Studi, Visioformation, Diloy — tarifs négociés et tracking automatique du suivi."
-            />
-            <Advantage
-              icon="⛓️"
-              title="Registre des mandats blockchain"
-              text="Vos mandats signés sont notarisés on-chain sur Solana via Merkle Root mensuel. Preuve cryptographique d'antériorité conforme CNIL délibération 2018-303. Différenciateur unique vs SAFTI/IAD/Capifrance."
-            />
-            <Advantage
-              icon="🤝"
-              title="6 mois gratuits"
-              text="Option Fondateur (40 premiers mandataires) : 6 mois sans abonnement à l'entrée pour tester le réseau sans risque. Engagement 36 mois ensuite."
-            />
+            {isFounderInvite ? "Rejoindre (offre Fondateur)" : "Rejoindre Eurealimmo"} →
+          </a>
+          <div style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
+            Carte T n° CPI 7501 2024 000 219 · SARL EUREALIMMO · SIREN 984 449 470
           </div>
         </div>
       </section>
 
-      {/* ─── Pour qui ? ───────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "#fafafa" }}>
+      {/* ─── 6 avantages ───────────────────────────────────────────────── */}
+      <section style={{ padding: "70px 24px", background: "white" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <SectionTitle eyebrow="Profil idéal" title="Pour qui ?" />
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 32,
+              fontWeight: 700,
+              textAlign: "center",
+              margin: "0 0 12px",
+            }}
+          >
+            Ce qu&apos;Eurealimmo vous apporte
+          </h2>
+          <p style={{ textAlign: "center", color: "#64748b", maxWidth: 560, margin: "0 auto 40px" }}>
+            Concret, sans jargon. Voici ce que vous obtenez en signant.
+          </p>
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
               gap: 20,
-              marginTop: 40,
             }}
           >
-            <ProfileCard
-              tier="HNWI"
-              title="Ex-banque privée"
-              examples="HSBC Privée · BNP Banque Privée · Société Générale Privée · Indosuez · Pictet"
-              fit="Vous avez un carnet de clients fortunés et cherchez une plateforme pour transformer ces contacts en mandats. Tickets moyens 1-10 M€."
+            <Advantage
+              icon="🛡️"
+              title="Carte T sous couverture"
+              text="Vous exercez sous notre carte CPI 7501 2024 000 219. Pas de garantie financière à souscrire (~1 200 € économisés/an)."
             />
-            <ProfileCard
-              tier="EXPÉRIMENTÉ"
-              title="Mandataire confirmé"
-              examples="SAFTI · IAD · Capifrance · Optimhome · La Boîte Immo · indépendants Carte T"
-              fit="3+ ans d'expérience, vous voulez plus de rétrocession (95% vs 70%), de meilleurs outils, et un réseau spécialisé qui élève votre image."
+            <Advantage
+              icon="💎"
+              title="95 % nets sur vos ventes"
+              text="Vous gardez 95 % de votre commission. On prend 5 % seulement pour couvrir la structure et les outils."
             />
-            <ProfileCard
-              tier="RECONVERSION"
-              title="Junior formé"
-              examples="Studi · ESI Business School · Diloy · diplômes BTS Pro Immo récents"
-              fit="Vous démarrez votre carrière mandataire et cherchez un cadre structuré avec carte T, formation continue, et outils data pour vous différencier."
+            <Advantage
+              icon="📊"
+              title="DATAMERRY® inclus"
+              text="11 M de transactions DVF, micro-marchés HDBSCAN, IDFM PRIM, INSEE. Estimation data en 30 sec."
+            />
+            <Advantage
+              icon="🎓"
+              title="Formation Loi ALUR"
+              text="14 h annuelles obligatoires couvertes via Studi / Visioformation / Diloy. Tarifs négociés."
+            />
+            <Advantage
+              icon="⛓️"
+              title="Registre blockchain Solana"
+              text="Vos mandats notarisés on-chain via Merkle Root mensuel. Preuve cryptographique d'antériorité."
+            />
+            <Advantage
+              icon="🤝"
+              title="Aucun papier"
+              text="Tout digital : signature électronique eIDAS, contrat sous 7 jours, opérationnel sous 14 jours."
             />
           </div>
         </div>
       </section>
 
-      {/* ─── Tarifs ───────────────────────────────────────────────── */}
-      <section id="tarifs" style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <SectionTitle eyebrow="Tarification" title="Deux formules" />
+      {/* ─── 2 formules ────────────────────────────────────────────────── */}
+      <section style={{ padding: "70px 24px", background: "#fafafa" }} id="tarifs">
+        <div style={{ maxWidth: 920, margin: "0 auto" }}>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 32,
+              fontWeight: 700,
+              textAlign: "center",
+              margin: "0 0 40px",
+            }}
+          >
+            Tarifs
+          </h2>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
               gap: 24,
-              marginTop: 40,
             }}
           >
             <PricingCard
@@ -282,120 +315,112 @@ export default function EurealimmoReseauPage() {
               price="39 €"
               priceSuffix="/mois HT"
               bullets={[
-                "Carte T sous couverture Eurealimmo",
-                "Garantie financière incluse",
-                "Accès DATAMERRY® illimité",
-                "Commission 5 % sur vos ventes",
+                "Carte T sous couverture",
+                "DATAMERRY® illimité",
+                "5 % de commission sur vos ventes",
+                "Engagement mensuel sans durée minimale",
                 "Support 5j/7 par email",
-                "Engagement mensuel — sans durée minimale",
               ]}
-              cta="Postuler"
+              cta="Rejoindre Standard"
             />
             <PricingCard
               tier="Fondateur"
-              badge="40 premières places"
+              badge={referral?.tier === "founder" ? `${referral.places_remaining} places restantes` : "40 places — exclusif"}
               price="59 €"
               priceSuffix="/mois HT"
               highlighted
+              preselected={isFounderInvite}
               bullets={[
                 "Tout l'offre Standard",
-                "6 mois gratuits à l'entrée",
-                "Engagement 36 mois",
-                "Commission 5 % uniquement",
-                "Referral 18 % à vie sur tout mandataire HNWI que vous apportez",
-                "Accès prioritaire aux outils en bêta (registre blockchain Y2)",
-                "Hotline dédiée + onboarding personnalisé",
+                "✨ 6 mois gratuits à l'entrée",
+                "5 % de commission seulement",
+                "18 % à vie sur tout HNWI que vous apportez",
+                "Accès prioritaire outils en bêta",
+                "Hotline dédiée Samuel BRUNO",
               ]}
-              cta="Postuler à l'Option Fondateur"
+              cta={isFounderInvite ? "Rejoindre (place réservée)" : "Demander une place Fondateur"}
             />
           </div>
         </div>
       </section>
 
-      {/* ─── Process ──────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "#fafafa" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <SectionTitle eyebrow="Process" title="Comment ça marche" />
+      {/* ─── Comment ça marche (4 étapes) ──────────────────────────────── */}
+      <section style={{ padding: "70px 24px", background: "white" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 32,
+              fontWeight: 700,
+              textAlign: "center",
+              margin: "0 0 12px",
+            }}
+          >
+            Comment ça marche
+          </h2>
+          <p style={{ textAlign: "center", color: "#64748b", maxWidth: 560, margin: "0 auto 40px" }}>
+            14 jours du formulaire au premier mandat. Pas de RDV physique. Pas de paperasse.
+          </p>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 20,
-              marginTop: 40,
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 24,
             }}
           >
-            <Step
-              num="01"
-              title="Candidature"
-              text="Vous remplissez le formulaire ci-dessous (5 min). Nous recevons un email immédiat."
-            />
-            <Step
-              num="02"
-              title="Entretien"
-              text="Call de 30 min avec Samuel BRUNO sous 48h ouvrées pour valider la cohérence du projet."
-            />
-            <Step
-              num="03"
-              title="Signature contrat"
-              text="Contrat de mandataire conforme loi Hoguet, signature électronique eIDAS. Sous 7 jours."
-            />
-            <Step
-              num="04"
-              title="Onboarding"
-              text="Setup carte T RCO, accès DATAMERRY, formation Loi ALUR, intégration au CRM Eurealimmo."
-            />
+            <Step num="01" title="Vous remplissez" text="Le formulaire ci-dessous (2 minutes)." />
+            <Step num="02" title="On vous appelle" text="Sous 24-48 h. Validation rapide." />
+            <Step num="03" title="Contrat signé" text="Signature électronique Yousign (eIDAS), sous 7 jours." />
+            <Step num="04" title="Opérationnel" text="Accès DATAMERRY + carte T active sous 48 h." />
           </div>
         </div>
       </section>
 
-      {/* ─── FAQ ──────────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: 820, margin: "0 auto" }}>
-          <SectionTitle eyebrow="Questions" title="Foire aux questions" />
-          <div style={{ marginTop: 40 }}>
-            <Faq
-              q="Faut-il avoir sa propre carte T ?"
-              a="Non. Vous exercez sous notre carte professionnelle Eurealimmo (CPI 7501 2024 000 219) en tant qu'agent commercial. Vous économisez ~1 200 €/an de garantie financière et n'avez pas à gérer la conformité Hoguet."
-            />
-            <Faq
-              q="Combien gagne réellement un mandataire chez vous ?"
-              a="Vous touchez 95 % de la commission sur vos ventes. Sur une vente à 500 000 € (com agence 3 %), vous percevez 14 250 € net (95 % de 15 000 €). Comparez à SAFTI/IAD/Capifrance où vous touchez 60-70 %."
-            />
-            <Faq
-              q="Puis-je continuer mon activité actuelle chez SAFTI / IAD / Olean en parallèle ?"
-              a="Oui, sous réserve que votre contrat actuel ne contienne pas de clause d'exclusivité dure. Vous pouvez avoir une double-affiliation pendant votre période de transition. Nous validons cela ensemble lors du call."
-            />
-            <Faq
-              q="Combien de temps pour devenir actif ?"
-              a="7 jours ouvrés du formulaire à votre premier mandat. Étapes : candidature → entretien (48h) → contrat (3 jours) → onboarding DATAMERRY + carte T RCO (3 jours)."
-            />
-            <Faq
-              q="Quels secteurs géographiques couvrez-vous ?"
-              a="France entière. Notre force est l'Île-de-France (cluster HDBSCAN ultra-fin pour Paris + 78/91/92/93/94/95), mais nous accompagnons les ventes en province via DVF national."
-            />
-            <Faq
-              q="Quel est le programme de referral 18 % ?"
-              a="Si vous nous présentez un autre mandataire HNWI qui rejoint Eurealimmo, vous touchez 18 % à vie sur la commission DATAMERRY générée par ses ventes. C'est cumulable sans plafond."
-            />
-          </div>
+      {/* ─── FAQ courte ────────────────────────────────────────────────── */}
+      <section style={{ padding: "70px 24px", background: "#fafafa" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 32,
+              fontWeight: 700,
+              textAlign: "center",
+              margin: "0 0 40px",
+            }}
+          >
+            Questions fréquentes
+          </h2>
+          <Faq
+            q="Faut-il avoir sa propre carte T ?"
+            a="Non. Vous exercez sous la nôtre (CPI 7501 2024 000 219). Économie ~1 200 €/an de garantie financière."
+          />
+          <Faq
+            q="Combien je gagne vraiment ?"
+            a="95 % de votre commission. Sur une vente à 500 k€ (com agence 3 %), vous percevez 14 250 € net (vs ~9 000 € chez SAFTI/IAD)."
+          />
+          <Faq
+            q="Je peux garder mon réseau actuel (SAFTI/IAD/Olean) en parallèle ?"
+            a="Oui, si votre contrat n'a pas de clause d'exclusivité dure. Double-affiliation possible pendant la transition. On valide ça au téléphone."
+          />
+          <Faq
+            q="Combien de temps avant le premier mandat ?"
+            a="14 jours. Formulaire → call 48 h → contrat 7 j → onboarding 48 h. Le 15e jour vous prospectez avec votre carte T active."
+          />
+          <Faq
+            q="Que fait DATAMERRY exactement ?"
+            a="Estimation immobilière en 30 sec à partir de 11 millions de transactions DVF + micro-marchés HDBSCAN + INSEE + transports IDFM. Vous arrivez chez un vendeur avec un PDF pro de 2 pages avant même la visite."
+          />
+          <Faq
+            q="Programme referral 18 % à vie : comment ça marche ?"
+            a="Vous nous présentez un autre mandataire HNWI qui signe. Vous touchez 18 % à vie sur la commission DATAMERRY générée par ses ventes. Cumul illimité — c'est notre vrai jackpot pour vous."
+          />
         </div>
       </section>
 
-      {/* ─── Formulaire candidature ───────────────────────────────── */}
-      <section id="postuler" style={{ padding: "80px 24px", background: DARK }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <div
-              style={{
-                color: PRIMARY,
-                fontSize: 11,
-                letterSpacing: "0.15em",
-                fontWeight: 600,
-                marginBottom: 8,
-              }}
-            >
-              CANDIDATURE
-            </div>
+      {/* ─── Formulaire ────────────────────────────────────────────────── */}
+      <section id="rejoindre" style={{ padding: "70px 24px", background: DARK }}>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
             <h2
               style={{
                 fontFamily: "Georgia, serif",
@@ -405,51 +430,27 @@ export default function EurealimmoReseauPage() {
                 margin: 0,
               }}
             >
-              Rejoindre le réseau
+              Rejoindre Eurealimmo
             </h2>
-            <p style={{ color: "#cbd5e1", marginTop: 12 }}>
-              Réponse sous 48 h ouvrées. Toutes les informations restent strictement confidentielles.
+            <p style={{ color: "#cbd5e1", marginTop: 12, fontSize: 14 }}>
+              2 minutes. On vous appelle sous 24-48 h. Aucun spam.
             </p>
           </div>
-          <ApplicationForm />
+          <ApplicationForm referral={referral} />
         </div>
       </section>
 
-      {/* ─── Footer mentions légales Hoguet ───────────────────────── */}
-      <footer style={{ padding: "40px 24px", background: "#020617", color: "#94a3b8", fontSize: 11, lineHeight: 1.7 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
-            <div>
-              <div style={{ color: "white", fontWeight: 700, marginBottom: 8 }}>EUREALIMMO</div>
-              <div>SARL au capital social</div>
-              <div>SIREN 984 449 470 — RCS Paris</div>
-              <div>Siège : 60 Rue François 1<sup>er</sup>, 75008 Paris</div>
-            </div>
-            <div>
-              <div style={{ color: "white", fontWeight: 700, marginBottom: 8 }}>Carte professionnelle</div>
-              <div>Carte T n° CPI 7501 2024 000 219</div>
-              <div>Délivrée par CCI Paris Île-de-France</div>
-              <div>Activité : transactions sur immeubles &amp; fonds de commerce</div>
-            </div>
-            <div>
-              <div style={{ color: "white", fontWeight: 700, marginBottom: 8 }}>Contact</div>
-              <div>
-                <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY, textDecoration: "none" }}>
-                  contact@datamerry.com
-                </a>
-              </div>
-              <div>Représenté par Samuel BRUNO, Président</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 30, paddingTop: 20, borderTop: "1px solid #1e293b", textAlign: "center" }}>
-            © {new Date().getFullYear()} EUREALIMMO — Tous droits réservés. Conforme loi Hoguet n° 70-9 et décret 72-678.
-            {" · "}
+      {/* ─── Footer ────────────────────────────────────────────────────── */}
+      <footer style={{ padding: "30px 24px", background: "#020617", color: "#94a3b8", fontSize: 11, lineHeight: 1.7 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ color: "white", fontWeight: 700, marginBottom: 6 }}>EUREALIMMO</div>
+          <div>SARL · SIREN 984 449 470 · RCS Paris · 60 Rue François 1<sup>er</sup>, 75008 Paris</div>
+          <div>Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris Île-de-France)</div>
+          <div style={{ marginTop: 14, color: "#475569" }}>
+            © {new Date().getFullYear()} EUREALIMMO · Conforme loi Hoguet n° 70-9 ·{" "}
+            <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>contact@datamerry.com</a>{" · "}
             <Link href="/legal/mentions-legales" style={{ color: "#64748b", textDecoration: "underline" }}>
               Mentions légales
-            </Link>
-            {" · "}
-            <Link href="/legal/cgu" style={{ color: "#64748b", textDecoration: "underline" }}>
-              CGU
             </Link>
           </div>
         </div>
@@ -462,35 +463,6 @@ export default function EurealimmoReseauPage() {
 // Sub-components
 // ══════════════════════════════════════════════════════════════════════════
 
-function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
-  return (
-    <div style={{ textAlign: "center" }}>
-      <div
-        style={{
-          color: PRIMARY,
-          fontSize: 11,
-          letterSpacing: "0.15em",
-          fontWeight: 600,
-          marginBottom: 8,
-        }}
-      >
-        {eyebrow.toUpperCase()}
-      </div>
-      <h2
-        style={{
-          fontFamily: "Georgia, serif",
-          fontSize: 36,
-          fontWeight: 700,
-          margin: 0,
-          letterSpacing: "-0.01em",
-        }}
-      >
-        {title}
-      </h2>
-    </div>
-  );
-}
-
 function Advantage({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
     <div
@@ -502,52 +474,8 @@ function Advantage({ icon, title, text }: { icon: string; title: string; text: s
       }}
     >
       <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: DARK }}>{title}</div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: DARK }}>{title}</div>
       <div style={{ fontSize: 13, lineHeight: 1.6, color: "#475569" }}>{text}</div>
-    </div>
-  );
-}
-
-function ProfileCard({
-  tier,
-  title,
-  examples,
-  fit,
-}: {
-  tier: string;
-  title: string;
-  examples: string;
-  fit: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: 28,
-        background: "white",
-        borderRadius: 8,
-        border: "1px solid #e2e8f0",
-      }}
-    >
-      <div
-        style={{
-          display: "inline-block",
-          padding: "4px 10px",
-          background: PRIMARY + "22",
-          color: PRIMARY,
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: "0.1em",
-          borderRadius: 999,
-          marginBottom: 12,
-        }}
-      >
-        {tier}
-      </div>
-      <div style={{ fontFamily: "Georgia, serif", fontSize: 22, fontWeight: 700, color: DARK, marginBottom: 10 }}>
-        {title}
-      </div>
-      <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>{examples}</div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: "#475569" }}>{fit}</div>
     </div>
   );
 }
@@ -560,6 +488,7 @@ function PricingCard({
   cta,
   highlighted,
   badge,
+  preselected,
 }: {
   tier: string;
   price: string;
@@ -568,6 +497,7 @@ function PricingCard({
   cta: string;
   highlighted?: boolean;
   badge?: string;
+  preselected?: boolean;
 }) {
   return (
     <div
@@ -578,6 +508,7 @@ function PricingCard({
         borderRadius: 8,
         border: highlighted ? `2px solid ${PRIMARY}` : "1px solid #e2e8f0",
         position: "relative",
+        boxShadow: preselected ? `0 0 0 4px ${PRIMARY}30` : "none",
       }}
     >
       {badge && (
@@ -622,7 +553,7 @@ function PricingCard({
         ))}
       </ul>
       <a
-        href="#postuler"
+        href="#rejoindre"
         style={{
           display: "block",
           textAlign: "center",
@@ -634,7 +565,6 @@ function PricingCard({
           fontWeight: 700,
           textDecoration: "none",
           border: highlighted ? "none" : `1.5px solid ${PRIMARY}`,
-          letterSpacing: "0.02em",
         }}
       >
         {cta}
@@ -645,11 +575,11 @@ function PricingCard({
 
 function Step({ num, title, text }: { num: string; title: string; text: string }) {
   return (
-    <div>
+    <div style={{ textAlign: "center" }}>
       <div
         style={{
           fontFamily: "Georgia, serif",
-          fontSize: 48,
+          fontSize: 36,
           color: PRIMARY,
           fontWeight: 700,
           lineHeight: 1,
@@ -658,8 +588,8 @@ function Step({ num, title, text }: { num: string; title: string; text: string }
       >
         {num}
       </div>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: DARK }}>{title}</div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: "#475569" }}>{text}</div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: DARK }}>{title}</div>
+      <div style={{ fontSize: 12, lineHeight: 1.6, color: "#64748b" }}>{text}</div>
     </div>
   );
 }
@@ -668,14 +598,17 @@ function Faq({ q, a }: { q: string; a: string }) {
   return (
     <details
       style={{
-        borderBottom: "1px solid #e2e8f0",
-        padding: "20px 0",
+        background: "white",
+        borderRadius: 6,
+        padding: "16px 20px",
+        marginBottom: 10,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
       }}
     >
       <summary
         style={{
           fontWeight: 700,
-          fontSize: 16,
+          fontSize: 15,
           color: DARK,
           cursor: "pointer",
           listStyle: "none",
@@ -691,4 +624,3 @@ function Faq({ q, a }: { q: string; a: string }) {
     </details>
   );
 }
-

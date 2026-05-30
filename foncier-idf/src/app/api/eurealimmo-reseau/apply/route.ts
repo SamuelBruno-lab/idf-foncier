@@ -50,6 +50,10 @@ type Payload = {
   motivation?: string;
   consent?: boolean;
   referred_by_email?: string;
+  // Form simplifié V2 :
+  preferred_contact?: "call" | "email";
+  referral_code?: string;
+  tier_requested?: "founder" | "standard" | "partner";
 };
 
 function getSupabase() {
@@ -73,17 +77,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const last_name = (body.last_name ?? "").trim().slice(0, 100);
   const email = (body.email ?? "").trim().toLowerCase().slice(0, 200);
   const phone = (body.phone ?? "").trim().slice(0, 30);
-  const current_status = (body.current_status ?? "").trim();
+  // Champs optionnels (formulaire V2 simplifié)
+  const current_status = (body.current_status ?? "autre").trim();
   const current_network = (body.current_network ?? "").trim().slice(0, 200) || null;
-  const years_experience = (body.years_experience ?? "").trim();
-  const has_carte_t = (body.has_carte_t ?? "").trim();
-  const specialty = (body.specialty ?? "").trim();
+  const years_experience = (body.years_experience ?? "3-7").trim();
+  const has_carte_t = (body.has_carte_t ?? "non").trim();
+  const specialty = (body.specialty ?? "mixte").trim();
   const motivation = (body.motivation ?? "").trim().slice(0, 1000);
   const consent = Boolean(body.consent);
   const referred_by_email =
     (body.referred_by_email ?? "").trim().toLowerCase().slice(0, 200) || null;
+  const preferred_contact = body.preferred_contact === "email" ? "email" : "call";
+  const referral_code_raw = (body.referral_code ?? "").trim().toUpperCase();
+  const referral_code = /^[A-Z0-9-]{2,30}$/.test(referral_code_raw) ? referral_code_raw : null;
+  const tier_requested = body.tier_requested === "founder" ? "founder" : "standard";
 
-  // Validations strictes
+  // Validations strictes des champs essentiels uniquement
   if (!first_name || !last_name) {
     return NextResponse.json({ ok: false, error: "name_required" }, { status: 400 });
   }
@@ -93,6 +102,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (phone.length < 6) {
     return NextResponse.json({ ok: false, error: "invalid_phone" }, { status: 400 });
   }
+  // Validations fallback enums (avec valeurs par défaut, donc toujours valides)
   if (!VALID_STATUS.has(current_status)) {
     return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
   }
@@ -105,14 +115,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!VALID_SPECIALTY.has(specialty)) {
     return NextResponse.json({ ok: false, error: "invalid_specialty" }, { status: 400 });
   }
-  if (motivation.length < 20) {
-    return NextResponse.json({ ok: false, error: "motivation_too_short" }, { status: 400 });
-  }
   if (!consent) {
     return NextResponse.json({ ok: false, error: "consent_required" }, { status: 400 });
   }
 
-  // Anti-spam : check honeypot keywords
+  // Anti-spam : check honeypot keywords (motivation libre)
   const spamKeywords = /viagra|casino|crypto.*invest|seo.*service|backlinks/i;
   if (spamKeywords.test(motivation) || spamKeywords.test(current_network ?? "")) {
     return NextResponse.json({ ok: false, error: "rejected" }, { status: 400 });
@@ -126,8 +133,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const ip_hash = createHash("sha256").update(ip).digest("hex").slice(0, 24);
   const user_agent = req.headers.get("user-agent")?.slice(0, 400) ?? "";
 
-  // ─── 3. Insert Supabase ─────────────────────────────────────────
+  // ─── 3. Si code referral fourni : valider et récupérer l'owner ──
   const sb = getSupabase();
+  let referrerInfo: { code: string; referrer_name: string; owner_email: string; tier: string } | null = null;
+  if (referral_code) {
+    const { data: codeRow } = await sb
+      .from("eurealimmo_referral_codes")
+      .select("code, owner_name, owner_email, tier, max_uses, current_uses, is_active, expires_at")
+      .eq("code", referral_code)
+      .eq("is_active", true)
+      .maybeSingle();
+    const row = codeRow as
+      | {
+          code: string;
+          owner_name: string;
+          owner_email: string;
+          tier: string;
+          max_uses: number;
+          current_uses: number;
+          expires_at: string | null;
+        }
+      | null;
+    if (row && row.current_uses < row.max_uses) {
+      const notExpired = !row.expires_at || new Date(row.expires_at) > new Date();
+      if (notExpired) {
+        referrerInfo = {
+          code: row.code,
+          referrer_name: row.owner_name,
+          owner_email: row.owner_email,
+          tier: row.tier,
+        };
+      }
+    }
+  }
+
+  // ─── 4. Insert Supabase ─────────────────────────────────────────
   const { data: inserted, error: insertErr } = await sb
     .from("eurealimmo_applications")
     .insert({
@@ -140,13 +180,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       years_experience,
       has_carte_t,
       specialty,
-      motivation,
+      motivation: motivation || `Contact préféré : ${preferred_contact}`,
       consent_given: true,
       consent_given_at: new Date().toISOString(),
       ip_hash,
       user_agent,
-      source: referred_by_email ? "referral" : "website",
-      referred_by_email,
+      source: referrerInfo ? "referral" : referred_by_email ? "referral" : "website",
+      referred_by_email: referrerInfo?.owner_email ?? referred_by_email,
     })
     .select("id")
     .maybeSingle();
@@ -161,7 +201,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const application_id = (inserted as { id?: string } | null)?.id ?? "unknown";
 
-  // ─── 4. Emails Resend (non-bloquants) ───────────────────────────
+  // ─── 5. Emails Resend (non-bloquants) ───────────────────────────
   void sendNotificationEmails({
     application_id,
     first_name,
@@ -174,10 +214,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     has_carte_t,
     specialty,
     motivation,
-    referred_by_email,
+    referred_by_email: referrerInfo?.owner_email ?? referred_by_email,
+    referrer_name: referrerInfo?.referrer_name ?? null,
+    tier_requested: referrerInfo?.tier ?? tier_requested,
+    preferred_contact,
   });
 
-  return NextResponse.json({ ok: true, application_id });
+  return NextResponse.json({
+    ok: true,
+    application_id,
+    tier_applied: referrerInfo?.tier ?? "standard",
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -197,6 +244,9 @@ type EmailContext = {
   specialty: string;
   motivation: string;
   referred_by_email: string | null;
+  referrer_name: string | null;
+  tier_requested: string;
+  preferred_contact: "call" | "email";
 };
 
 async function sendNotificationEmails(ctx: EmailContext) {
@@ -237,11 +287,23 @@ async function sendNotificationEmails(ctx: EmailContext) {
 }
 
 function buildAdminEmail(ctx: EmailContext): string {
+  const tierBadge =
+    ctx.tier_requested === "founder"
+      ? `<span style="background:#c8a25d;color:#0f172a;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.1em;">FONDATEUR</span>`
+      : "";
   return `
 <!DOCTYPE html>
 <html><body style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #0f172a;">Nouvelle candidature mandataire</h2>
+  <h2 style="color: #0f172a;">Nouvelle candidature ${tierBadge}</h2>
   <p style="color: #475569;">Reçue le ${new Date().toLocaleString("fr-FR")} via reseau.eurealimmo.com</p>
+  ${
+    ctx.referrer_name
+      ? `<p style="background:#fef3c7;padding:10px 14px;border-left:3px solid #c8a25d;color:#78350f;">
+           ✨ <strong>Recommandé par ${ctx.referrer_name}</strong> (programme Fondateur — referral 18% à vie)
+         </p>`
+      : ""
+  }
+  <p style="color: #475569;"><strong>Contact préféré :</strong> ${ctx.preferred_contact === "call" ? "📞 Appel" : "📧 Email"}</p>
 
   <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
     <tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><strong>Nom</strong></td>

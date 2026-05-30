@@ -37,6 +37,7 @@ export type EtablissementSupCategorie =
   | "universite"
   | "ecole_ingenieur"
   | "ecole_commerce"
+  | "ecole_sante"
   | "iep"
   | "institut"
   | "autre";
@@ -73,7 +74,12 @@ function categorize(typeStr: string, nom: string): EtablissementSupCategorie {
   const t = (typeStr ?? "").toLowerCase();
   const n = (nom ?? "").toLowerCase();
   const blob = `${t} ${n}`;
-  // Ordre : checks les plus spécifiques d'abord
+  // Ordre : checks les plus spécifiques d'abord. Santé checké AVANT université
+  // (sinon "Faculté de médecine de Sorbonne" tombe en "universite").
+  if (
+    /ifsi\b|ifas\b|ifap\b|ifmem\b|institut de formation en soins infirmiers|institut de formation d'aides?-soignants?|école d'infirmi|école de sages?-femmes?|école de maïeutique|école de kinésithérap|école d'?ostéopathie|école dentaire|école de pharmacie|école vétérinaire|école de santé|faculté de médecine|faculté de pharmacie|faculté d'?odontologie|faculté de chirurgie dentaire|école nationale vétérinaire|école nationale de la santé|ufr (de )?(médecine|pharmacie|odontologie|santé)|institut paramédical/.test(blob)
+  )
+    return "ecole_sante";
   if (/sciences? po|iep|institut d'?études politiques/.test(blob)) return "iep";
   if (/école d'?ingénieur|insa\b|ensam|école centrale|polytechnique|mines paristech|enac|enpc|ecam|epita|epitech|isep|esme|esilv|école nationale supérieure (?!d'arts|de la magistrature)|ens cachan|ens lyon|ens paris/.test(blob))
     return "ecole_ingenieur";
@@ -242,6 +248,7 @@ async function fetchEtabSupFromOds(
       universite: 0,
       ecole_ingenieur: 0,
       ecole_commerce: 0,
+      ecole_sante: 0,
       iep: 0,
       institut: 0,
       autre: 0,
@@ -266,6 +273,7 @@ async function fetchEtabSupFromOds(
         universite: 0,
         ecole_ingenieur: 0,
         ecole_commerce: 0,
+        ecole_sante: 0,
         iep: 0,
         institut: 0,
         autre: 0,
@@ -290,7 +298,7 @@ export async function getEtablissementsSup(
   const { data, cached } = await fetchWithCache<EtablissementsSupResult>(
     hash,
     { lat, lon },
-    "etablissements_sup_10km",
+    "etablissements_sup_10km_v2",
     TTL_DAYS,
     () => fetchEtabSupFromOds(lat, lon, radius_m),
     0,

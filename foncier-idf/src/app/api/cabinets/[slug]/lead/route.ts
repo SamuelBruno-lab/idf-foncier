@@ -48,6 +48,7 @@ import { getProximiteLocale } from "@/lib/datasets/proximite-locale";
 import { getLyceesBac } from "@/lib/datasets/lycees-bac";
 import { getLyceesPro } from "@/lib/datasets/lycees-pro";
 import { getEtablissementsSup } from "@/lib/datasets/etablissements-sup";
+import { getEcolesSanteFiness } from "@/lib/datasets/ecoles-sante-finess";
 import { getPointsInteret } from "@/lib/datasets/points-interet";
 import {
   findNearbyGrandsProjets,
@@ -263,6 +264,7 @@ export async function POST(
     lyceesBac,
     lyceesPro,
     etablissementsSup,
+    ecolesSanteFiness,
     pointsInteret,
     proximiteLocale,
     grandsProjets,
@@ -342,6 +344,9 @@ export async function POST(
         // Enseignement SUPÉRIEUR (universités, grandes écoles, IUT, IEP).
         // Rayon 10 km : étudiant accepte 30 min de trajet. Source ESR.
         getEtablissementsSup(top.lat, top.lon).catch(() => null),
+        // Écoles paramédicales FINESS : IFSI privés, kiné, ortho, sage-femme…
+        // Complète l'ESR qui ne contient que les établissements universitaires.
+        getEcolesSanteFiness(top.lat, top.lon).catch(() => null),
         // Top 2 points d'intérêts notables (Overpass + filtre wikipedia=*).
         // Sert à enrichir la phrase argumentaire "proche de … comme la
         // Place des Vosges et le Centre Pompidou".
@@ -789,6 +794,21 @@ export async function POST(
             commune: e.commune,
             distance_m: e.distance_m,
             prestige: e.prestige,
+          })),
+        }
+      : null,
+    // Écoles paramédicales FINESS (IFSI privés, kiné, ortho, sage-femme…)
+    // Complète etablissements_sup (qui couvre les facultés médecine/pharmacie
+    // universitaires rattachées à un CHU).
+    ecoles_sante: ecolesSanteFiness && ecolesSanteFiness.available
+      ? {
+          count: ecolesSanteFiness.count,
+          top: ecolesSanteFiness.top.map((e) => ({
+            nom: e.nom,
+            type: e.type,
+            categorie_finess: e.categorie_finess,
+            commune: e.commune,
+            distance_m: e.distance_m,
           })),
         }
       : null,

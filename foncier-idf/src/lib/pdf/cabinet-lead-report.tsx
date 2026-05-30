@@ -197,13 +197,14 @@ export type CabinetLeadReportData = {
     }>;
   } | null;
 
-  /** Enseignement supérieur (universités, grandes écoles, IUT, IEP, instituts) */
+  /** Enseignement supérieur (universités, grandes écoles, IUT, IEP, instituts, écoles de santé) */
   etablissements_sup?: {
     count: number;
     par_categorie: {
       universite: number;
       ecole_ingenieur: number;
       ecole_commerce: number;
+      ecole_sante: number;
       iep: number;
       institut: number;
       autre: number;
@@ -214,6 +215,7 @@ export type CabinetLeadReportData = {
         | "universite"
         | "ecole_ingenieur"
         | "ecole_commerce"
+        | "ecole_sante"
         | "iep"
         | "institut"
         | "autre";
@@ -221,6 +223,18 @@ export type CabinetLeadReportData = {
       commune: string;
       distance_m: number;
       prestige: boolean;
+    }>;
+  } | null;
+
+  /** Écoles paramédicales FINESS (IFSI privés, kiné, ortho, sage-femme…) */
+  ecoles_sante?: {
+    count: number;
+    top: Array<{
+      nom: string;
+      type: "ifsi" | "ifas_ifap" | "kine_ortho" | "sage_femme" | "autre_sante";
+      categorie_finess: string;
+      commune: string;
+      distance_m: number;
     }>;
   } | null;
 
@@ -1839,6 +1853,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               universite: "Universités",
               ecole_ingenieur: "Écoles d'ingénieurs",
               ecole_commerce: "Écoles de commerce",
+              ecole_sante: "Médecine, pharmacie, santé",
               iep: "Sciences Po / IEP",
               institut: "Instituts",
               autre: "Autres",
@@ -1851,8 +1866,8 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               arr.push(e);
               groups.set(e.categorie, arr);
             }
-            // Ordre éditorial : prestige avant tout, puis universités, ingé, commerce, IEP, instituts
-            const ORDER = ["ecole_ingenieur", "ecole_commerce", "iep", "universite", "institut", "autre"];
+            // Ordre éditorial : prestige avant tout, puis universités, ingé, commerce, santé, IEP, instituts
+            const ORDER = ["ecole_ingenieur", "ecole_commerce", "ecole_sante", "iep", "universite", "institut", "autre"];
             const ordered = ORDER.filter((c) => groups.has(c));
             return (
               <>
@@ -1900,6 +1915,55 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
                             </View>
                           )}
                         </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </>
+            );
+          })()}
+
+          {/* ── Écoles paramédicales (FINESS) ────────────────────────────
+              IFSI / IFAS / IFAP / kiné / ortho / sage-femme hors universitaire.
+              Source : FINESS (data.gouv.fr ministère Santé). Complète l'ESR
+              qui ne contient que les facultés rattachées à un CHU. */}
+          {data.ecoles_sante && data.ecoles_sante.top.length > 0 && (() => {
+            const TYPE_LABEL: Record<string, string> = {
+              ifsi: "Instituts de Formation en Soins Infirmiers (IFSI)",
+              ifas_ifap: "Aides-soignants / Auxiliaires de puériculture",
+              kine_ortho: "Kinésithérapie / Orthophonie / Ergothérapie",
+              sage_femme: "Sages-femmes / Maïeutique",
+              autre_sante: "Autres écoles paramédicales",
+            };
+            const groups = new Map<string, typeof data.ecoles_sante.top>();
+            for (const e of data.ecoles_sante.top) {
+              const arr = groups.get(e.type) ?? [];
+              arr.push(e);
+              groups.set(e.type, arr);
+            }
+            const ORDER_TYPES = ["ifsi", "kine_ortho", "sage_femme", "ifas_ifap", "autre_sante"];
+            const ordered = ORDER_TYPES.filter((t) => groups.has(t));
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Écoles paramédicales à proximité</Text>
+                <Text style={{ fontSize: 9, color: "#64748b", marginBottom: 6 }}>
+                  Source : FINESS (ministère de la Santé) — rayon 10 km.
+                </Text>
+                {ordered.map((t) => (
+                  <View key={t} style={{ marginBottom: 4 }}>
+                    <Text style={{ fontSize: 10, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>
+                      {TYPE_LABEL[t] ?? t}
+                    </Text>
+                    {(groups.get(t) ?? []).map((e, i) => {
+                      const distLabel =
+                        e.distance_m < 1000
+                          ? `${e.distance_m} m`
+                          : `${(e.distance_m / 1000).toFixed(1)} km`;
+                      return (
+                        <Text key={i} style={{ fontSize: 10, color: "#0f172a", marginBottom: 1 }}>
+                          • {e.nom}
+                          {e.commune ? ` (${e.commune})` : ""} — {distLabel}
+                        </Text>
                       );
                     })}
                   </View>

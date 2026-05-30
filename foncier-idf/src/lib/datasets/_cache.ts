@@ -36,6 +36,10 @@ export type DatasetKey =
   | "lycees_pro_5km"
   // Enseignement supérieur : universités, grandes écoles, IUT, IEP, instituts
   | "etablissements_sup_10km"
+  // v2 : ajout catégorie ecole_sante (médecine, IFSI, kiné, pharmacie, dentaire…)
+  | "etablissements_sup_10km_v2"
+  // Écoles paramédicales hors ESR (IFSI privés, kiné privés…) depuis FINESS
+  | "ecoles_sante_finess_10km"
   | "points_interet"
   // ecoles_v2 : bump pour purger les caches négatifs accumulés (timeouts
   // antérieurs sur data.education.gouv.fr) et activer shouldCache.

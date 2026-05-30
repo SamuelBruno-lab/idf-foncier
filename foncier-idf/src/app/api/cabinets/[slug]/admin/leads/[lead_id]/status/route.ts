@@ -66,36 +66,60 @@ export async function PATCH(
   const sb = getSupabase();
 
   // Vérif d'abord que ce lead appartient bien à ce cabinet (sécurité)
-  const { data: lead } = await sb
+  // ET récupère l'ancien statut pour l'historique
+  const { data: leadRow, error: leadErr } = await sb
     .from("dim_cabinet_leads")
-    .select("id, cabinet_slug")
+    .select("id, cabinet_slug, status")
     .eq("id", lead_id)
     .maybeSingle();
 
+  if (leadErr) {
+    console.error("[admin/leads/status] lead lookup error:", leadErr);
+    return NextResponse.json(
+      { error: "db_error", details: leadErr.message },
+      { status: 500 },
+    );
+  }
+  const lead = leadRow as unknown as { id: string; cabinet_slug: string; status: string } | null;
   if (!lead || lead.cabinet_slug !== slug) {
     return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
   }
 
-  // Appel de la fonction Postgres change_lead_status (log auto dans history)
-  const { data: result, error } = await sb.rpc("change_lead_status", {
-    p_lead_id: lead_id,
-    p_new_status: newStatus,
-    p_changed_by_email: session.email,
-    p_note: note,
-  });
+  const oldStatus = lead.status;
+  const changedAt = new Date().toISOString();
 
-  if (error) {
-    console.error("[admin/leads/status] rpc error:", error);
-    return NextResponse.json({ error: "db_error", details: error.message }, { status: 500 });
+  // UPDATE direct (plus robuste qu'une RPC plpgsql qui peut planter sur trigger)
+  const { error: updateErr } = await sb
+    .from("dim_cabinet_leads")
+    .update({ status: newStatus, updated_at: changedAt })
+    .eq("id", lead_id);
+
+  if (updateErr) {
+    console.error("[admin/leads/status] update error:", updateErr);
+    return NextResponse.json(
+      { error: "update_failed", details: updateErr.message },
+      { status: 500 },
+    );
   }
 
-  const row = Array.isArray(result) ? result[0] : result;
+  // Log dans l'historique (best-effort — non bloquant)
+  const { error: historyErr } = await sb.from("dim_lead_status_history").insert({
+    lead_id,
+    from_status: oldStatus === newStatus ? oldStatus : oldStatus,
+    to_status: newStatus,
+    changed_at: changedAt,
+    changed_by_email: session.email,
+    note,
+  });
+  if (historyErr) {
+    console.warn("[admin/leads/status] history insert failed (non-bloquant):", historyErr);
+  }
 
   return NextResponse.json({
     ok: true,
     lead_id,
-    old_status: row?.old_status ?? null,
-    new_status: row?.new_status ?? newStatus,
-    changed_at: row?.changed_at ?? new Date().toISOString(),
+    old_status: oldStatus,
+    new_status: newStatus,
+    changed_at: changedAt,
   });
 }

@@ -87,8 +87,11 @@ export async function GET(
     by_type: { vente: 0, recherche: 0, location: 0, autre: 0 } as Record<string, number>,
   };
 
-  for (const r of stats ?? []) {
-    const row = r as { anchor_status: string | null; mandat_type: string | null };
+  const statsRows = (stats ?? []) as unknown as Array<{
+    anchor_status: string | null;
+    mandat_type: string | null;
+  }>;
+  for (const row of statsRows) {
     const k = row.anchor_status ?? "not_anchored";
     counters.by_status[k] = (counters.by_status[k] ?? 0) + 1;
     const t = row.mandat_type ?? "autre";

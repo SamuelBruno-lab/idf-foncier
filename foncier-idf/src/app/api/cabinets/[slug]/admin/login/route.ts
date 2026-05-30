@@ -80,6 +80,14 @@ export async function POST(
   const verifyUrl = `${baseUrl}/api/cabinets/${slug}/admin/verify?token=${encodeURIComponent(created.token)}`;
 
   // Envoi email Resend (non-bloquant)
+  // FROM : on utilise par défaut onboarding@resend.dev (toujours autorisé,
+  // pas besoin de vérification domaine) — ça permet l'envoi à n'importe
+  // quel destinataire sans config DNS. Quand le domaine datamerry.com sera
+  // vérifié dans Resend, set MAIL_FROM_DOMAIN=datamerry.com pour basculer.
+  const fromDomain = process.env.MAIL_FROM_DOMAIN ?? "resend.dev";
+  const fromAddress =
+    fromDomain === "resend.dev" ? "onboarding@resend.dev" : `no-reply@${fromDomain}`;
+
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const html = `
@@ -107,15 +115,30 @@ export async function POST(
 </body></html>`;
 
     const payload: Record<string, unknown> = {
-      from: `${cabinetName} <no-reply@datamerry.com>`,
+      from: `${cabinetName} via DATAMERRY <${fromAddress}>`,
       to: email,
+      reply_to: "contact@datamerry.com",
       subject: `Accès dashboard ${cabinetName} — DATAMERRY`,
       html,
     };
 
-    void resend.emails
-      .send(payload as unknown as Parameters<typeof resend.emails.send>[0])
-      .catch((err: unknown) => console.error("[admin/login] resend failed:", err));
+    try {
+      const result = await resend.emails.send(
+        payload as unknown as Parameters<typeof resend.emails.send>[0],
+      );
+      // Log explicite pour debug en prod (visible Vercel Runtime Logs)
+      console.log(
+        "[admin/login] resend response:",
+        JSON.stringify({
+          to: email,
+          from: payload.from,
+          result_id: (result as { data?: { id?: string }; error?: unknown })?.data?.id,
+          error: (result as { error?: unknown })?.error,
+        }),
+      );
+    } catch (err: unknown) {
+      console.error("[admin/login] resend exception:", err);
+    }
   } else {
     console.warn("[admin/login] RESEND_API_KEY absent — magic link non envoyé");
   }

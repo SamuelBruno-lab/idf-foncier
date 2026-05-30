@@ -124,14 +124,33 @@ export default function AdminDashboardPage({
   }, [params, loadLeads]);
 
   async function changeStatus(leadId: string, newStatus: string) {
-    const res = await fetch(`/api/cabinets/${slug}/admin/leads/${leadId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ new_status: newStatus }),
-    });
-    if (res.ok) await loadLeads(slug);
-    else if (res.status === 401)
-      router.push(`/cabinets/${slug}/admin/login?error=invalid_or_expired`);
+    try {
+      const res = await fetch(`/api/cabinets/${slug}/admin/leads/${leadId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_status: newStatus }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        await loadLeads(slug);
+        return;
+      }
+      if (res.status === 401) {
+        router.push(`/cabinets/${slug}/admin/login?error=invalid_or_expired`);
+        return;
+      }
+      // Erreur quelconque : feedback visible
+      const errJson = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
+      console.error("[changeStatus] échec:", res.status, errJson);
+      alert(
+        `Erreur ${res.status} : ${errJson.error ?? "inconnue"}${
+          errJson.details ? "\n" + errJson.details : ""
+        }`,
+      );
+    } catch (e) {
+      console.error("[changeStatus] exception:", e);
+      alert("Erreur réseau : " + (e instanceof Error ? e.message : "inconnue"));
+    }
   }
 
   function exportCsv() {

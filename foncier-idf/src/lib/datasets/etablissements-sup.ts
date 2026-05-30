@@ -204,6 +204,7 @@ async function fetchEtabSupFromOds(
           universite: 0,
           ecole_ingenieur: 0,
           ecole_commerce: 0,
+          ecole_sante: 0,
           iep: 0,
           institut: 0,
           autre: 0,

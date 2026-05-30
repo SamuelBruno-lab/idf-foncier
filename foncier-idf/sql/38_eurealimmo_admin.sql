@@ -394,7 +394,49 @@ SIREN 984 449 470 — RCS Paris
 Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris Île-de-France)
 Siège social : 60 Rue François 1er, 75008 Paris
 Représentée par Samuel BRUNO, Président
-Email : contact@datamerry.com', 'legal', false, 'published')
+Email : contact@datamerry.com', 'legal', false, 'published'),
+  ('Conditions générales', 'conditions-generales',
+   '# Conditions générales
+
+Conditions générales d''utilisation et de prestation de service Eurealimmo.
+
+À compléter.', 'legal', false, 'draft'),
+  ('Politique cookies', 'cookies',
+   '# Politique de cookies
+
+Eurealimmo utilise des cookies techniques essentiels au fonctionnement
+du site, ainsi que des cookies de mesure d''audience (anonymisés).
+
+À compléter.', 'legal', false, 'draft'),
+  ('FAQ', 'faq',
+   '# Foire aux questions
+
+## Comment devenir mandataire Eurealimmo ?
+
+Postulez via notre formulaire ou contactez-nous directement.
+
+## Quels sont les tarifs ?
+
+39€/mois (ou 59€/mois Option Fondateur) + 5% sur vos commissions.
+
+## Combien de temps prend l''intégration ?
+
+Sous 7 jours ouvrés une fois le dossier complet validé.', 'default', false, 'draft'),
+  ('Tarifs', 'tarifs',
+   '# Tarifs Eurealimmo Réseau
+
+## Offre Standard
+**39€/mois HT** + 5% sur vos commissions
+- Carte T sous RCO Eurealimmo
+- Outils DATAMERRY® inclus
+- Support 5j/7
+
+## Offre Fondateur (Option D)
+**59€/mois HT** + 5% sur vos commissions
+- **6 mois gratuits** à l''entrée
+- Engagement 36 mois
+- Commission **18% sur HNWI** que vous apportez
+- Accès prioritaire aux outils en bêta', 'pricing', false, 'draft')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────────────────────

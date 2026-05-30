@@ -954,27 +954,21 @@ function BlockchainCard({
       ) : (
         <>
           <p style={{ fontSize: 13, color: "#475569", marginTop: 10, lineHeight: 1.5 }}>
-            Place ce mandat dans la file d'attente pour ancrage on-chain Solana. Seule l'empreinte
-            cryptographique SHA256 sera publiée (jamais les données personnelles). Le Merkle Root
-            mensuel sera ancré automatiquement sur Solana, garantissant l'antériorité du mandat.
+            <strong>Ancrage automatique à la signature du mandat.</strong>
+            {" "}Dès que tu enregistres la signature, l&apos;empreinte cryptographique SHA256 du
+            mandat est mise en file d&apos;attente pour publication on-chain Solana. Seule
+            l&apos;empreinte est publiée — jamais les données personnelles.
           </p>
           <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
             Conformité : CNIL délibération 2018-303 (blockchain &amp; RGPD), loi Hoguet n° 70-9.
+            {" "}Le Merkle Root mensuel sera publié sur Solana à compter de la mise en service du
+            smart contract Anchor (Y2).
           </p>
-          <div style={{ marginTop: 12 }}>
-            <button
-              onClick={onAnchor}
-              disabled={anchoring || !lead.mandat_signe_at}
-              style={buttonStyle(primary, anchoring || !lead.mandat_signe_at)}
-            >
-              {anchoring ? "Ancrage…" : "Ancrer dans le registre blockchain"}
-            </button>
-            {!lead.mandat_signe_at && (
-              <span style={{ marginLeft: 10, fontSize: 11, color: "#ef4444" }}>
-                Renseigne d&apos;abord la date de signature du mandat
-              </span>
-            )}
-          </div>
+          {!lead.mandat_signe_at && (
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8, fontStyle: "italic" }}>
+              En attente de la signature du mandat ci-dessus.
+            </p>
+          )}
         </>
       )}
     </Card>

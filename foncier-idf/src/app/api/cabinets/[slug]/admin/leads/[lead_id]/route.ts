@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAdminSession } from "@/lib/admin-auth";
+import { computeMandatHash } from "@/lib/mandate/canonical-hash";
 
 function getSupabase() {
   return createClient(
@@ -192,5 +193,66 @@ export async function PATCH(
     return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ lead: updated, updated_fields: Object.keys(patch) });
+  // ── Ancrage AUTOMATIQUE quand le mandat est signé ────────────────────────
+  // Déclenché dès qu'on a mandat_signe_at + mandat_type non-null après update.
+  // Idempotent : la RPC queue_mandate_anchor ne touche pas un anchor déjà
+  // anchored. Best-effort : si ça échoue (ex: trigger DB), on log mais on
+  // ne fait pas planter la requête utilisateur.
+  let anchor_auto_triggered = false;
+  const u = updated as unknown as {
+    id: string;
+    cabinet_slug: string;
+    visitor_name: string;
+    address: string;
+    type_bien: string;
+    surface: number | null;
+    mandat_type: "vente" | "recherche" | "location" | null;
+    mandat_modalite: "simple" | "exclusif" | "semi_exclusif" | null;
+    mandat_signe_at: string | null;
+    mandat_numero_registre: string | null;
+    mandat_duree_mois: number | null;
+    mandat_commission_pct: number | null;
+    mandat_prix_net_vendeur: number | null;
+    mandat_prix_max: number | null;
+  };
+
+  if (u.mandat_signe_at && u.mandat_type) {
+    try {
+      const { hash, payload } = computeMandatHash({
+        lead_id: u.id,
+        cabinet_slug: u.cabinet_slug,
+        mandat_type: u.mandat_type,
+        mandat_modalite: u.mandat_modalite,
+        mandat_signe_at: u.mandat_signe_at,
+        mandat_numero_registre: u.mandat_numero_registre,
+        mandat_duree_mois: u.mandat_duree_mois,
+        mandat_commission_pct: u.mandat_commission_pct,
+        mandat_prix_net_vendeur: u.mandat_prix_net_vendeur,
+        mandat_prix_max: u.mandat_prix_max,
+        visitor_name: u.visitor_name,
+        address: u.address,
+        type_bien: u.type_bien,
+        surface: u.surface,
+      });
+      const { error: rpcErr } = await sb.rpc("queue_mandate_anchor", {
+        p_lead_id: lead_id,
+        p_mandate_hash: hash,
+        p_canonical_payload: payload,
+        p_triggered_by_email: session.email,
+      });
+      if (rpcErr) {
+        console.warn("[admin/leads/PATCH] auto-anchor failed (non-bloquant):", rpcErr);
+      } else {
+        anchor_auto_triggered = true;
+      }
+    } catch (e) {
+      console.warn("[admin/leads/PATCH] hash compute failed (non-bloquant):", e);
+    }
+  }
+
+  return NextResponse.json({
+    lead: updated,
+    updated_fields: Object.keys(patch),
+    anchor_auto_triggered,
+  });
 }

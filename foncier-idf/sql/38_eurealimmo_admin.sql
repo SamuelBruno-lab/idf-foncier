@@ -485,6 +485,8 @@ ALTER TABLE public.eurealimmo_pages ENABLE ROW LEVEL SECURITY;
 
 -- Service role : full access (admin API server-side)
 DO $$
+DECLARE
+  t RECORD;
 BEGIN
   FOR t IN
     SELECT unnest(ARRAY[

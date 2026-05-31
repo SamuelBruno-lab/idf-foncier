@@ -22,10 +22,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const key = url.searchParams.get("key") ?? "";
   const to = url.searchParams.get("to") ?? "";
 
-  // DIAGNOSTIC TEMPORAIRE : auth retirée pour débloquer le test Resend.
-  // À REMETTRE après debug — l'endpoint reste accessible publiquement mais
-  // ne renvoie pas d'info sensible (juste un email de test).
-  void key; // unused for now
+  // Protection : exige soit DM_DEV_BYPASS_KEY soit SUPABASE_SERVICE_ROLE_KEY.
+  // Si DM_DEV_BYPASS_KEY n'est pas défini, on accepte service role en fallback.
+  const bypassKey = process.env.DM_DEV_BYPASS_KEY ?? "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  const validKey = bypassKey
+    ? key === bypassKey
+    : key && key === serviceKey;
+  if (!validKey) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "unauthorized",
+        hint: "Pass ?key=DM_DEV_BYPASS_KEY in URL. Set the env var in Vercel first.",
+      },
+      { status: 401 },
+    );
+  }
 
   if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     return NextResponse.json(

@@ -437,17 +437,22 @@ function SuccessScreen({
         <NextStep
           num="2"
           title="Signature contrat sous 7 jours"
-          text="Contrat de mandataire conforme loi Hoguet, signature électronique eIDAS Yousign. Pas de RDV physique nécessaire."
+          text="Contrat de mandataire conforme loi Hoguet, signature électronique sécurisée. Pas de RDV physique nécessaire."
         />
         <NextStep
           num="3"
-          title="Onboarding sous 48 h après contrat"
-          text="Accès DATAMERRY®, carte T RCO active, formation Loi ALUR planifiée, premiers leads dans le CRM."
+          title="Déclaration CCI Paris (50 € à votre charge)"
+          text="Nous déposons votre RCO auprès de la CCI Paris (3-7 jours ouvrés). Vous réglez les 50 € directement à la CCI — frais réglementaire incompressible."
         />
         <NextStep
           num="4"
-          title="Premier mandat possible sous 14 jours"
-          text="Vous êtes opérationnel. Vous activez votre carnet, vos premiers prospects rentrent. On vous accompagne."
+          title="Souscriptions à votre charge à finaliser en parallèle"
+          text="RCP agent commercial (150-200 €/an, obligatoire) + formation Loi ALUR initiale (150-200 € one-shot) + création de votre structure si pas déjà fait (auto-entrepreneur : 0 € · SASU/EURL : 200-400 €). Nous vous orientons vers nos partenaires."
+        />
+        <NextStep
+          num="5"
+          title="Onboarding sous 48 h après validation RCO"
+          text="Accès DATAMERRY®, carte T active, suivi ALUR planifié, premiers leads dans le CRM. Premier mandat possible sous 15-30 jours."
         />
       </div>
 

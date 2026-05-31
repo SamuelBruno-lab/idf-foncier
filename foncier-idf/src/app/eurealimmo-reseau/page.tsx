@@ -272,18 +272,18 @@ export default async function EurealimmoReseauPage({
             />
             <Advantage
               icon="🎓"
-              title="Formation Loi ALUR"
-              text="14 h annuelles obligatoires couvertes via Studi / Visioformation / Diloy. Tarifs négociés."
+              title="Suivi Loi ALUR automatique"
+              text="Rappels avant échéance des 14 h annuelles + plateformes partenaires recommandées (Studi, Visioformation, Diloy). À votre charge mais cadré."
             />
             <Advantage
               icon="⛓️"
-              title="Registre blockchain Solana"
-              text="Vos mandats notarisés on-chain via Merkle Root mensuel. Preuve cryptographique d'antériorité."
+              title="Empreinte cryptographique des mandats"
+              text="Hash SHA256 horodaté de chaque mandat dès aujourd'hui. Ancrage on-chain Solana via Merkle Root prévu en Y2 (2027)."
             />
             <Advantage
               icon="🤝"
-              title="Aucun papier"
-              text="Tout digital : signature électronique eIDAS, contrat sous 7 jours, opérationnel sous 14 jours."
+              title="Tout digital"
+              text="Signature électronique sécurisée, contrat sous 7 jours, opérationnel sous 15-30 jours."
             />
           </div>
         </div>
@@ -318,9 +318,10 @@ export default async function EurealimmoReseauPage({
                 "Carte T sous couverture (économie 1 200 €/an)",
                 "DATAMERRY® illimité (vs 588 €/an séparé chez Olean)",
                 "8 % de retenue (20 % moins qu'Olean à 10 %)",
-                "Formation Loi ALUR partenaires inclus",
+                "Suivi ALUR automatique (rappels avant échéance)",
                 "Engagement mensuel sans durée minimale",
                 "Support 5j/7 par email",
+                "+ 50 € frais CCI Paris à l'inscription (RCO)",
               ]}
               cta="Rejoindre Standard"
             />
@@ -338,11 +339,224 @@ export default async function EurealimmoReseauPage({
                 "Verrouillage tarifaire 36 mois",
                 "18 % à vie sur tout HNWI que vous apportez",
                 "Accès prioritaire outils en bêta",
-                "Hotline dédiée Samuel BRUNO",
+                "Accès direct à Samuel BRUNO les 12 premiers mois",
+                "+ 50 € frais CCI Paris à l'inscription (RCO)",
               ]}
               cta={isFounderInvite ? "Rejoindre (place réservée)" : "Demander une place Fondateur"}
             />
           </div>
+        </div>
+      </section>
+
+      {/* ─── Transparence frais (à votre charge) ───────────────────────── */}
+      <section style={{ padding: "70px 24px", background: "white" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 32,
+              fontWeight: 700,
+              textAlign: "center",
+              margin: "0 0 12px",
+            }}
+          >
+            Transparence totale sur vos frais
+          </h2>
+          <p style={{ textAlign: "center", color: "#64748b", maxWidth: 640, margin: "0 auto 40px" }}>
+            Eurealimmo ne facture que le forfait mensuel. Voici les autres frais que <strong>tout</strong> agent
+            commercial immobilier doit prévoir — légaux et incompressibles, peu importe le réseau.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 20,
+              marginBottom: 24,
+            }}
+          >
+            {/* One-shot */}
+            <div
+              style={{
+                padding: 24,
+                background: "#fafafa",
+                borderTop: `4px solid ${PRIMARY}`,
+                borderRadius: 4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.15em",
+                  color: PRIMARY,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                }}
+              >
+                ONE-SHOT À L&apos;INSCRIPTION
+              </div>
+              <CostLine label="Déclaration RCO à la CCI Paris" amount="50 €" note="obligatoire (art. R.134-6 C. com.)" />
+              <CostLine label="Formation Loi ALUR initiale (14 h)" amount="150-200 €" note="via partenaires recommandés" />
+              <CostLine
+                label="Création société / micro-entreprise"
+                amount="0-400 €"
+                note="auto-entrepreneur : 0 € · SASU/EURL : 200-400 €"
+              />
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: "1px solid #e2e8f0",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: DARK,
+                }}
+              >
+                Total estimé : <span style={{ color: PRIMARY }}>200-650 €</span> au lancement
+              </div>
+            </div>
+
+            {/* Récurrent annuel */}
+            <div
+              style={{
+                padding: 24,
+                background: "#fafafa",
+                borderTop: `4px solid ${PRIMARY}`,
+                borderRadius: 4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.15em",
+                  color: PRIMARY,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                }}
+              >
+                RÉCURRENT ANNUEL
+              </div>
+              <CostLine
+                label="Assurance RCP agent commercial"
+                amount="150-200 €/an"
+                note="obligatoire — à souscrire personnellement"
+              />
+              <CostLine
+                label="Formation continue ALUR"
+                amount="~70 €/an"
+                note="14 h/an OU 42 h sur 3 ans cumulables"
+              />
+              <CostLine
+                label="Cotisations sociales (URSSAF / SSI)"
+                amount="variable"
+                note="selon votre statut et CA — non couvertes par Eurealimmo"
+              />
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: "1px solid #e2e8f0",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: DARK,
+                }}
+              >
+                Total fixe : <span style={{ color: PRIMARY }}>~220-270 €/an</span>
+              </div>
+            </div>
+
+            {/* Récurrent mensuel */}
+            <div
+              style={{
+                padding: 24,
+                background: DARK,
+                color: "white",
+                borderTop: `4px solid ${PRIMARY}`,
+                borderRadius: 4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.15em",
+                  color: PRIMARY,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                }}
+              >
+                RÉCURRENT MENSUEL
+              </div>
+              <CostLine
+                label="Forfait Eurealimmo Standard"
+                amount="79 € HT/mo"
+                note="carte T + DATAMERRY illimité — 94,80 € TTC"
+                dark
+              />
+              <CostLine
+                label="Forfait Eurealimmo Fondateur"
+                amount="59 € HT/mo"
+                note="6 mois gratuits — 70,80 € TTC"
+                dark
+              />
+              <CostLine
+                label="Retenue sur vos commissions"
+                amount="5 % ou 8 %"
+                note="seulement quand vous vendez — pas d'avance"
+                dark
+              />
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: "1px solid #334155",
+                  fontSize: 12,
+                  color: "#cbd5e1",
+                  lineHeight: 1.6,
+                }}
+              >
+                Eurealimmo prélève uniquement quand vous gagnez. Pas de minimum d&apos;activité.
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "20px 24px",
+              background: "#fef3c7",
+              borderLeft: `4px solid #d97706`,
+              borderRadius: 4,
+              fontSize: 13,
+              lineHeight: 1.7,
+              color: "#78350f",
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 6, color: "#78350f" }}>
+              ⚠️ Ce qu&apos;Eurealimmo ne couvre PAS (vous restez indépendant) :
+            </strong>
+            Votre <strong>RCP personnelle</strong> (notre RC pro couvre uniquement la SARL Eurealimmo, pas vos
+            actes individuels) · Vos <strong>cotisations sociales</strong> (URSSAF/SSI selon statut) · Vos{" "}
+            <strong>frais de prospection</strong> (déplacements, téléphone, marketing perso) · Votre{" "}
+            <strong>fiscalité personnelle</strong> (IR ou IS selon structure)
+          </div>
+
+          <p
+            style={{
+              textAlign: "center",
+              fontSize: 13,
+              color: "#64748b",
+              marginTop: 32,
+              lineHeight: 1.7,
+              maxWidth: 720,
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            <strong>Comparaison utile :</strong> sur 50 000 €/an de commissions, vous économisez{" "}
+            <strong style={{ color: DARK }}>~1 000 €/an</strong> chez Eurealimmo Standard vs Olean (10 %), et{" "}
+            <strong style={{ color: DARK }}>~1 800 €/an</strong> en Fondateur. Sur 200 000 €/an de
+            commissions (profil HWNI), l&apos;économie atteint{" "}
+            <strong style={{ color: DARK }}>~3 000 € à ~9 300 €/an</strong>.
+          </p>
         </div>
       </section>
 
@@ -361,7 +575,7 @@ export default async function EurealimmoReseauPage({
             Comment ça marche
           </h2>
           <p style={{ textAlign: "center", color: "#64748b", maxWidth: 560, margin: "0 auto 40px" }}>
-            14 jours du formulaire au premier mandat. Pas de RDV physique. Pas de paperasse.
+            15 à 30 jours du formulaire au premier mandat. Pas de RDV physique. Pas de paperasse.
           </p>
           <div
             style={{
@@ -372,8 +586,8 @@ export default async function EurealimmoReseauPage({
           >
             <Step num="01" title="Vous remplissez" text="Le formulaire ci-dessous (2 minutes)." />
             <Step num="02" title="On vous appelle" text="Sous 24-48 h. Validation rapide." />
-            <Step num="03" title="Contrat signé" text="Signature électronique Yousign (eIDAS), sous 7 jours." />
-            <Step num="04" title="Opérationnel" text="Accès DATAMERRY + carte T active sous 48 h." />
+            <Step num="03" title="Contrat signé" text="Signature électronique sécurisée, sous 7 jours." />
+            <Step num="04" title="Opérationnel" text="Déclaration CCI (50 €) puis accès DATAMERRY sous 48 h après validation." />
           </div>
         </div>
       </section>
@@ -406,7 +620,15 @@ export default async function EurealimmoReseauPage({
           />
           <Faq
             q="Combien de temps avant le premier mandat ?"
-            a="14 jours. Formulaire → call 48 h → contrat 7 j → onboarding 48 h. Le 15e jour vous prospectez avec votre carte T active."
+            a="15 à 30 jours. Formulaire → call 48 h → contrat 7 j → déclaration RCO à la CCI Paris (3-7 j) → onboarding 48 h. Le délai dépend principalement du retour de la CCI."
+          />
+          <Faq
+            q="Quels sont TOUS les frais à prévoir pour démarrer ?"
+            a="Au lancement (one-shot) : 50 € déclaration CCI Paris (RCO) + 150-200 € formation Loi ALUR initiale + 0 à 400 € création de votre structure (auto-entrepreneur : 0 € · SASU/EURL : ~200-400 €) = 200 à 650 € au total. En récurrent annuel : 150-200 € pour votre RCP agent commercial (obligatoire, à souscrire personnellement) + ~70 €/an équivalent formation continue ALUR + vos cotisations URSSAF/SSI. En récurrent mensuel : votre forfait Eurealimmo (59 € ou 79 € HT). Aucun frais Eurealimmo à l'inscription en plus du 1er forfait mensuel. Voir la section Transparence ci-dessus pour le détail."
+          />
+          <Faq
+            q="L'assurance RC pro Eurealimmo me couvre-t-elle personnellement ?"
+            a="Non. Notre RC pro couvre uniquement la SARL Eurealimmo en tant que titulaire de la carte T. En tant qu'agent commercial indépendant, vous devez souscrire votre propre Responsabilité Civile Professionnelle (RCP agent commercial immobilier). Comptez 150-200 €/an. C'est obligatoire pour exercer — peu importe le réseau qui vous porte. Nous pouvons vous orienter vers des courtiers partenaires."
           />
           <Faq
             q="Que fait DATAMERRY exactement ?"
@@ -414,7 +636,11 @@ export default async function EurealimmoReseauPage({
           />
           <Faq
             q="Programme referral 18 % à vie : comment ça marche ?"
-            a="Vous nous présentez un autre mandataire HNWI qui signe. Vous touchez 18 % à vie sur la commission DATAMERRY générée par ses ventes. Cumul illimité — c'est notre vrai jackpot pour vous."
+            a="Vous nous présentez un autre mandataire HNWI qui signe. Vous touchez 18 % à vie sur les retenues que nous percevons sur ses ventes (5 % ou 8 %). Cumul illimité — c'est notre vrai jackpot pour vous."
+          />
+          <Faq
+            q="TVA : comment ça marche concrètement ?"
+            a="Eurealimmo facture HT + 20 % TVA (forfait 79 € HT = 94,80 € TTC). Si vous êtes en franchise TVA (micro-BNC < 36 800 €/an), vous ne récupérez pas cette TVA. Dès dépassement du seuil, vous récupérez 20 % et votre coût réel revient à 79 € HT. Nous recommandons un comptable partenaire pour anticiper cette bascule."
           />
         </div>
       </section>
@@ -592,6 +818,42 @@ function Step({ num, title, text }: { num: string; title: string; text: string }
       </div>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: DARK }}>{title}</div>
       <div style={{ fontSize: 12, lineHeight: 1.6, color: "#64748b" }}>{text}</div>
+    </div>
+  );
+}
+
+function CostLine({
+  label,
+  amount,
+  note,
+  dark,
+}: {
+  label: string;
+  amount: string;
+  note?: string;
+  dark?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 12,
+          fontSize: 13,
+          fontWeight: 600,
+          color: dark ? "white" : DARK,
+        }}
+      >
+        <span>{label}</span>
+        <span style={{ color: PRIMARY, fontWeight: 700, whiteSpace: "nowrap" }}>{amount}</span>
+      </div>
+      {note && (
+        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b", marginTop: 2, lineHeight: 1.5 }}>
+          {note}
+        </div>
+      )}
     </div>
   );
 }

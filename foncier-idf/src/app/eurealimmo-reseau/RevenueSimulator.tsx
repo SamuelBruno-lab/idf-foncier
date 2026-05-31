@@ -67,28 +67,30 @@ export function RevenueSimulator() {
     const comBrutePer = ticket * commissionPct;
     const comBruteTotal = comBrutePer * nbVentes;
 
-    // Eurealimmo Fondateur (5% retenue)
-    const retenueFondateur = comBruteTotal * 0.05;
-    const netHtFondateur = comBruteTotal - retenueFondateur;
+    // ── Net après retenue réseau (commission HT facturée par le mandataire) ──
+    // C'est le chiffre UNIVERSEL : indépendant de la structure juridique
+    const netHtFondateur = comBruteTotal * (1 - 0.05); // 5% retenue
+    const netHtStandard = comBruteTotal * (1 - 0.08); // 8% retenue
+    const netHtOlean = comBruteTotal * (1 - 0.10); // 10% retenue
+
+    // ── Estimation indicative net cash perso (SASU+IS+PFU30%) ──
+    // Affichée seulement en sous-info, dépend de la structure
     const netPersoFondateur = netCashPerso(netHtFondateur);
-
-    // Eurealimmo Standard (8% retenue)
-    const retenueStandard = comBruteTotal * 0.08;
-    const netHtStandard = comBruteTotal - retenueStandard;
     const netPersoStandard = netCashPerso(netHtStandard);
-
-    // Olean (10% retenue) — référence
-    const retenueOlean = comBruteTotal * 0.1;
-    const netHtOlean = comBruteTotal - retenueOlean;
     const netPersoOlean = netCashPerso(netHtOlean);
 
     return {
       comBruteTotal,
+      // Commission HT après retenue (universel)
+      netHtFondateur,
+      netHtStandard,
+      netHtOlean,
+      gainHtFondateur: netHtFondateur - netHtOlean,
+      gainHtStandard: netHtStandard - netHtOlean,
+      // Net cash perso (indicatif SASU)
       netPersoFondateur,
       netPersoStandard,
       netPersoOlean,
-      gainFondateur: netPersoFondateur - netPersoOlean,
-      gainStandard: netPersoStandard - netPersoOlean,
     };
   }, [ticket, nbVentes, commissionPct]);
 
@@ -107,9 +109,12 @@ export function RevenueSimulator() {
         >
           Combien je vais gagner ?
         </h2>
-        <p style={{ textAlign: "center", color: "#64748b", maxWidth: 640, margin: "0 auto 40px" }}>
-          Simulateur indicatif Année 1 — bouge les sliders pour voir en direct ton net cash personnel
-          après SASU + IS + dividendes PFU 30%.
+        <p style={{ textAlign: "center", color: "#64748b", maxWidth: 680, margin: "0 auto 40px" }}>
+          Simulateur Année 1 — commission HT que vous facturez après retenue du réseau.
+          <br />
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            Hors fiscalité personnelle (dépend de votre structure : micro-BNC, EI, SASU, EURL…).
+          </span>
         </p>
 
         {/* ─── Inputs ─────────────────────────────────────────────────── */}
@@ -361,9 +366,12 @@ export function RevenueSimulator() {
                 marginBottom: 4,
               }}
             >
-              {formatEur(stats.netPersoOlean)}
+              {formatEur(stats.netHtOlean)}
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>net cash perso Y1</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>commission HT après retenue</div>
+            <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 8, fontStyle: "italic" }}>
+              ≈ {formatEur(stats.netPersoOlean)} net perso indicatif*
+            </div>
           </div>
 
           {/* Eurealimmo Standard */}
@@ -398,10 +406,10 @@ export function RevenueSimulator() {
                 marginBottom: 4,
               }}
             >
-              {formatEur(stats.netPersoStandard)}
+              {formatEur(stats.netHtStandard)}
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>net cash perso Y1</div>
-            {stats.gainStandard > 0 && (
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>commission HT après retenue</div>
+            {stats.gainHtStandard > 0 && (
               <div
                 style={{
                   fontSize: 12,
@@ -413,9 +421,12 @@ export function RevenueSimulator() {
                   display: "inline-block",
                 }}
               >
-                +{formatEur(stats.gainStandard)} vs Olean
+                +{formatEur(stats.gainHtStandard)} vs Olean
               </div>
             )}
+            <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 8, fontStyle: "italic" }}>
+              ≈ {formatEur(stats.netPersoStandard)} net perso indicatif*
+            </div>
           </div>
 
           {/* Eurealimmo Fondateur */}
@@ -451,10 +462,10 @@ export function RevenueSimulator() {
                 marginBottom: 4,
               }}
             >
-              {formatEur(stats.netPersoFondateur)}
+              {formatEur(stats.netHtFondateur)}
             </div>
-            <div style={{ fontSize: 11, color: "#cbd5e1", marginBottom: 8 }}>net cash perso Y1</div>
-            {stats.gainFondateur > 0 && (
+            <div style={{ fontSize: 11, color: "#cbd5e1", marginBottom: 8 }}>commission HT après retenue</div>
+            {stats.gainHtFondateur > 0 && (
               <div
                 style={{
                   fontSize: 12,
@@ -466,9 +477,12 @@ export function RevenueSimulator() {
                   display: "inline-block",
                 }}
               >
-                +{formatEur(stats.gainFondateur)} vs Olean
+                +{formatEur(stats.gainHtFondateur)} vs Olean
               </div>
             )}
+            <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 8, fontStyle: "italic" }}>
+              ≈ {formatEur(stats.netPersoFondateur)} net perso indicatif*
+            </div>
           </div>
         </div>
 
@@ -494,20 +508,61 @@ export function RevenueSimulator() {
             ⚙️ Méthode de calcul (transparence totale)
           </summary>
           <div style={{ marginTop: 10, lineHeight: 1.7 }}>
-            <strong>Hypothèses :</strong>
-            <ul style={{ paddingLeft: 20, margin: "6px 0" }}>
-              <li>Structure juridique : <strong>SASU à l'IS</strong> (recommandée pour HWNI)</li>
-              <li>Commission agence : <strong>{(commissionPct * 100).toFixed(0)} %</strong> sur le ticket de vente (modifiable ci-dessus : 3 % HWNI · 4 % premium · 5 % standard)</li>
-              <li>Charges fixes Y1 incompressibles : <strong>2 750 €</strong> (RCP, comptable, formation ALUR, CCI, frais bancaires)</li>
-              <li>IS : <strong>15 %</strong> jusqu'à 42 500 € de bénéfice, <strong>25 %</strong> au-delà</li>
-              <li>Sortie en dividendes : <strong>PFU 30 %</strong> (Flat Tax)</li>
-            </ul>
-            <strong>Calcul :</strong> Commission brute → Retenue réseau → Recettes SASU HT → −Charges → Bénéfice → −IS → Net entreprise → −PFU 30 % → <strong>Net cash perso</strong>.
+            <strong>Chiffre principal — commission HT après retenue (universel) :</strong>
+            <br />
+            Commission agence brute (ticket × {(commissionPct * 100).toFixed(0)} %) − retenue du réseau (5 %, 8 % ou 10 %) = ce que vous facturez en HT à Eurealimmo. <strong>Ce chiffre ne dépend PAS de votre structure juridique</strong> — c&apos;est ce qui arrive sur le compte de votre entité avant fiscalité personnelle.
             <br /><br />
+
+            <strong>* Net perso indicatif — fiscalité selon votre structure :</strong>
+            <br />
+            Le chiffre en italique sous chaque colonne est une estimation basée sur l&apos;hypothèse <strong>SASU à l&apos;IS + dividendes PFU 30 %</strong>, avec 2 750 € de charges fixes Y1 (RCP, comptable, ALUR, CCI, frais bancaires). Les autres structures donneront des résultats différents :
+            <br /><br />
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9" }}>
+                    <th style={{ padding: 6, textAlign: "left", borderBottom: "1px solid #cbd5e1" }}>Structure</th>
+                    <th style={{ padding: 6, textAlign: "left", borderBottom: "1px solid #cbd5e1" }}>Cotisations sociales</th>
+                    <th style={{ padding: 6, textAlign: "left", borderBottom: "1px solid #cbd5e1" }}>Impôt</th>
+                    <th style={{ padding: 6, textAlign: "left", borderBottom: "1px solid #cbd5e1" }}>Profil typique</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}><strong>Micro-BNC</strong> (auto-entrepreneur)</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>~21,2 % CA</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>IR sur 66 % CA (abattement 34 %)</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>Démarrage &lt; 77 700 €/an</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}><strong>EI réel BNC</strong></td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>~45 % du bénéfice (TNS)</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>IR progressif (TMI 11-45 %)</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>77-150 k€/an, charges réelles</td>
+                  </tr>
+                  <tr style={{ background: "#fefce8" }}>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}><strong>SASU à l&apos;IS</strong> (notre hypothèse*)</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>0 % si dividendes</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>IS 15-25 % + PFU 30 %</td>
+                    <td style={{ padding: 6, borderBottom: "1px solid #e2e8f0" }}>HWNI / &gt; 100 k€/an</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: 6 }}><strong>EURL à l&apos;IS</strong></td>
+                    <td style={{ padding: 6 }}>~45 % rémunération + 17,2 % PS sur div. &gt; 10 % capital</td>
+                    <td style={{ padding: 6 }}>IS + IR rémunération</td>
+                    <td style={{ padding: 6 }}>Profil intermédiaire</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <br />
             <strong>Limites :</strong> Cette simulation est indicative. Délai d&apos;encaissement réel
             entre signature mandat et versement perso : <strong>3-6 mois</strong>. La TVA collectée
-            (20 % sur la facturation HT) transite par le compte SASU mais doit être reversée à
-            l&apos;État. Pour validation définitive, consultez un expert-comptable.
+            (20 % sur la facturation HT) transite par votre compte mais doit être reversée à
+            l&apos;État. <strong>Consultez un expert-comptable pour le choix de structure le plus
+            adapté à votre situation.</strong>
           </div>
         </details>
 

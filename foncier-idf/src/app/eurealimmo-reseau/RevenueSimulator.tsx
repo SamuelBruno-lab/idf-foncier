@@ -19,8 +19,12 @@ const DARK = "#0f172a";
 // Charges Y1 incompressibles d'un mandataire en SASU
 const CHARGES_Y1 = 2750;
 
-// Commission moyenne agence sur HWNI (3%) — ajustable mais on garde simple
-const COMMISSION_PCT = 0.03;
+// Options de commission d'agence selon le profil de bien
+const COMMISSION_OPTIONS = [
+  { value: 0.03, label: "3 %", hint: "HWNI / banque privée" },
+  { value: 0.04, label: "4 %", hint: "Premium" },
+  { value: 0.05, label: "5 %", hint: "Standard / classique" },
+] as const;
 
 // Seuils IS 2026
 const IS_THRESHOLD = 42_500;
@@ -57,9 +61,10 @@ function formatEur(n: number): string {
 export function RevenueSimulator() {
   const [ticket, setTicket] = useState(1_500_000); // 1,5 M€ par défaut (median HWNI)
   const [nbVentes, setNbVentes] = useState(1);
+  const [commissionPct, setCommissionPct] = useState(0.03); // 3 % par défaut (HWNI)
 
   const stats = useMemo(() => {
-    const comBrutePer = ticket * COMMISSION_PCT;
+    const comBrutePer = ticket * commissionPct;
     const comBruteTotal = comBrutePer * nbVentes;
 
     // Eurealimmo Fondateur (5% retenue)
@@ -85,7 +90,7 @@ export function RevenueSimulator() {
       gainFondateur: netPersoFondateur - netPersoOlean,
       gainStandard: netPersoStandard - netPersoOlean,
     };
-  }, [ticket, nbVentes]);
+  }, [ticket, nbVentes, commissionPct]);
 
   return (
     <section style={{ padding: "70px 24px", background: "white" }} id="simulateur">
@@ -225,6 +230,78 @@ export function RevenueSimulator() {
           </div>
         </div>
 
+        {/* ─── Toggle commission agence ───────────────────────────────── */}
+        <div
+          style={{
+            marginBottom: 24,
+            padding: 20,
+            background: "#fafafa",
+            borderRadius: 8,
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <label
+            style={{
+              display: "block",
+              fontSize: 13,
+              fontWeight: 700,
+              color: DARK,
+              marginBottom: 12,
+              letterSpacing: "0.02em",
+              textAlign: "center",
+            }}
+          >
+            💰 Commission d&apos;agence (HT, négociée avec le vendeur)
+          </label>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 10,
+            }}
+          >
+            {COMMISSION_OPTIONS.map((opt) => {
+              const selected = commissionPct === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setCommissionPct(opt.value)}
+                  type="button"
+                  style={{
+                    padding: "14px 12px",
+                    background: selected ? PRIMARY : "white",
+                    color: selected ? DARK : "#475569",
+                    border: selected ? `2px solid ${PRIMARY}` : "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 18,
+                    fontFamily: "Georgia, serif",
+                    transition: "all 0.15s ease",
+                    textAlign: "center",
+                  }}
+                  aria-pressed={selected}
+                  aria-label={`Commission ${opt.label} — ${opt.hint}`}
+                >
+                  <div>{opt.label}</div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "system-ui, sans-serif",
+                      fontWeight: 600,
+                      letterSpacing: "0.02em",
+                      marginTop: 4,
+                      color: selected ? DARK : "#94a3b8",
+                    }}
+                  >
+                    {opt.hint}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ─── Commission brute commune ───────────────────────────────── */}
         <div
           style={{
@@ -237,7 +314,7 @@ export function RevenueSimulator() {
             color: "#475569",
           }}
         >
-          Commission agence cumulée (3 %) :{" "}
+          Commission agence cumulée ({(commissionPct * 100).toFixed(0)} %) :{" "}
           <strong style={{ color: DARK, fontFamily: "Georgia, serif", fontSize: 16 }}>
             {formatEur(stats.comBruteTotal)}
           </strong>{" "}
@@ -420,7 +497,7 @@ export function RevenueSimulator() {
             <strong>Hypothèses :</strong>
             <ul style={{ paddingLeft: 20, margin: "6px 0" }}>
               <li>Structure juridique : <strong>SASU à l'IS</strong> (recommandée pour HWNI)</li>
-              <li>Commission agence : <strong>3 %</strong> sur le ticket de vente (taux HWNI courant)</li>
+              <li>Commission agence : <strong>{(commissionPct * 100).toFixed(0)} %</strong> sur le ticket de vente (modifiable ci-dessus : 3 % HWNI · 4 % premium · 5 % standard)</li>
               <li>Charges fixes Y1 incompressibles : <strong>2 750 €</strong> (RCP, comptable, formation ALUR, CCI, frais bancaires)</li>
               <li>IS : <strong>15 %</strong> jusqu'à 42 500 € de bénéfice, <strong>25 %</strong> au-delà</li>
               <li>Sortie en dividendes : <strong>PFU 30 %</strong> (Flat Tax)</li>

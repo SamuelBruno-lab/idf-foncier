@@ -25,7 +25,7 @@ import { RevenueSimulator } from "./RevenueSimulator";
 export const metadata: Metadata = {
   title: "Rejoindre Eurealimmo Réseau",
   description:
-    "Réseau de mandataires immobiliers HNWI. Carte T sous couverture, garantie financière incluse, outils DATAMERRY data, 6 mois gratuits. Réponse sous 48 h.",
+    "Réseau de mandataires immobiliers HNWI. Carte T sous notre couverture (CPI 7501 2024 000 219), outils DATAMERRY data, 6 mois gratuits Fondateur. Réponse sous 48 h.",
   alternates: { canonical: "https://reseau.eurealimmo.com/" },
   robots: { index: true, follow: true },
 };
@@ -207,7 +207,7 @@ export default async function EurealimmoReseauPage({
             }}
           >
             Le réseau de mandataires immobiliers <strong style={{ color: "white" }}>premium</strong>.
-            Carte T sous notre couverture, garantie financière incluse, outils DATAMERRY®.
+            Carte T sous notre couverture, sans maniement de fonds, outils DATAMERRY®.
             Réponse sous 24-48 h. <strong style={{ color: "white" }}>Aucun papier à remplir.</strong>
           </p>
           <a
@@ -259,7 +259,7 @@ export default async function EurealimmoReseauPage({
             <Advantage
               icon="🛡️"
               title="Carte T sous couverture"
-              text="Vous exercez sous notre carte CPI 7501 2024 000 219. Pas de garantie financière à souscrire (~1 200 € économisés/an)."
+              text="Vous exercez sous notre carte CPI 7501 2024 000 219, sans avoir à monter votre propre agence (formalités, ~360 €/an de carte T en propre). Eurealimmo ne pratique pas le maniement de fonds — transfert direct notaire ↔ vendeur, donc aucune garantie financière requise."
             />
             <Advantage
               icon="💎"
@@ -316,7 +316,7 @@ export default async function EurealimmoReseauPage({
               price="79 €"
               priceSuffix="/mois HT"
               bullets={[
-                "Carte T sous couverture (économie 1 200 €/an)",
+                "Carte T sous couverture (pas d'agence à monter, pas de carte T à demander)",
                 "DATAMERRY® illimité (vs 588 €/an séparé chez Olean)",
                 "8 % de retenue (20 % moins qu'Olean à 10 %)",
                 "Suivi ALUR automatique (rappels avant échéance)",
@@ -612,7 +612,7 @@ export default async function EurealimmoReseauPage({
           </h2>
           <Faq
             q="Faut-il avoir sa propre carte T ?"
-            a="Non. Vous exercez sous la nôtre (CPI 7501 2024 000 219). Économie ~1 200 €/an de garantie financière."
+            a="Non. Vous exercez sous la nôtre (CPI 7501 2024 000 219). Pas d'ouverture d'agence à votre charge, pas de carte T à demander ni à renouveler (~360 €/an + dossier complexe). Précision réglementaire : Eurealimmo est déclarée sans maniement de fonds (pas de séquestre client, paiements directs notaire ↔ vendeur), donc aucune garantie financière Hoguet n'est requise — ni pour nous, ni pour vous. Votre seule obligation personnelle est votre RCP agent commercial (150-200 €/an, à souscrire à part)."
           />
           <Faq
             q="Combien je gagne vraiment ?"

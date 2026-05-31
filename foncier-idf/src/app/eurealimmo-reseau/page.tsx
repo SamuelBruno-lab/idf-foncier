@@ -194,7 +194,7 @@ export default async function EurealimmoReseauPage({
           >
             Votre carte T, vos outils data,
             <br />
-            <span style={{ color: PRIMARY }}>95 % de vos commissions</span>.
+            <span style={{ color: PRIMARY }}>jusqu&apos;à 95 % de vos commissions</span>.
           </h1>
           <p
             style={{
@@ -262,8 +262,8 @@ export default async function EurealimmoReseauPage({
             />
             <Advantage
               icon="💎"
-              title="95 % nets sur vos ventes"
-              text="Vous gardez 95 % de votre commission. On prend 5 % seulement pour couvrir la structure et les outils."
+              title="92-95 % nets sur vos ventes"
+              text="Standard : 92 % nets (retenue 8 %, 20 % moins qu'Olean). Fondateur : 95 % nets (retenue 5 %)."
             />
             <Advantage
               icon="📊"
@@ -312,12 +312,13 @@ export default async function EurealimmoReseauPage({
           >
             <PricingCard
               tier="Standard"
-              price="39 €"
+              price="79 €"
               priceSuffix="/mois HT"
               bullets={[
-                "Carte T sous couverture",
-                "DATAMERRY® illimité",
-                "5 % de commission sur vos ventes",
+                "Carte T sous couverture (économie 1 200 €/an)",
+                "DATAMERRY® illimité (vs 588 €/an séparé chez Olean)",
+                "8 % de retenue (20 % moins qu'Olean à 10 %)",
+                "Formation Loi ALUR partenaires inclus",
                 "Engagement mensuel sans durée minimale",
                 "Support 5j/7 par email",
               ]}
@@ -333,7 +334,8 @@ export default async function EurealimmoReseauPage({
               bullets={[
                 "Tout l'offre Standard",
                 "✨ 6 mois gratuits à l'entrée",
-                "5 % de commission seulement",
+                "5 % de retenue (vs 8 % grille publique)",
+                "Verrouillage tarifaire 36 mois",
                 "18 % à vie sur tout HNWI que vous apportez",
                 "Accès prioritaire outils en bêta",
                 "Hotline dédiée Samuel BRUNO",
@@ -396,7 +398,7 @@ export default async function EurealimmoReseauPage({
           />
           <Faq
             q="Combien je gagne vraiment ?"
-            a="95 % de votre commission. Sur une vente à 500 k€ (com agence 3 %), vous percevez 14 250 € net (vs ~9 000 € chez SAFTI/IAD)."
+            a="Standard : 92 % de votre commission (retenue 8 %, 20 % moins qu'Olean à 10 %). Fondateur : 95 % (retenue 5 %). Sur une vente HNWI à 2 M€ (com agence 4 %), vous percevez 73 600 € net en Standard ou 76 000 € en Fondateur. Comparez à SAFTI/IAD où vous toucheriez ~55 000 €."
           />
           <Faq
             q="Je peux garder mon réseau actuel (SAFTI/IAD/Olean) en parallèle ?"

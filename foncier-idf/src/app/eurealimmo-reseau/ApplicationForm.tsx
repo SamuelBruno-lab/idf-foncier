@@ -451,7 +451,7 @@ function SuccessScreen({
         <NextStep
           num="1"
           title={preferred === "call" ? "Appel de bienvenue sous 24-48 h" : "Email avec dossier détaillé sous 24 h"}
-          text="Samuel BRUNO (président Eurealimmo) vous contacte pour valider la cohérence et répondre à vos questions."
+          text="Un agent Eurealimmo vous contacte pour valider la cohérence et répondre à vos questions."
         />
         <NextStep
           num="2"

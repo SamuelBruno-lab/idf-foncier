@@ -3,15 +3,8 @@
  *
  * URL : /cabinets/eurealimmo/admin/candidatures
  *
- * Auth : cookie session admin.
- *
- * Affiche les candidatures avec :
- *   - statut (new / reviewing / call_scheduled / etc.)
- *   - identité + contact (email, tél clickable)
- *   - profil (statut actuel, réseau, expérience, spécialité)
- *   - motivation
- *   - bouton "Marquer en cours / appel programmé / accepté / rejeté"
- *   - bouton "Créer mandataire" pour les acceptés (Y2)
+ * Auth : cookie session admin (verifySession + slug match).
+ * Cette page est réservée au cabinet "eurealimmo" (notFound() sinon).
  *
  * Utile car indépendant de Resend (si emails ne partent pas, on voit ici).
  */
@@ -19,7 +12,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { verifySession, ADMIN_SESSION_COOKIE } from "@/lib/admin-auth";
 import { ApplicationsTable } from "./ApplicationsTable";
 
@@ -52,11 +45,16 @@ type Application = {
   reviewer_notes: string | null;
 };
 
-async function fetchApplications(baseUrl: string, cookieHeader: string, status?: string) {
+async function fetchApplications(
+  baseUrl: string,
+  slug: string,
+  cookieHeader: string,
+  status?: string,
+) {
   try {
     const url = status
-      ? `${baseUrl}/api/cabinets/eurealimmo/admin/applications?status=${status}`
-      : `${baseUrl}/api/cabinets/eurealimmo/admin/applications`;
+      ? `${baseUrl}/api/cabinets/${slug}/admin/applications?status=${status}`
+      : `${baseUrl}/api/cabinets/${slug}/admin/applications`;
     const res = await fetch(url, {
       cache: "no-store",
       headers: { cookie: cookieHeader },
@@ -69,15 +67,20 @@ async function fetchApplications(baseUrl: string, cookieHeader: string, status?:
 }
 
 export default async function CandidaturesPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ status?: string }>;
 }) {
+  const { slug } = await params;
+  if (slug !== "eurealimmo") notFound();
+
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   const session = verifySession(sessionCookie);
-  if (!session || session.slug !== "eurealimmo") {
-    redirect("/cabinets/eurealimmo/admin/login");
+  if (!session || session.slug !== slug) {
+    redirect(`/cabinets/${slug}/admin/login`);
   }
 
   const { status } = await searchParams;
@@ -91,7 +94,7 @@ export default async function CandidaturesPage({
         : "http://localhost:3000");
 
   const cookieHeader = `${ADMIN_SESSION_COOKIE}=${sessionCookie}`;
-  const data = await fetchApplications(baseUrl, cookieHeader, status);
+  const data = await fetchApplications(baseUrl, slug, cookieHeader, status);
 
   if (!data || !data.ok) {
     return (
@@ -99,7 +102,7 @@ export default async function CandidaturesPage({
         <h1>Erreur de chargement</h1>
         <p>Vérifie que SQL 39 (eurealimmo_applications) est bien lancé.</p>
         <p>
-          <Link href="/cabinets/eurealimmo/admin">← Retour au dashboard</Link>
+          <Link href={`/cabinets/${slug}/admin`}>← Retour au dashboard</Link>
         </p>
       </main>
     );
@@ -139,14 +142,14 @@ export default async function CandidaturesPage({
             </div>
           </div>
           <nav style={{ display: "flex", gap: 16, fontSize: 13 }}>
-            <Link href="/cabinets/eurealimmo/admin" style={{ color: "#cbd5e1" }}>
+            <Link href={`/cabinets/${slug}/admin`} style={{ color: "#cbd5e1" }}>
               ← Dashboard
             </Link>
             <span style={{ color: PRIMARY, fontWeight: 700 }}>Candidatures</span>
-            <Link href="/cabinets/eurealimmo/admin/onboarding" style={{ color: "#cbd5e1" }}>
+            <Link href={`/cabinets/${slug}/admin/onboarding`} style={{ color: "#cbd5e1" }}>
               Onboarding
             </Link>
-            <Link href="/cabinets/eurealimmo/admin/registre" style={{ color: "#cbd5e1" }}>
+            <Link href={`/cabinets/${slug}/admin/registre`} style={{ color: "#cbd5e1" }}>
               Registre
             </Link>
           </nav>
@@ -184,42 +187,42 @@ export default async function CandidaturesPage({
 
           {/* Filtres */}
           <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-            <FilterBtn href="/cabinets/eurealimmo/admin/candidatures" active={!status}>
+            <FilterBtn href={`/cabinets/${slug}/admin/candidatures`} active={!status}>
               Tous ({stats.total ?? 0})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/candidatures?status=new"
+              href={`/cabinets/${slug}/admin/candidatures?status=new`}
               active={status === "new"}
             >
               🆕 Nouvelles ({stats.new ?? 0})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/candidatures?status=reviewing"
+              href={`/cabinets/${slug}/admin/candidatures?status=reviewing`}
               active={status === "reviewing"}
             >
               👀 En cours ({stats.reviewing ?? 0})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/candidatures?status=call_scheduled"
+              href={`/cabinets/${slug}/admin/candidatures?status=call_scheduled`}
               active={status === "call_scheduled"}
             >
               📞 Call planifié ({stats.call_scheduled ?? 0})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/candidatures?status=accepted"
+              href={`/cabinets/${slug}/admin/candidatures?status=accepted`}
               active={status === "accepted"}
             >
               ✓ Acceptées ({stats.accepted ?? 0})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/candidatures?status=rejected"
+              href={`/cabinets/${slug}/admin/candidatures?status=rejected`}
               active={status === "rejected"}
             >
               ✗ Rejetées ({stats.rejected ?? 0})
             </FilterBtn>
           </div>
 
-          <ApplicationsTable applications={applications} />
+          <ApplicationsTable cabinetSlug={slug} applications={applications} />
         </div>
       </section>
     </main>

@@ -16,7 +16,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { verifySession, ADMIN_SESSION_COOKIE } from "@/lib/admin-auth";
 import { AdminOnboardingTable } from "./AdminOnboardingTable";
 
@@ -28,11 +28,16 @@ export const metadata: Metadata = {
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
 
-async function fetchOnboardingData(baseUrl: string, cookieHeader: string, filter?: string) {
+async function fetchOnboardingData(
+  baseUrl: string,
+  slug: string,
+  cookieHeader: string,
+  filter?: string,
+) {
   try {
     const url = filter
-      ? `${baseUrl}/api/cabinets/eurealimmo/admin/onboarding?filter=${filter}`
-      : `${baseUrl}/api/cabinets/eurealimmo/admin/onboarding`;
+      ? `${baseUrl}/api/cabinets/${slug}/admin/onboarding?filter=${filter}`
+      : `${baseUrl}/api/cabinets/${slug}/admin/onboarding`;
     const res = await fetch(url, {
       cache: "no-store",
       headers: { cookie: cookieHeader },
@@ -45,16 +50,22 @@ async function fetchOnboardingData(baseUrl: string, cookieHeader: string, filter
 }
 
 export default async function AdminOnboardingPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ filter?: string }>;
 }) {
+  const { slug } = await params;
+  // Cette fonctionnalité onboarding est spécifique à Eurealimmo Réseau
+  if (slug !== "eurealimmo") notFound();
+
   // Auth check
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   const session = verifySession(sessionCookie);
-  if (!session || session.slug !== "eurealimmo") {
-    redirect("/cabinets/eurealimmo/admin/login");
+  if (!session || session.slug !== slug) {
+    redirect(`/cabinets/${slug}/admin/login`);
   }
 
   const { filter } = await searchParams;
@@ -69,7 +80,7 @@ export default async function AdminOnboardingPage({
         : "http://localhost:3000");
 
   const cookieHeader = `${ADMIN_SESSION_COOKIE}=${sessionCookie}`;
-  const data = await fetchOnboardingData(baseUrl, cookieHeader, filter);
+  const data = await fetchOnboardingData(baseUrl, slug, cookieHeader, filter);
 
   if (!data || !data.ok) {
     return (
@@ -77,7 +88,7 @@ export default async function AdminOnboardingPage({
         <h1>Erreur de chargement</h1>
         <p>Impossible de récupérer les données. Vérifie que la migration SQL 41 est lancée.</p>
         <p>
-          <Link href="/cabinets/eurealimmo/admin">← Retour au dashboard</Link>
+          <Link href={`/cabinets/${slug}/admin`}>← Retour au dashboard</Link>
         </p>
       </main>
     );
@@ -158,11 +169,11 @@ export default async function AdminOnboardingPage({
             </div>
           </div>
           <nav style={{ display: "flex", gap: 16, fontSize: 13 }}>
-            <Link href="/cabinets/eurealimmo/admin" style={{ color: "#cbd5e1" }}>
+            <Link href={`/cabinets/${slug}/admin`} style={{ color: "#cbd5e1" }}>
               ← Dashboard
             </Link>
             <span style={{ color: PRIMARY, fontWeight: 700 }}>Onboarding</span>
-            <Link href="/cabinets/eurealimmo/admin/registre" style={{ color: "#cbd5e1" }}>
+            <Link href={`/cabinets/${slug}/admin/registre`} style={{ color: "#cbd5e1" }}>
               Registre mandats
             </Link>
           </nav>
@@ -216,23 +227,23 @@ export default async function AdminOnboardingPage({
 
           {/* Filtres */}
           <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-            <FilterBtn href="/cabinets/eurealimmo/admin/onboarding" active={!filter}>
+            <FilterBtn href={`/cabinets/${slug}/admin/onboarding`} active={!filter}>
               Tous ({stats.total})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/onboarding?filter=ready"
+              href={`/cabinets/${slug}/admin/onboarding?filter=ready`}
               active={filter === "ready"}
             >
               ✓ Prêts ({stats.ready_count})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/onboarding?filter=stagnant"
+              href={`/cabinets/${slug}/admin/onboarding?filter=stagnant`}
               active={filter === "stagnant"}
             >
               ⚠️ Stagnent +7j ({stats.stagnant_count})
             </FilterBtn>
             <FilterBtn
-              href="/cabinets/eurealimmo/admin/onboarding?filter=blocked"
+              href={`/cabinets/${slug}/admin/onboarding?filter=blocked`}
               active={filter === "blocked"}
             >
               🚫 Bloqués ({stats.blocked_count})
@@ -240,7 +251,7 @@ export default async function AdminOnboardingPage({
           </div>
 
           {/* Table mandataires (composant client interactif) */}
-          <AdminOnboardingTable mandataires={mandataires} />
+          <AdminOnboardingTable cabinetSlug={slug} mandataires={mandataires} />
         </div>
       </section>
     </main>

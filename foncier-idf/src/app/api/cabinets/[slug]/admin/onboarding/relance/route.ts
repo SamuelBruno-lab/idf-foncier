@@ -32,7 +32,14 @@ type Payload = {
   custom_message?: string;
 };
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function POST(
+  req: NextRequest,
+  ctx: { params: Promise<{ slug: string }> },
+): Promise<NextResponse> {
+  const { slug } = await ctx.params;
+  if (slug !== "eurealimmo") {
+    return NextResponse.json({ ok: false, error: "not_available" }, { status: 404 });
+  }
   const session = getAdminSession(req);
   if (!session || session.slug !== "eurealimmo") {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });

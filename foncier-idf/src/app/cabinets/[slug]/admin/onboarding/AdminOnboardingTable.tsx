@@ -34,7 +34,13 @@ type Mandataire = {
   ready_for_first_mandate: boolean | null;
 };
 
-export function AdminOnboardingTable({ mandataires }: { mandataires: Mandataire[] }) {
+export function AdminOnboardingTable({
+  cabinetSlug,
+  mandataires,
+}: {
+  cabinetSlug: string;
+  mandataires: Mandataire[];
+}) {
   const [modal, setModal] = useState<{ mandataire: Mandataire; message: string } | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -42,7 +48,7 @@ export function AdminOnboardingTable({ mandataires }: { mandataires: Mandataire[
     if (!modal) return;
     setSending(true);
     try {
-      const res = await fetch("/api/cabinets/eurealimmo/admin/onboarding/relance", {
+      const res = await fetch(`/api/cabinets/${cabinetSlug}/admin/onboarding/relance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

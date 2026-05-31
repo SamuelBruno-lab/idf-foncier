@@ -24,7 +24,15 @@ function getSupabase() {
   );
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ slug: string }> },
+): Promise<NextResponse> {
+  const { slug } = await ctx.params;
+  // Cette fonctionnalité est réservée au cabinet "eurealimmo"
+  if (slug !== "eurealimmo") {
+    return NextResponse.json({ ok: false, error: "not_available" }, { status: 404 });
+  }
   // Auth admin
   const session = getAdminSession(req);
   if (!session || session.slug !== "eurealimmo") {

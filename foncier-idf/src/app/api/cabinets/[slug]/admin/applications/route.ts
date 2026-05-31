@@ -32,7 +32,14 @@ const VALID_STATUS = new Set([
   "withdrawn",
 ]);
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ slug: string }> },
+): Promise<NextResponse> {
+  const { slug } = await ctx.params;
+  if (slug !== "eurealimmo") {
+    return NextResponse.json({ ok: false, error: "not_available" }, { status: 404 });
+  }
   const session = getAdminSession(req);
   if (!session || session.slug !== "eurealimmo") {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -93,7 +100,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
  * Met à jour le status d'une candidature.
  * Body : { application_id: string, status: string, reviewer_notes?: string }
  */
-export async function PATCH(req: NextRequest): Promise<NextResponse> {
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ slug: string }> },
+): Promise<NextResponse> {
+  const { slug } = await ctx.params;
+  if (slug !== "eurealimmo") {
+    return NextResponse.json({ ok: false, error: "not_available" }, { status: 404 });
+  }
   const session = getAdminSession(req);
   if (!session || session.slug !== "eurealimmo") {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });

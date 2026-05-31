@@ -53,7 +53,13 @@ const SPECIALTY_LABEL: Record<string, string> = {
   mixte: "🔀 Mixte",
 };
 
-export function ApplicationsTable({ applications }: { applications: Application[] }) {
+export function ApplicationsTable({
+  cabinetSlug,
+  applications,
+}: {
+  cabinetSlug: string;
+  applications: Application[];
+}) {
   const [updating, setUpdating] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [list, setList] = useState(applications);
@@ -61,7 +67,7 @@ export function ApplicationsTable({ applications }: { applications: Application[
   async function updateStatus(application_id: string, status: string, notes?: string) {
     setUpdating(application_id);
     try {
-      const res = await fetch("/api/cabinets/eurealimmo/admin/applications", {
+      const res = await fetch(`/api/cabinets/${cabinetSlug}/admin/applications`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ application_id, status, reviewer_notes: notes }),

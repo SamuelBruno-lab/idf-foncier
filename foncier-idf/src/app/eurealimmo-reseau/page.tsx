@@ -20,6 +20,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { ApplicationForm } from "./ApplicationForm";
+import { RevenueSimulator } from "./RevenueSimulator";
 
 export const metadata: Metadata = {
   title: "Rejoindre Eurealimmo Réseau",
@@ -347,6 +348,9 @@ export default async function EurealimmoReseauPage({
           </div>
         </div>
       </section>
+
+      {/* ─── Simulateur revenus Y1 (interactif) ────────────────────────── */}
+      <RevenueSimulator />
 
       {/* ─── Transparence frais (à votre charge) ───────────────────────── */}
       <section style={{ padding: "70px 24px", background: "white" }}>

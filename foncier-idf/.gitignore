@@ -59,3 +59,10 @@ public/legal/*-v2.pdf
 public/legal/*-v3.pdf
 public/legal/*-v2.docx
 public/legal/*-v3.docx
+
+# ─── Protection IP & veille (stratégie commerciale interne) ───
+# Documents contenant : tarifs négociés partenaires, méthodologie
+# DATAMERRY, requêtes de veille concurrentielle, conditions NDA.
+public/legal/fiches-depot-inpi.md
+public/legal/nda-mandataire-candidat.md
+public/legal/google-alerts-veille-concurrentielle.md

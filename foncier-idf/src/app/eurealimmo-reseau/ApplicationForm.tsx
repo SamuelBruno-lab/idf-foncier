@@ -79,9 +79,28 @@ export function ApplicationForm({ referral }: { referral?: ReferralContext }) {
           tier_requested: referral?.tier ?? "standard",
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        detail?: string;
+      };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? "Erreur. Réessayez ou écrivez à contact@datamerry.com");
+        // Mapping des codes d'erreur vers messages utilisateur clairs
+        const errorMap: Record<string, string> = {
+          db_error:
+            "Notre base de données n'est pas encore opérationnelle pour l'enregistrement. Écrivez-nous directement à contact@datamerry.com — votre candidature sera traitée manuellement.",
+          invalid_email: "L'adresse email saisie n'est pas valide.",
+          invalid_phone: "Le numéro de téléphone est trop court.",
+          name_required: "Merci de saisir votre prénom et votre nom.",
+          consent_required: "Merci d'accepter le traitement de vos données.",
+          rejected: "Votre message contient des mots-clés détectés comme spam.",
+          invalid_json: "Erreur technique. Réessayez ou contactez-nous.",
+        };
+        const friendly = errorMap[j.error ?? ""] ?? null;
+        const detailSuffix = j.detail ? ` (détail technique : ${j.detail})` : "";
+        setError(
+          friendly ?? `Erreur : ${j.error ?? "inconnue"}${detailSuffix}. Écrivez à contact@datamerry.com.`,
+        );
         return;
       }
       setSubmitted(true);

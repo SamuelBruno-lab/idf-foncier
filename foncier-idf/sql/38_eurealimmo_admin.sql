@@ -364,7 +364,7 @@ spécialisés dans les biens d''exception (HNWI, hôtels particuliers, pieds-à-
 
 ## Pourquoi nous rejoindre ?
 
-- Carte T sous notre couverture (RCO) — pas de garantie financière à souscrire
+- Carte T sous notre couverture (CPI 7501 2024 000 219) — Eurealimmo déclarée sans maniement de fonds
 - Outils DATAMERRY® inclus : estimation data-driven + registre blockchain
 - 6 mois gratuits + 59€/mois + 5% commission seulement (Option D)
 - Mandataires fondateurs : commission referral 18% sur HNWI apportés

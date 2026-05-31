@@ -677,7 +677,7 @@ export default async function EurealimmoReseauPage({
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <div style={{ color: "white", fontWeight: 700, marginBottom: 6 }}>EUREALIMMO</div>
           <div>SARL · SIREN 984 449 470 · RCS Paris · 60 Rue François 1<sup>er</sup>, 75008 Paris</div>
-          <div>Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris Île-de-France)</div>
+          <div>Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris Île-de-France) · Sans maniement de fonds</div>
           <div style={{ marginTop: 14, color: "#475569" }}>
             © {new Date().getFullYear()} EUREALIMMO · Conforme loi Hoguet n° 70-9 ·{" "}
             <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>contact@datamerry.com</a>{" · "}

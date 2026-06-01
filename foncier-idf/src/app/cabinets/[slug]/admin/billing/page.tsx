@@ -90,13 +90,13 @@ export default async function AdminBillingPage({
   // Récupère le cabinet pour le branding
   const { data: cabinet } = await sb
     .from("dim_cabinets_white_label")
-    .select("slug, brand_name, primary_color, contact_email")
+    .select("slug, cabinet_name, primary_color, contact_email")
     .eq("slug", slug)
     .maybeSingle();
 
   const c = cabinet as {
     slug: string;
-    brand_name: string;
+    cabinet_name: string;
     primary_color: string | null;
     contact_email: string;
   } | null;
@@ -120,7 +120,7 @@ export default async function AdminBillingPage({
         >
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, letterSpacing: "0.05em" }}>
-              {c?.brand_name ?? slug.toUpperCase()}
+              {c?.cabinet_name ?? slug.toUpperCase()}
             </div>
             <div style={{ color: brandColor, fontSize: 10, letterSpacing: "0.1em" }}>
               MON ABONNEMENT

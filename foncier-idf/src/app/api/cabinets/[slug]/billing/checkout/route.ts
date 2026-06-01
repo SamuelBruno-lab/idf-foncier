@@ -41,7 +41,7 @@ export async function POST(
   const sb = getSupabase();
   const { data: cabinet } = await sb
     .from("dim_cabinets_white_label")
-    .select("slug, contact_email, brand_name")
+    .select("slug, contact_email, cabinet_name")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -49,7 +49,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "cabinet_not_found" }, { status: 404 });
   }
 
-  const c = cabinet as { slug: string; contact_email: string; brand_name: string };
+  const c = cabinet as { slug: string; contact_email: string; cabinet_name: string };
 
   // Base URL pour les return URLs
   const baseUrl =
@@ -64,7 +64,7 @@ export async function POST(
     const checkoutSession = await createCheckoutSession({
       cabinet_slug: c.slug,
       customer_email: c.contact_email,
-      customer_name: c.brand_name,
+      customer_name: c.cabinet_name,
       return_url_success: `${baseUrl}/cabinets/${c.slug}/admin/billing?status=success&session={CHECKOUT_SESSION_ID}`,
       return_url_cancel: `${baseUrl}/cabinets/${c.slug}/admin/billing?status=cancel`,
     });

@@ -234,7 +234,7 @@ export function ApplicationForm({ referral }: { referral?: ReferralContext }) {
 
       {showOptional && (
         <>
-          <Field label="Réseau actuel (si applicable)" hint="SAFTI, IAD, Capifrance, HSBC Privée, etc.">
+          <Field label="Réseau actuel (si applicable)" hint="Précisez le nom de votre réseau ou cabinet actuel">
             <input
               value={form.current_network}
               onChange={(e) => set("current_network", e.target.value)}

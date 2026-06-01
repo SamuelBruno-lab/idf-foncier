@@ -622,10 +622,10 @@ export default async function EurealimmoReseauPage({
           />
           <Faq
             q="Combien je gagne vraiment ?"
-            a="Standard : 92 % de votre commission (retenue 8 %, 20 % moins qu'un autre réseau à 10 %). Fondateur : 95 % (retenue 5 %). Sur une vente HNWI à 2 M€ (com agence 4 %), vous percevez 73 600 € net en Standard ou 76 000 € en Fondateur. Comparez à SAFTI/IAD où vous toucheriez ~55 000 €."
+            a="Standard : 92 % de votre commission (retenue 8 %, 20 % moins qu'un autre réseau à 10 %). Fondateur : 95 % (retenue 5 %). Sur une vente HNWI à 2 M€ (com agence 4 %), vous percevez 73 600 € net en Standard ou 76 000 € en Fondateur. Comparez à un réseau classique (retenue 31 %) où vous toucheriez ~55 000 €."
           />
           <Faq
-            q="Je peux garder mon réseau actuel (SAFTI/IAD/autre) en parallèle ?"
+            q="Je peux garder mon réseau actuel en parallèle ?"
             a="Oui, si votre contrat n'a pas de clause d'exclusivité dure. Double-affiliation possible pendant la transition. On valide ça au téléphone."
           />
           <Faq

@@ -14,6 +14,7 @@
  */
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { OnboardingChecklist } from "./OnboardingChecklist";
 
@@ -48,14 +49,11 @@ export default async function MandataireOnboardingPage({
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
 
-  // Récupère l'origine pour fetch interne (Server Component)
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    process.env.VERCEL_URL?.startsWith("http")
-      ? process.env.VERCEL_URL!
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
+  // Récupère l'origine via les headers HTTP (fonctionne sur Vercel + local)
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const baseUrl = `${protocol}://${host}`;
 
   const data = await fetchOnboarding(id, baseUrl);
   if (!data || !data.ok) notFound();

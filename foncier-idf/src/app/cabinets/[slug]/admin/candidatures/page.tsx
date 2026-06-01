@@ -11,7 +11,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { verifySession, ADMIN_SESSION_COOKIE } from "@/lib/admin-auth";
 import { ApplicationsTable } from "./ApplicationsTable";
@@ -85,13 +85,11 @@ export default async function CandidaturesPage({
 
   const { status } = await searchParams;
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    (process.env.VERCEL_URL?.startsWith("http")
-      ? process.env.VERCEL_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000");
+  // Construit l'URL de base via headers HTTP (robuste Vercel + local)
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const baseUrl = `${protocol}://${host}`;
 
   const cookieHeader = `${ADMIN_SESSION_COOKIE}=${sessionCookie}`;
   const data = await fetchApplications(baseUrl, slug, cookieHeader, status);

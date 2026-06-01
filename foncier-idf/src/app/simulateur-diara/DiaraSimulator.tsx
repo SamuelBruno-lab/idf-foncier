@@ -725,6 +725,28 @@ export default function DiaraSimulator() {
               >
                 🏆 Prime de cession (Article 8 — exclusive, SANS PLAFOND ✨)
               </div>
+
+              {/* Badge droit de préemption */}
+              <div
+                style={{
+                  background: "#fff",
+                  border: `1.5px dashed ${SOLANA}`,
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  marginBottom: 10,
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#5b21b6" }}>
+                  🛡️ + Droit de préemption (Article 8 bis)
+                </div>
+                <div style={{ color: MUTED, marginTop: 2 }}>
+                  Avant toute cession, tu as 90 j pour faire une offre
+                  (ROFO) et 60 j pour t'aligner sur celle d'un tiers
+                  (ROFR). Possibilité de co-investir (min. 40 % capital).
+                </div>
+              </div>
               <div
                 style={{
                   display: "grid",

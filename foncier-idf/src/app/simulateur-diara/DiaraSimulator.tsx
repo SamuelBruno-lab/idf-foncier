@@ -26,12 +26,13 @@ const CONTRACT = {
   hnwiThresholdTicket: 1_500_000, // EUR prix net vendeur
   // Article 7.4 bis — Cumul Standards
   hnwiCumulMinPerRef: 3750, // EUR HT mini par référé pour cumul
-  // Article 8.3 — Paliers prime de cession (EXCLUSIF Diara)
+  // Article 8.3 — Paliers prime de cession (EXCLUSIF Diara — SANS PLAFOND)
+  // cap: null = aucun plafond ("sky is the limit")
   cessionPaliers: [
-    { name: "BASE", unitsMin: 5, hnwiMin: 0, pct: 0.05, cap: 99_000 },
-    { name: "BONUS 1", unitsMin: 10, hnwiMin: 0, pct: 0.06, cap: 124_000 },
-    { name: "BONUS 2", unitsMin: 15, hnwiMin: 0, pct: 0.07, cap: 149_000 },
-    { name: "BONUS 3", unitsMin: 20, hnwiMin: 3, pct: 0.09, cap: 199_000 },
+    { name: "BASE", unitsMin: 5, hnwiMin: 0, pct: 0.05, cap: null as number | null },
+    { name: "BONUS 1", unitsMin: 10, hnwiMin: 0, pct: 0.06, cap: null as number | null },
+    { name: "BONUS 2", unitsMin: 15, hnwiMin: 0, pct: 0.07, cap: null as number | null },
+    { name: "BONUS 3", unitsMin: 20, hnwiMin: 3, pct: 0.09, cap: null as number | null },
   ] as const,
   // Article 8.3 — Conversion unités
   unitHnwi: 1,
@@ -217,12 +218,14 @@ export default function DiaraSimulator() {
     // ---- 8. Palier prime cession atteint ----
     const palier = determinePalier(unites, hnwiCount);
 
-    // ---- 9. Montant prime cession ----
+    // ---- 9. Montant prime cession (SANS plafond — "sky is the limit") ----
     const primeCessionTheorique = palier
       ? produitNetCession * palier.pct
       : 0;
     const primeCessionFinale = palier
-      ? Math.min(primeCessionTheorique, palier.cap)
+      ? palier.cap !== null
+        ? Math.min(primeCessionTheorique, palier.cap)
+        : primeCessionTheorique
       : 0;
 
     return {
@@ -720,7 +723,7 @@ export default function DiaraSimulator() {
                   marginBottom: 8,
                 }}
               >
-                🏆 Prime de cession (Article 8 — exclusive)
+                🏆 Prime de cession (Article 8 — exclusive, SANS PLAFOND ✨)
               </div>
               <div
                 style={{
@@ -740,7 +743,7 @@ export default function DiaraSimulator() {
                   value={calc.palier ? calc.palier.name : "—"}
                   hint={
                     calc.palier
-                      ? `${pct(calc.palier.pct)} · plafond ${eur(calc.palier.cap)}`
+                      ? `${pct(calc.palier.pct)} · sans plafond ✨`
                       : "Min. 5 unités requises"
                   }
                   highlight={calc.palier?.name === "BONUS 3"}
@@ -764,15 +767,16 @@ export default function DiaraSimulator() {
                     ? `${pct(calc.palier.pct)} × ${eur(produitNetCession)} = ${eur(calc.primeCessionTheorique)}`
                     : "Pas éligible (manque d'unités)"}
                 </div>
-                {calc.palier && calc.primeCessionFinale < calc.primeCessionTheorique && (
+                {calc.palier && (
                   <div
                     style={{
-                      color: "#dc2626",
+                      color: DM_GREEN,
                       fontSize: 11,
                       marginTop: 2,
+                      fontWeight: 600,
                     }}
                   >
-                    ⚠️ Plafonné à {eur(calc.palier.cap)}
+                    ✨ Aucun plafond — Sky is the limit
                   </div>
                 )}
                 <div
@@ -871,10 +875,11 @@ export default function DiaraSimulator() {
                           style={{
                             textAlign: "right",
                             padding: "5px 2px",
-                            fontVariantNumeric: "tabular-nums",
+                            color: DM_GREEN,
+                            fontWeight: 700,
                           }}
                         >
-                          {eur(p.cap)}
+                          ✨ AUCUN
                         </td>
                       </tr>
                     );

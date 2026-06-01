@@ -335,7 +335,7 @@ export function RevenueSimulator() {
             marginBottom: 24,
           }}
         >
-          {/* Olean reference */}
+          {/* Autre réseau référence (10% retenue) */}
           <div
             style={{
               padding: 24,
@@ -354,7 +354,7 @@ export function RevenueSimulator() {
                 marginBottom: 8,
               }}
             >
-              OLEAN (RÉFÉRENCE)
+              AUTRE RÉSEAU (RÉFÉRENCE 10 %)
             </div>
             <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>10 % de retenue</div>
             <div
@@ -421,7 +421,7 @@ export function RevenueSimulator() {
                   display: "inline-block",
                 }}
               >
-                +{formatEur(stats.gainHtStandard)} vs Olean
+                +{formatEur(stats.gainHtStandard)} vs autre réseau
               </div>
             )}
             <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 8, fontStyle: "italic" }}>
@@ -477,7 +477,7 @@ export function RevenueSimulator() {
                   display: "inline-block",
                 }}
               >
-                +{formatEur(stats.gainHtFondateur)} vs Olean
+                +{formatEur(stats.gainHtFondateur)} vs autre réseau
               </div>
             )}
             <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 8, fontStyle: "italic" }}>

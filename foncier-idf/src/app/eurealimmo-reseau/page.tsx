@@ -265,7 +265,7 @@ export default async function EurealimmoReseauPage({
             <Advantage
               icon="💎"
               title="92-95 % nets sur vos ventes"
-              text="Standard : 92 % nets (retenue 8 %, 20 % moins qu'Olean). Fondateur : 95 % nets (retenue 5 %)."
+              text="Standard : 92 % nets (retenue 8 %, 20 % moins qu'un autre réseau à 10 %). Fondateur : 95 % nets (retenue 5 %)."
             />
             <Advantage
               icon="📊"
@@ -318,8 +318,8 @@ export default async function EurealimmoReseauPage({
               priceSuffix="/mois HT"
               bullets={[
                 "Carte T sous couverture (pas d'agence à monter, pas de carte T à demander)",
-                "DATAMERRY® illimité (vs 588 €/an séparé chez Olean)",
-                "8 % de retenue (20 % moins qu'Olean à 10 %)",
+                "DATAMERRY® illimité (vs 588 €/an séparé ailleurs)",
+                "8 % de retenue (20 % moins qu'un autre réseau à 10 %)",
                 "Suivi ALUR automatique (rappels avant échéance)",
                 "Engagement mensuel sans durée minimale",
                 "Support 5j/7 par email",
@@ -562,7 +562,7 @@ export default async function EurealimmoReseauPage({
             }}
           >
             <strong>Comparaison utile :</strong> sur 50 000 €/an de commissions, vous économisez{" "}
-            <strong style={{ color: DARK }}>~1 000 €/an</strong> chez Eurealimmo Standard vs Olean (10 %), et{" "}
+            <strong style={{ color: DARK }}>~1 000 €/an</strong> chez Eurealimmo Standard vs un autre réseau à 10 %, et{" "}
             <strong style={{ color: DARK }}>~1 800 €/an</strong> en Fondateur. Sur 200 000 €/an de
             commissions (profil HWNI), l&apos;économie atteint{" "}
             <strong style={{ color: DARK }}>~3 000 € à ~9 300 €/an</strong>.
@@ -622,10 +622,10 @@ export default async function EurealimmoReseauPage({
           />
           <Faq
             q="Combien je gagne vraiment ?"
-            a="Standard : 92 % de votre commission (retenue 8 %, 20 % moins qu'Olean à 10 %). Fondateur : 95 % (retenue 5 %). Sur une vente HNWI à 2 M€ (com agence 4 %), vous percevez 73 600 € net en Standard ou 76 000 € en Fondateur. Comparez à SAFTI/IAD où vous toucheriez ~55 000 €."
+            a="Standard : 92 % de votre commission (retenue 8 %, 20 % moins qu'un autre réseau à 10 %). Fondateur : 95 % (retenue 5 %). Sur une vente HNWI à 2 M€ (com agence 4 %), vous percevez 73 600 € net en Standard ou 76 000 € en Fondateur. Comparez à SAFTI/IAD où vous toucheriez ~55 000 €."
           />
           <Faq
-            q="Je peux garder mon réseau actuel (SAFTI/IAD/Olean) en parallèle ?"
+            q="Je peux garder mon réseau actuel (SAFTI/IAD/autre) en parallèle ?"
             a="Oui, si votre contrat n'a pas de clause d'exclusivité dure. Double-affiliation possible pendant la transition. On valide ça au téléphone."
           />
           <Faq

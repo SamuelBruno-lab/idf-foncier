@@ -21,6 +21,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { ApplicationForm } from "./ApplicationForm";
 import { RevenueSimulator } from "./RevenueSimulator";
+import { ReferralSimulator } from "./ReferralSimulator";
 
 export const metadata: Metadata = {
   title: "Rejoindre Eurealimmo Réseau",
@@ -351,6 +352,11 @@ export default async function EurealimmoReseauPage({
 
       {/* ─── Simulateur revenus Y1 (interactif) ────────────────────────── */}
       <RevenueSimulator />
+
+      {/* ─── Simulateur rente passive referral (effet viral Option B) ──── */}
+      <ReferralSimulator
+        initialTier={referral?.code === "DIARA" ? 0.18 : 0.18}
+      />
 
       {/* ─── Transparence frais (à votre charge) ───────────────────────── */}
       <section style={{ padding: "70px 24px", background: "white" }}>

@@ -43,6 +43,72 @@ export function AdminOnboardingTable({
 }) {
   const [modal, setModal] = useState<{ mandataire: Mandataire; message: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const [contratBusy, setContratBusy] = useState<string | null>(null);
+
+  async function generateContrat(m: Mandataire, sendForSignature: boolean) {
+    setContratBusy(m.mandataire_id);
+    try {
+      const res = await fetch(
+        `/api/cabinets/${cabinetSlug}/admin/mandataires/${m.mandataire_id}/contrat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ send_for_signature: sendForSignature }),
+        },
+      );
+      const j = (await res.json()) as {
+        ok?: boolean;
+        signed_url?: string;
+        error?: string;
+        message?: string;
+        signature?: { ok?: boolean; error?: string };
+      };
+      if (!j.ok) {
+        alert(`Erreur : ${j.message ?? j.error}`);
+        return;
+      }
+      if (sendForSignature) {
+        if (j.signature?.ok) alert(`✓ Contrat envoyé en signature à ${m.email}`);
+        else alert(`Contrat généré, mais envoi signature KO : ${j.signature?.error ?? "non configuré"}`);
+      } else if (j.signed_url) {
+        window.open(j.signed_url, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : "inconnue"));
+    } finally {
+      setContratBusy(null);
+    }
+  }
+
+  async function generateAll() {
+    if (!confirm("Générer les contrats de tous les fondateurs éligibles (n° 2..60) sans contrat ?")) return;
+    setContratBusy("all");
+    try {
+      const res = await fetch(
+        `/api/cabinets/${cabinetSlug}/admin/mandataires/contrats/batch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ only_missing: true }),
+        },
+      );
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        summary?: { total: number; generated: number; skipped: number; errors: number };
+      };
+      if (!j.ok) {
+        alert(`Erreur batch : ${j.error}`);
+        return;
+      }
+      const s = j.summary;
+      alert(`✓ Batch terminé — générés : ${s?.generated}, ignorés : ${s?.skipped}, erreurs : ${s?.errors}`);
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : "inconnue"));
+    } finally {
+      setContratBusy(null);
+    }
+  }
 
   async function sendRelance() {
     if (!modal) return;
@@ -88,6 +154,16 @@ export function AdminOnboardingTable({
 
   return (
     <>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button
+          type="button"
+          onClick={generateAll}
+          disabled={contratBusy !== null}
+          style={primaryBtn}
+        >
+          {contratBusy === "all" ? "Génération…" : "📄 Générer tous les contrats"}
+        </button>
+      </div>
       <div style={{ overflowX: "auto" }}>
         <table
           style={{
@@ -242,6 +318,24 @@ export function AdminOnboardingTable({
                     >
                       Voir détail
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => generateContrat(m, false)}
+                      disabled={contratBusy !== null}
+                      style={secondaryBtn}
+                      title="Générer le contrat de mandat (.docx) et l'ouvrir"
+                    >
+                      {contratBusy === m.mandataire_id ? "…" : "📄 Contrat"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => generateContrat(m, true)}
+                      disabled={contratBusy !== null}
+                      style={secondaryBtn}
+                      title="Générer et envoyer en signature électronique"
+                    >
+                      ✍️ Signature
+                    </button>
                   </div>
                 </Td>
               </tr>

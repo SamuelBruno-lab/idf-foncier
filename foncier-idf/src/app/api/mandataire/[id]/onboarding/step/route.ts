@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ensureMandatGenerated } from "@/lib/contracts/store-mandat";
 
 function getSupabase() {
   return createClient(
@@ -140,5 +141,20 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ ok: true, step_key, status });
+  // 6. Auto-génération du contrat dès que le mandataire ATTAQUE l'étape contrat
+  //    (status in_progress), afin qu'il soit prêt à envoyer en signature.
+  //    Best-effort, non bloquant : n'altère jamais la réponse onboarding.
+  //    (Nécessite founder_number renseigné ; ignoré silencieusement sinon.)
+  let contract_generated: boolean | undefined;
+  if (step_key === "contrat_signe" && status === "in_progress") {
+    try {
+      const res = await ensureMandatGenerated(sb, id);
+      contract_generated = res.ok;
+      if (!res.ok) console.warn("[onboarding/step] contrat non généré:", res.reason);
+    } catch (e) {
+      console.warn("[onboarding/step] ensureMandatGenerated exception:", e);
+    }
+  }
+
+  return NextResponse.json({ ok: true, step_key, status, ...(contract_generated !== undefined ? { contract_generated } : {}) });
 }

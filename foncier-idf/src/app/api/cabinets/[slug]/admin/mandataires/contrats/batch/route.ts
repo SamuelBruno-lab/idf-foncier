@@ -33,7 +33,7 @@ function getSupabase() {
 
 const BUCKET = "mandats-fondateurs";
 const MANDATAIRE_COLS =
-  "id, first_name, last_name, email, company_name, founder_number, description, contract_generated_at";
+  "id, first_name, last_name, email, company_name, founder_number, description, contract_generated_at, commission_eurealimmo_pct";
 
 type Row = MandataireRow & { contract_generated_at: string | null };
 
@@ -60,11 +60,13 @@ export async function POST(
 
   const sb = getSupabase();
 
+  // Tous les mandataires actifs avec un tier déterminable (commission 5 ou 8).
+  // La fondatrice n° 1 (Diara) et les fondateurs sans numéro sont écartés
+  // par le try/catch de génération (contrat manuel / pré-requis manquant).
   let filter = sb
     .from("eurealimmo_mandataires")
     .select(MANDATAIRE_COLS)
-    .not("founder_number", "is", null)
-    .neq("founder_number", 1)
+    .in("commission_eurealimmo_pct", [5, 8])
     .eq("is_active", true);
 
   if (body.ids && body.ids.length > 0) {

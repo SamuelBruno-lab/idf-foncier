@@ -16,7 +16,7 @@ import {
 export const MANDAT_BUCKET = "mandats-fondateurs";
 
 const COLS =
-  "id, first_name, last_name, email, company_name, founder_number, description, contract_generated_at";
+  "id, first_name, last_name, email, company_name, founder_number, description, contract_generated_at, commission_eurealimmo_pct";
 
 export async function ensureMandatGenerated(
   sb: SupabaseClient,

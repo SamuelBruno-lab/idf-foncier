@@ -32,7 +32,7 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT COALESCE(
-    (SELECT count_obs >= p_k
+    (SELECT "count" >= p_k
      FROM dvf_hdbscan_zones_5y
      WHERE cluster_id = p_cluster_id),
     FALSE
@@ -50,14 +50,14 @@ COMMENT ON FUNCTION public.check_k_anonymity_for_cluster IS
 CREATE OR REPLACE VIEW public.v_k_anonymity_status AS
 SELECT
   cluster_id,
-  count_obs AS nb_transactions,
+  "count" AS nb_transactions,
   CASE
-    WHEN count_obs >= 30 THEN 'PUBLIC_OK_K30'
-    WHEN count_obs >= 5  THEN 'CNIL_OK_K5_MIN'
+    WHEN "count" >= 30 THEN 'PUBLIC_OK_K30'
+    WHEN "count" >= 5  THEN 'CNIL_OK_K5_MIN'
     ELSE 'BLOCKED_KANONYM'
   END AS protection_level,
-  (count_obs >= 5) AS passes_cnil_minimum,
-  (count_obs >= 30) AS passes_datamerry_standard
+  ("count" >= 5) AS passes_cnil_minimum,
+  ("count" >= 30) AS passes_datamerry_standard
 FROM public.dvf_hdbscan_zones_5y;
 
 COMMENT ON VIEW public.v_k_anonymity_status IS
@@ -71,12 +71,12 @@ COMMENT ON VIEW public.v_k_anonymity_status IS
 CREATE OR REPLACE VIEW public.v_k_anonymity_violations AS
 SELECT
   cluster_id,
-  count_obs,
-  'cluster_id = ' || cluster_id::text || ' a ' || count_obs::text ||
+  "count" AS count_obs,
+  'cluster_id = ' || cluster_id::text || ' a ' || "count"::text ||
   ' transactions (< 5) — protection k-anonymisation requise' AS detail
 FROM public.dvf_hdbscan_zones_5y
-WHERE count_obs < 5
-ORDER BY count_obs DESC;
+WHERE "count" < 5
+ORDER BY "count" DESC;
 
 COMMENT ON VIEW public.v_k_anonymity_violations IS
   'Clusters NON conformes k=5 — ces zones doivent être masquées dans toute publication.';
@@ -100,15 +100,15 @@ STABLE
 AS $$
   SELECT
     count(*)::int AS total_clusters,
-    count(*) FILTER (WHERE count_obs >= 5)::int AS clusters_protected_k5,
-    count(*) FILTER (WHERE count_obs >= 30)::int AS clusters_protected_k30,
-    count(*) FILTER (WHERE count_obs < 5)::int AS clusters_blocked_kanonym,
+    count(*) FILTER (WHERE "count" >= 5)::int AS clusters_protected_k5,
+    count(*) FILTER (WHERE "count" >= 30)::int AS clusters_protected_k30,
+    count(*) FILTER (WHERE "count" < 5)::int AS clusters_blocked_kanonym,
     ROUND(
-      100.0 * count(*) FILTER (WHERE count_obs >= 5) / NULLIF(count(*), 0),
+      100.0 * count(*) FILTER (WHERE "count" >= 5) / NULLIF(count(*), 0),
       2
     ) AS protection_rate_k5_pct,
     ROUND(
-      100.0 * count(*) FILTER (WHERE count_obs >= 30) / NULLIF(count(*), 0),
+      100.0 * count(*) FILTER (WHERE "count" >= 30) / NULLIF(count(*), 0),
       2
     ) AS protection_rate_k30_pct
   FROM public.dvf_hdbscan_zones_5y;

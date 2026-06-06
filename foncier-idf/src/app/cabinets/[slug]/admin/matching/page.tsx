@@ -58,7 +58,7 @@ export default async function MatchingAdminPage({
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   const session = sessionToken ? await verifySession(sessionToken) : null;
-  if (!session || session.cabinet_slug !== slug) {
+  if (!session || session.slug !== slug) {
     const h = await headers();
     const proto = h.get("x-forwarded-proto") ?? "https";
     const host = h.get("host") ?? "localhost:3000";

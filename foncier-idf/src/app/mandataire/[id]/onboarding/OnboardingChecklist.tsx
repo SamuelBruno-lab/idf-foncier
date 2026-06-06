@@ -115,6 +115,7 @@ export function OnboardingChecklist({
         <StepCard
           key={item.id}
           item={item}
+          mandataireId={mandataireId}
           isPending={pendingStep === item.step_key}
           onUpdate={updateStep}
         />
@@ -125,10 +126,12 @@ export function OnboardingChecklist({
 
 function StepCard({
   item,
+  mandataireId,
   isPending,
   onUpdate,
 }: {
   item: ChecklistItem;
+  mandataireId: string;
   isPending: boolean;
   onUpdate: (
     step_key: string,
@@ -141,6 +144,45 @@ function StepCard({
   const isCompleted = status === "completed";
   const isBlocked = status === "blocked";
   const [uploadUrl, setUploadUrl] = useState(item.progress.evidence_url ?? "");
+  const [uploading, setUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+
+  async function handlePdfUpload(file: File) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Merci de sélectionner un fichier PDF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("PDF trop volumineux (max 10 Mo).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("step_key", item.step_key);
+      const res = await fetch(
+        `/api/mandataire/${mandataireId}/onboarding/upload`,
+        { method: "POST", body: fd },
+      );
+      const j = (await res.json()) as {
+        ok?: boolean;
+        signed_url?: string;
+        error?: string;
+        message?: string;
+      };
+      if (!j.ok || !j.signed_url) {
+        alert(`Erreur upload : ${j.message ?? j.error ?? "inconnue"}`);
+        return;
+      }
+      setUploadUrl(j.signed_url);
+      setUploadedName(file.name);
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : "inconnue"));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div
@@ -251,9 +293,47 @@ function StepCard({
           {/* Document upload */}
           {item.validation_type === "document_upload" && !isCompleted && (
             <div style={{ marginTop: 8 }}>
+              {/* Upload direct PDF (recommandé) */}
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: uploading ? "wait" : "pointer",
+                  background: uploading ? "#e2e8f0" : "#0f172a",
+                  color: uploading ? "#94a3b8" : "white",
+                  padding: "8px 16px",
+                  borderRadius: 4,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginBottom: 8,
+                }}
+              >
+                {uploading ? "Téléversement…" : "📎 Téléverser un PDF"}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handlePdfUpload(f);
+                    e.target.value = "";
+                  }}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {uploadedName && (
+                <div style={{ fontSize: 12, color: "#059669", fontWeight: 600, marginBottom: 8 }}>
+                  ✓ {uploadedName} téléversé — cliquez « Valider le document » pour finaliser.
+                </div>
+              )}
+
+              <div style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0" }}>
+                — ou collez un lien (Google Drive, Dropbox…) —
+              </div>
               <input
                 type="url"
-                placeholder="URL du document uploadé (ex: https://...)"
+                placeholder="URL du document (ex: https://...)"
                 value={uploadUrl}
                 onChange={(e) => setUploadUrl(e.target.value)}
                 style={{
@@ -267,9 +347,7 @@ function StepCard({
                 }}
               />
               <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
-                Hébergez votre document (Google Drive partagé, Dropbox, etc.) et collez l&apos;URL ici.
-                <br />
-                À venir Y1 Q2 : upload direct sécurisé via Supabase Storage.
+                PDF accepté (max 10 Mo). Stockage sécurisé Supabase Storage (UE).
               </div>
             </div>
           )}

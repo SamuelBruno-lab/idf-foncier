@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAdminSession } from "@/lib/admin-auth";
+import { extractRequestContext, logPIIAccess } from "@/lib/rgpd/log-pii-access";
 
 function getSupabase() {
   return createClient(
@@ -85,6 +86,28 @@ export async function GET(
     console.error("[admin/leads] query error:", error);
     return NextResponse.json({ error: "db_error" }, { status: 500 });
   }
+
+  // ---- Log RGPD (best-effort, ne bloque pas la requête) ----
+  const ctxReq = extractRequestContext(req);
+  await logPIIAccess({
+    supabase: sb,
+    cabinetSlug: slug,
+    actorEmail: session.email,
+    actorRole: "admin",
+    resourceType: "lead_list",
+    action: "LIST",
+    ip: ctxReq.ip,
+    userAgent: ctxReq.userAgent,
+    endpoint: ctxReq.endpoint,
+    httpMethod: ctxReq.httpMethod,
+    metadata: {
+      lead_count: leads?.length ?? 0,
+      filter_status: statusFilter,
+      search: search.length >= 2 ? "(present)" : undefined,
+      offset,
+      limit,
+    },
+  });
 
   return NextResponse.json({
     leads: leads ?? [],

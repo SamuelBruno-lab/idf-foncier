@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAdminSession } from "@/lib/admin-auth";
 import { computeMandatHash } from "@/lib/mandate/canonical-hash";
+import { extractRequestContext, logPIIAccess } from "@/lib/rgpd/log-pii-access";
 
 function getSupabase() {
   return createClient(
@@ -82,6 +83,22 @@ export async function GET(
     )
     .eq("lead_id", lead_id)
     .maybeSingle();
+
+  // ---- Log RGPD (best-effort) ----
+  const ctxReq = extractRequestContext(req);
+  await logPIIAccess({
+    supabase: sb,
+    cabinetSlug: slug,
+    actorEmail: session.email,
+    actorRole: "admin",
+    resourceType: "lead",
+    resourceId: lead_id,
+    action: "READ",
+    ip: ctxReq.ip,
+    userAgent: ctxReq.userAgent,
+    endpoint: ctxReq.endpoint,
+    httpMethod: ctxReq.httpMethod,
+  });
 
   return NextResponse.json({ lead, history: history ?? [], anchor: anchor ?? null });
 }

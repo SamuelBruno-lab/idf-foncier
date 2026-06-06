@@ -88,6 +88,7 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_count INT := 0;
+  v_tmp INT := 0;
   v_threshold_export INT := 500;
   v_threshold_rapid INT := 100;
   v_threshold_minutes INT := 5;
@@ -150,7 +151,8 @@ BEGIN
         AND s.detected_at >= now() - INTERVAL '1 hour'
     );
 
-  GET DIAGNOSTICS v_count = v_count + ROW_COUNT;
+  GET DIAGNOSTICS v_tmp = ROW_COUNT;
+  v_count := v_count + v_tmp;
 
   -- Détection 3 : logs > 5 ans (rétention RGPD)
   IF EXISTS (

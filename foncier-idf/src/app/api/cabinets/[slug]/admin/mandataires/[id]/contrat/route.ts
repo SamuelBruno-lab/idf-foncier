@@ -34,7 +34,7 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MANDATAIRE_COLS =
-  "id, first_name, last_name, email, company_name, founder_number, description";
+  "id, first_name, last_name, email, company_name, founder_number, description, commission_eurealimmo_pct";
 
 export async function POST(
   req: NextRequest,
@@ -90,7 +90,7 @@ export async function POST(
     );
   }
 
-  const { buffer, filename, tags } = generated;
+  const { buffer, filename, tags, tier } = generated;
 
   // Stockage Supabase (bucket privé)
   const storagePath = `${id}/${filename}`;
@@ -135,7 +135,10 @@ export async function POST(
           signerEmail: tags.email,
           signerFirstName: tags.prenom,
           signerLastName: tags.nom,
-          subject: `Contrat de mandat fondateur n° ${tags.numero_fondateur} — Eurealimmo Réseau`,
+          subject:
+            tier === "founder"
+              ? `Contrat de mandat fondateur n° ${tags.numero_fondateur} — Eurealimmo Réseau`
+              : `Contrat de mandat mandataire — Eurealimmo Réseau`,
         });
       } catch (e) {
         signature = { ok: false, error: e instanceof Error ? e.message : String(e) };

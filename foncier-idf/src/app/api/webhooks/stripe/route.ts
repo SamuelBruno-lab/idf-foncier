@@ -142,6 +142,12 @@ async function handleSubscriptionEvent(
   sub: Stripe.Subscription,
   cabinet_slug: string | null,
 ) {
+  // Abonnement mandataire Eurealimmo (SEPA) ?
+  if (sub.metadata?.mandataire_id) {
+    await handleMandataireSubscription(sb, sub);
+    return;
+  }
+
   const slug = cabinet_slug ?? sub.metadata?.cabinet_slug ?? null;
   if (!slug) {
     console.warn("[webhooks/stripe] subscription without cabinet_slug:", sub.id);
@@ -186,6 +192,9 @@ async function handleSubscriptionEvent(
 }
 
 async function handleCheckoutCompleted(sb: SB, session: Stripe.Checkout.Session) {
+  // Mandataire : tout est géré par customer.subscription.created/updated.
+  if (session.metadata?.mandataire_id) return;
+
   // En général déjà géré par customer.subscription.created, mais on récupère
   // l'email + nom pour enrichir si pas encore présent.
   const slug = session.metadata?.cabinet_slug;
@@ -216,5 +225,52 @@ async function handleInvoiceEvent(sb: SB, invoice: Stripe.Invoice, eventType: st
       .from("dim_cabinet_subscriptions")
       .update({ status: "past_due" })
       .eq("stripe_subscription_id", subscription_id);
+    // Idem côté mandataire Eurealimmo (best-effort) → déclenche la suspension d'accès
+    await sb
+      .from("eurealimmo_mandataires")
+      .update({ sepa_status: "past_due" })
+      .eq("stripe_subscription_id", subscription_id);
+  }
+}
+
+// Abonnement SEPA d'un mandataire Eurealimmo.
+async function handleMandataireSubscription(sb: SB, sub: Stripe.Subscription) {
+  const mandataire_id = sub.metadata?.mandataire_id;
+  if (!mandataire_id) return;
+  const tier = sub.metadata?.tier ?? null;
+
+  const active = sub.status === "trialing" || sub.status === "active";
+  const sepa_status = ["trialing", "active", "past_due", "canceled"].includes(sub.status)
+    ? sub.status
+    : "pending";
+
+  await sb
+    .from("eurealimmo_mandataires")
+    .update({
+      stripe_customer_id:
+        typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+      stripe_subscription_id: sub.id,
+      sepa_status,
+    })
+    .eq("id", mandataire_id);
+
+  // Horodate l'autorisation SEPA une seule fois.
+  if (active) {
+    await sb
+      .from("eurealimmo_mandataires")
+      .update({ sepa_authorized_at: new Date().toISOString() })
+      .eq("id", mandataire_id)
+      .is("sepa_authorized_at", null);
+  }
+
+  // Fondateur : verrouille la fenêtre 36 mois (une seule fois).
+  if (active && tier === "founder") {
+    const lock = new Date();
+    lock.setMonth(lock.getMonth() + 36);
+    await sb
+      .from("eurealimmo_mandataires")
+      .update({ contract_lock_until: lock.toISOString() })
+      .eq("id", mandataire_id)
+      .is("contract_lock_until", null);
   }
 }

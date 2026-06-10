@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { GenerateMandatHoguetCard } from "./GenerateMandatHoguetCard";
+
 type Lead = {
   id: string;
   visitor_name: string;
@@ -435,6 +437,16 @@ export default function LeadDetailPage({
           primary={primary}
           saving={saving}
           onSubmit={patchLead}
+        />
+
+        {/* ── GÉNÉRATION DU MANDAT HOGUET (DOCX) ─────────────────────────── */}
+        <GenerateMandatHoguetCard
+          lead={lead}
+          slug={slug}
+          leadId={leadId}
+          primary={primary}
+          onGenerated={() => load(slug, leadId)}
+          onToast={showToast}
         />
 
         {/* ── SIGNATURE ÉLECTRONIQUE OU PAPIER UPLOAD ───────────────────── */}

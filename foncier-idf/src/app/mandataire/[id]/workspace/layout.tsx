@@ -64,6 +64,7 @@ const NAV_ITEMS = [
   { key: "leads", label: "Mes leads", icon: "◉", href: "/leads" },
   { key: "commissions", label: "Commissions", icon: "€", href: "/commissions" },
   { key: "registre", label: "Registre des mandats", icon: "☰", href: "/registre" },
+  { key: "parrainage", label: "Parrainage", icon: "♻", href: "/parrainage" },
   { key: "onboarding", label: "Mon onboarding", icon: "✓", href: "/onboarding", external: true },
 ];
 

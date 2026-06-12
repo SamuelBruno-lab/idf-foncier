@@ -245,6 +245,24 @@ export default function AdminDashboardPage({
           >
             📜 Registre des mandats
           </a>
+          <a
+            href={`/cabinets/${slug}/admin/parrainage`}
+            style={{
+              background: "transparent",
+              color: primary,
+              border: `1.5px solid ${primary}`,
+              borderRadius: 8,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            ♻ Parrainage
+          </a>
           <button
             onClick={() => setShowArchived((s) => !s)}
             style={{

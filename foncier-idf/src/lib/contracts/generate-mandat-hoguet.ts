@@ -145,7 +145,27 @@ export async function generateMandatHoguet(
   const { supabase, leadId, cabinetSlug } = args;
 
   // 1. Récupérer le lead
-  const { data: lead, error: leadErr } = await supabase
+  type LeadRow = {
+    id: string;
+    visitor_name: string | null;
+    visitor_email: string | null;
+    visitor_phone: string | null;
+    address: string | null;
+    type_bien: string | null;
+    surface: number | null;
+    prix_total_median: number | null;
+    intent: string | null;
+    mandat_type: string | null;
+    mandat_modalite: string | null;
+    mandat_duree_mois: number | null;
+    mandat_commission_pct: number | null;
+    mandat_prix_net_vendeur: number | null;
+    mandat_prix_max: number | null;
+    mandat_numero_registre: string | null;
+    mandat_criteres_recherche: string | null;
+  };
+
+  const { data: leadRaw, error: leadErr } = await supabase
     .from("dim_cabinet_leads")
     .select(
       "id, visitor_name, visitor_email, visitor_phone, address, " +
@@ -158,9 +178,11 @@ export async function generateMandatHoguet(
     .eq("cabinet_slug", cabinetSlug)
     .single();
 
-  if (leadErr || !lead) {
+  if (leadErr || !leadRaw) {
     throw new Error(`Lead non trouvé : ${leadErr?.message ?? "404"}`);
   }
+
+  const lead = leadRaw as unknown as LeadRow;
 
   // 2. Mandat type
   const mandatType = normalizeMandatType(

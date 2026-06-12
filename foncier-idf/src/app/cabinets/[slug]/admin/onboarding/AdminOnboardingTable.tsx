@@ -32,6 +32,7 @@ type Mandataire = {
   days_since_last_activity: number | null;
   last_activity_at: string | null;
   ready_for_first_mandate: boolean | null;
+  contract_signed_at: string | null;
 };
 
 export function AdminOnboardingTable({
@@ -44,6 +45,60 @@ export function AdminOnboardingTable({
   const [modal, setModal] = useState<{ mandataire: Mandataire; message: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [contratBusy, setContratBusy] = useState<string | null>(null);
+  const [activateBusy, setActivateBusy] = useState<string | null>(null);
+
+  async function activateMandataire(m: Mandataire) {
+    if (m.contract_signed_at) {
+      alert("Mandataire déjà activé.");
+      return;
+    }
+    const note = prompt(
+      `Activer ${m.first_name} ${m.last_name} ?\n\n` +
+        `Cette action va :\n` +
+        `  1. Marquer son contrat comme signé (now)\n` +
+        `  2. Envoyer l'email d'activation avec ses URLs workspace à ${m.email}\n\n` +
+        `Note optionnelle à ajouter dans l'email (Entrée = aucune note) :`,
+    );
+    if (note === null) return; // Annulé
+    setActivateBusy(m.mandataire_id);
+    try {
+      const res = await fetch(
+        `/api/cabinets/${cabinetSlug}/admin/mandataires/${m.mandataire_id}/activate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: true, note: note.trim() || undefined }),
+        },
+      );
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        detail?: string;
+        email_status?: string;
+        email_error?: string;
+      };
+      if (!j.ok) {
+        alert(`Erreur activation : ${j.detail ?? j.error}`);
+        return;
+      }
+      if (j.email_status === "sent") {
+        alert(`✓ ${m.first_name} activé(e) — email envoyé à ${m.email}`);
+      } else if (j.email_status === "failed") {
+        alert(
+          `✓ ${m.first_name} activé(e) mais email KO : ${j.email_error ?? "inconnu"}\n` +
+            `Envoie le mail manuellement.`,
+        );
+      } else {
+        alert(`✓ ${m.first_name} activé(e) — email non envoyé (Resend pas configuré)`);
+      }
+      // Refresh pour cacher le bouton et màj contract_signed_at
+      window.location.reload();
+    } catch (err) {
+      alert("Erreur réseau : " + (err instanceof Error ? err.message : "inconnue"));
+    } finally {
+      setActivateBusy(null);
+    }
+  }
 
   async function generateContrat(m: Mandataire, sendForSignature: boolean) {
     setContratBusy(m.mandataire_id);
@@ -336,6 +391,31 @@ export function AdminOnboardingTable({
                     >
                       ✍️ Signature
                     </button>
+                    {!m.contract_signed_at ? (
+                      <button
+                        type="button"
+                        onClick={() => activateMandataire(m)}
+                        disabled={activateBusy !== null}
+                        style={activateBtn}
+                        title="Marquer le contrat signé + envoyer l'email d'activation workspace"
+                      >
+                        {activateBusy === m.mandataire_id ? "Activation…" : "🚀 Activer"}
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#059669",
+                          padding: "6px 10px",
+                          background: "#d1fae5",
+                          borderRadius: 4,
+                          fontWeight: 700,
+                        }}
+                        title={`Activé le ${new Date(m.contract_signed_at).toLocaleDateString("fr-FR")}`}
+                      >
+                        ✓ ACTIVÉ
+                      </span>
+                    )}
                   </div>
                 </Td>
               </tr>
@@ -508,4 +588,15 @@ const linkBtn: React.CSSProperties = {
   fontSize: 12,
   textDecoration: "none",
   display: "inline-block",
+};
+
+const activateBtn: React.CSSProperties = {
+  background: "#059669",
+  color: "white",
+  border: "none",
+  padding: "6px 12px",
+  borderRadius: 4,
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: "pointer",
 };

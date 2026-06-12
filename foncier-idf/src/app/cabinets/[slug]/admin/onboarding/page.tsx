@@ -107,6 +107,7 @@ export default async function AdminOnboardingPage({
       days_since_last_activity: number | null;
       last_activity_at: string | null;
       ready_for_first_mandate: boolean | null;
+      contract_signed_at: string | null;
     }>;
     stats: {
       total: number;

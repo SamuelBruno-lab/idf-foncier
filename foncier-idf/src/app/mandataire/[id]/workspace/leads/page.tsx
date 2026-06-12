@@ -5,7 +5,6 @@
  */
 
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -67,7 +66,6 @@ export default async function WorkspaceLeadsPage({
   const baseUrl = `${protocol}://${host}`;
 
   const leads = await fetchLeads(id, baseUrl);
-  if (!leads) notFound();
 
   const byColumn = COLUMNS.map((col) => ({
     ...col,

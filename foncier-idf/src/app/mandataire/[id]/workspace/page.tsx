@@ -11,8 +11,24 @@
  */
 
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
 import Link from "next/link";
+
+function ErrorBanner({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div
+      style={{
+        background: "#fef2f2",
+        border: "1px solid #fecaca",
+        borderRadius: 6,
+        padding: 20,
+        color: "#7f1d1d",
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>⚠️ {title}</div>
+      <div style={{ fontSize: 13, fontFamily: "monospace" }}>{detail}</div>
+    </div>
+  );
+}
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -57,7 +73,14 @@ export default async function WorkspaceDashboardPage({
   const baseUrl = `${protocol}://${host}`;
 
   const data = await fetchStats(id, baseUrl);
-  if (!data || !data.ok) notFound();
+  if (!data || !data.ok) {
+    return (
+      <ErrorBanner
+        title="Impossible de charger le tableau de bord"
+        detail={data?.error ?? "API stats injoignable. Vérifie que la migration SQL 50 est appliquée."}
+      />
+    );
+  }
 
   const { stats, palier, recentLeads, recentCommissions } = data;
 

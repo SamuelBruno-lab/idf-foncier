@@ -8,7 +8,6 @@
  */
 
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -60,7 +59,26 @@ export default async function WorkspaceCommissionsPage({
   const baseUrl = `${protocol}://${host}`;
 
   const data = await fetchCommissions(id, baseUrl);
-  if (!data || !data.ok) notFound();
+  if (!data || !data.ok) {
+    return (
+      <div
+        style={{
+          background: "#fef2f2",
+          border: "1px solid #fecaca",
+          borderRadius: 6,
+          padding: 20,
+          color: "#7f1d1d",
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
+          ⚠️ Impossible de charger les commissions
+        </div>
+        <div style={{ fontSize: 13, fontFamily: "monospace" }}>
+          {data?.error ?? "API commissions injoignable. Vérifie que la migration SQL 50 est appliquée."}
+        </div>
+      </div>
+    );
+  }
 
   const { commissions, totals }: { commissions: Commission[]; totals: { a_venir: number; encaisse: number } } = data;
 

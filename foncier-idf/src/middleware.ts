@@ -26,8 +26,51 @@ const EUREALIMMO_RESEAU_HOSTNAMES = new Set([
   "www.reseau.eurealimmo.com",
 ]);
 
+const ESTIMER_COLLABIMO_HOSTNAMES = new Set([
+  "estimer.collabimo.com",
+  "www.estimer.collabimo.com",
+]);
+
 export function middleware(req: NextRequest) {
   const hostname = (req.headers.get("host") ?? "").toLowerCase().split(":")[0];
+
+  // ─── Routing estimer.collabimo.com → /cabinets/collabimo/estimer ────
+  // Sous-domaine dédié à l'outil d'estimation public Collabimo (HNWI IDF).
+  // Toute requête racine est rewrite vers la page white-label cabinet.
+  if (ESTIMER_COLLABIMO_HOSTNAMES.has(hostname)) {
+    const url = req.nextUrl.clone();
+    const path = url.pathname;
+
+    // API : pas de rewrite
+    if (path.startsWith("/api/")) {
+      return NextResponse.next();
+    }
+
+    // Assets statiques : pas de rewrite
+    if (
+      path.startsWith("/_next") ||
+      path.startsWith("/favicon") ||
+      path.match(/\.(ico|png|jpg|jpeg|svg|webp|gif|woff2?|ttf|css|js)$/i)
+    ) {
+      return NextResponse.next();
+    }
+
+    // Racine → page estimation Collabimo
+    if (path === "/" || path === "") {
+      url.pathname = "/cabinets/collabimo/estimer";
+      return NextResponse.rewrite(url);
+    }
+
+    // Toute autre route sous estimer.collabimo.com → page estimation
+    // (évite que estimer.collabimo.com/foncier expose autre chose)
+    if (
+      !path.startsWith("/cabinets/collabimo/") &&
+      !path.startsWith("/legal/")
+    ) {
+      url.pathname = "/cabinets/collabimo/estimer";
+      return NextResponse.rewrite(url);
+    }
+  }
 
   // ─── Routing reseau.eurealimmo.com ─────────────────────────────────
   if (EUREALIMMO_RESEAU_HOSTNAMES.has(hostname)) {

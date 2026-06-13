@@ -48,11 +48,11 @@ SELECT
   d.commission_eurealimmo_pct                           AS com_pct,
   d.is_active                                           AS is_active,
   d.contract_signed_at                                  AS contrat_signe_le,
-  'https://eurealimmo.com/mandataire/' || d.id::text || '/workspace'              AS url_workspace,
-  'https://eurealimmo.com/mandataire/' || d.id::text || '/onboarding'             AS url_onboarding,
-  'https://eurealimmo.com/mandataire/' || d.id::text || '/workspace/leads'        AS url_leads,
-  'https://eurealimmo.com/mandataire/' || d.id::text || '/workspace/commissions'  AS url_commissions,
-  'https://eurealimmo.com/mandataire/' || d.id::text || '/workspace/registre'     AS url_registre
+  'https://app.eurealimmo.com/mandataire/' || d.id::text || '/workspace'              AS url_workspace,
+  'https://app.eurealimmo.com/mandataire/' || d.id::text || '/onboarding'             AS url_onboarding,
+  'https://app.eurealimmo.com/mandataire/' || d.id::text || '/workspace/leads'        AS url_leads,
+  'https://app.eurealimmo.com/mandataire/' || d.id::text || '/workspace/commissions'  AS url_commissions,
+  'https://app.eurealimmo.com/mandataire/' || d.id::text || '/workspace/registre'     AS url_registre
 FROM d;
 
 -- ============================================================

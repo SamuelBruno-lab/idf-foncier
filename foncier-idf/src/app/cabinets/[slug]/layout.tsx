@@ -27,6 +27,7 @@ type NavItem = { label: string; href: string };
 type CabinetNavConfig = {
   homeUrl: string;
   legalUrl: string;
+  logoUrl: string | null;
   items: NavItem[];
   ctaSecondary: NavItem | null;
   ctaPrimary: NavItem | null;
@@ -36,6 +37,7 @@ const CABINET_NAV: Record<string, CabinetNavConfig> = {
   collabimo: {
     homeUrl: "https://www.collabimo.com",
     legalUrl: "https://www.collabimo.com/mentions-legales",
+    logoUrl: "https://assets.softr-files.com/applications/b7e89bf9-c5d9-48f5-84f6-705e2b400a61/assets/7f2b2fb1-ad77-4419-9093-a2bddbe9de6c.png",
     items: [
       { label: "Vendre", href: "https://www.collabimo.com/vendre" },
       { label: "Acheter", href: "https://www.collabimo.com/acheter" },
@@ -80,6 +82,7 @@ export default async function CabinetLayout({
     CABINET_NAV[(cabinet.slug || "").toLowerCase()] ||
     CABINET_NAV[(cabinet.cabinet_name || "").toLowerCase().replace(/[^a-z0-9]/g, "")];
   const homeUrl = nav ? nav.homeUrl : "/";
+  const logoUrl = (nav && nav.logoUrl) || cabinet.logo_url;
   const fontFam = cabinet.font_family || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   const hasCtas = nav && (nav.ctaSecondary || nav.ctaPrimary);
   const hasContact = cabinet.contact_phone || cabinet.contact_email;
@@ -106,9 +109,9 @@ export default async function CabinetLayout({
       <div style={{ minHeight: "100vh", fontFamily: fontFam, background: "#f8fafc", color: "#0f172a" }}>
         <div role="banner" style={{ background: "white", borderBottom: "1px solid #e2e8f0", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <a href={homeUrl} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
-            {cabinet.logo_url ? (
+            {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cabinet.logo_url} alt={cabinet.cabinet_name} style={{ height: 36, width: "auto", objectFit: "contain" }} />
+              <img src={logoUrl} alt={cabinet.cabinet_name} style={{ height: 40, width: "auto", objectFit: "contain" }} />
             ) : (
               <span style={{ fontSize: 22, fontWeight: 800, color: primary, letterSpacing: "0.02em" }}>
                 {cabinet.cabinet_name.toUpperCase()}

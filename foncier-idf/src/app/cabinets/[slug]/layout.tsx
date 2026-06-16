@@ -22,29 +22,29 @@ type Cabinet = {
   legal_mention: string | null;
 };
 
-// Config navigation par cabinet — à déplacer en BDD quand >3 cabinets
-const CABINET_NAV: Record
-  string,
-  {
-    homeUrl: string;
-    legalUrl: string;
-    items: { label: string; href: string }[];
-    ctaSecondary?: { label: string; href: string };
-    ctaPrimary?: { label: string; href: string };
-  }
-> = {
+type NavItem = { label: string; href: string };
+
+type CabinetNavConfig = {
+  homeUrl: string;
+  legalUrl: string;
+  items: NavItem[];
+  ctaSecondary?: NavItem;
+  ctaPrimary?: NavItem;
+};
+
+const CABINET_NAV: Record<string, CabinetNavConfig> = {
   collabimo: {
-    homeUrl: "https://collabimo.com",
-    legalUrl: "https://collabimo.com/mentions-legales",
+    homeUrl: "https://www.collabimo.com",
+    legalUrl: "https://www.collabimo.com/mentions-legales",
     items: [
-      { label: "Vendre", href: "https://collabimo.com/vendre" },
-      { label: "Acheter", href: "https://collabimo.com/acheter" },
-      { label: "A propos", href: "https://collabimo.com/a-propos" },
-      { label: "Nos professionnels", href: "https://collabimo.com/nos-professionnels" },
-      { label: "Contact", href: "https://collabimo.com/contact" },
+      { label: "Vendre", href: "https://www.collabimo.com/vendre" },
+      { label: "Acheter", href: "https://www.collabimo.com/acheter" },
+      { label: "A propos", href: "https://www.collabimo.com/a-propos" },
+      { label: "Nos professionnels", href: "https://www.collabimo.com/professionnels" },
+      { label: "Contact", href: "https://www.collabimo.com/contact" },
     ],
-    ctaSecondary: { label: "RDV Experts", href: "https://collabimo.com/rdv-experts" },
-    ctaPrimary: { label: "Se connecter", href: "https://collabimo.com/login" },
+    ctaSecondary: { label: "RDV Experts", href: "https://www.collabimo.com/rendez-vous" },
+    ctaPrimary: { label: "Se connecter", href: "https://www.collabimo.com/connexion" },
   },
 };
 
@@ -108,7 +108,6 @@ export default async function CabinetLayout({
           color: "#0f172a",
         }}
       >
-        {/* Header cabinet avec navigation */}
         <header
           style={{
             background: "white",
@@ -121,7 +120,6 @@ export default async function CabinetLayout({
             gap: 16,
           }}
         >
-          {/* Logo cliquable */}
           
             href={nav?.homeUrl ?? "/"}
             style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}
@@ -147,7 +145,6 @@ export default async function CabinetLayout({
             )}
           </a>
 
-          {/* Navigation centrale */}
           {nav && (
             <nav style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
               {nav.items.map((item) => (
@@ -167,7 +164,6 @@ export default async function CabinetLayout({
             </nav>
           )}
 
-          {/* CTAs droite */}
           {nav?.ctaSecondary || nav?.ctaPrimary ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {nav.ctaSecondary && (
@@ -219,12 +215,10 @@ export default async function CabinetLayout({
           ) : null}
         </header>
 
-        {/* Contenu de la page */}
         <main style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px" }}>
           {children}
         </main>
 
-        {/* Footer minimaliste */}
         <footer
           style={{
             textAlign: "center",

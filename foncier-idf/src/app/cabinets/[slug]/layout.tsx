@@ -92,9 +92,7 @@ export default async function CabinetLayout({
           __html: `
             body { margin: 0 !important; padding: 0 !important; }
             body > header,
-            body > div > header,
-            body > nav,
-            body > div > nav {
+            body > nav {
               display: none !important;
             }
             :root {
@@ -106,7 +104,7 @@ export default async function CabinetLayout({
       />
 
       <div style={{ minHeight: "100vh", fontFamily: fontFam, background: "#f8fafc", color: "#0f172a" }}>
-        <header style={{ background: "white", borderBottom: "1px solid #e2e8f0", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+        <div role="banner" style={{ background: "white", borderBottom: "1px solid #e2e8f0", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <a href={homeUrl} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
             {cabinet.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -119,13 +117,13 @@ export default async function CabinetLayout({
           </a>
 
           {nav ? (
-            <nav style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+            <div role="navigation" style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
               {nav.items.map((item) => (
                 <a key={item.href} href={item.href} style={{ color: "#0f172a", fontSize: 14, fontWeight: 500, textDecoration: "none" }}>
                   {item.label}
                 </a>
               ))}
-            </nav>
+            </div>
           ) : null}
 
           {hasCtas ? (
@@ -155,7 +153,7 @@ export default async function CabinetLayout({
               ) : null}
             </div>
           ) : null}
-        </header>
+        </div>
 
         <main style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px" }}>
           {children}

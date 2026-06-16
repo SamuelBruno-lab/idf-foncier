@@ -28,8 +28,8 @@ type CabinetNavConfig = {
   homeUrl: string;
   legalUrl: string;
   items: NavItem[];
-  ctaSecondary?: NavItem;
-  ctaPrimary?: NavItem;
+  ctaSecondary: NavItem | null;
+  ctaPrimary: NavItem | null;
 };
 
 const CABINET_NAV: Record<string, CabinetNavConfig> = {
@@ -75,7 +75,11 @@ export default async function CabinetLayout({
 
   const primary = cabinet.primary_color || "#1f3a8a";
   const secondary = cabinet.secondary_color || primary;
-  const nav = CABINET_NAV[slug.toLowerCase()];
+  const nav: CabinetNavConfig | undefined = CABINET_NAV[slug.toLowerCase()];
+  const homeUrl = nav ? nav.homeUrl : "/";
+  const fontFam = cabinet.font_family || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const hasCtas = nav && (nav.ctaSecondary || nav.ctaPrimary);
+  const hasContact = cabinet.contact_phone || cabinet.contact_email;
 
   return (
     <>
@@ -98,119 +102,54 @@ export default async function CabinetLayout({
         }}
       />
 
-      <div
-        style={{
-          minHeight: "100vh",
-          fontFamily:
-            cabinet.font_family ??
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          background: "#f8fafc",
-          color: "#0f172a",
-        }}
-      >
-        <header
-          style={{
-            background: "white",
-            borderBottom: "1px solid #e2e8f0",
-            padding: "16px 24px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 16,
-          }}
-        >
-          
-            href={nav?.homeUrl ?? "/"}
-            style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}
-          >
+      <div style={{ minHeight: "100vh", fontFamily: fontFam, background: "#f8fafc", color: "#0f172a" }}>
+        <header style={{ background: "white", borderBottom: "1px solid #e2e8f0", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+          <a href={homeUrl} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
             {cabinet.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={cabinet.logo_url}
-                alt={cabinet.cabinet_name}
-                style={{ height: 36, width: "auto", objectFit: "contain" }}
-              />
+              <img src={cabinet.logo_url} alt={cabinet.cabinet_name} style={{ height: 36, width: "auto", objectFit: "contain" }} />
             ) : (
-              <span
-                style={{
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color: primary,
-                  letterSpacing: "0.02em",
-                }}
-              >
+              <span style={{ fontSize: 22, fontWeight: 800, color: primary, letterSpacing: "0.02em" }}>
                 {cabinet.cabinet_name.toUpperCase()}
               </span>
             )}
           </a>
 
-          {nav && (
+          {nav ? (
             <nav style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
               {nav.items.map((item) => (
-                
-                  key={item.href}
-                  href={item.href}
-                  style={{
-                    color: "#0f172a",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    textDecoration: "none",
-                  }}
-                >
+                <a key={item.href} href={item.href} style={{ color: "#0f172a", fontSize: 14, fontWeight: 500, textDecoration: "none" }}>
                   {item.label}
                 </a>
               ))}
             </nav>
-          )}
+          ) : null}
 
-          {nav?.ctaSecondary || nav?.ctaPrimary ? (
+          {hasCtas ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {nav.ctaSecondary && (
-                
-                  href={nav.ctaSecondary.href}
-                  style={{
-                    padding: "8px 16px",
-                    border: `1px solid ${primary}`,
-                    borderRadius: 999,
-                    color: primary,
-                    textDecoration: "none",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
+              {nav && nav.ctaSecondary ? (
+                <a href={nav.ctaSecondary.href} style={{ padding: "8px 16px", border: `1px solid ${primary}`, borderRadius: 999, color: primary, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
                   {nav.ctaSecondary.label}
                 </a>
-              )}
-              {nav.ctaPrimary && (
-                
-                  href={nav.ctaPrimary.href}
-                  style={{
-                    padding: "8px 16px",
-                    background: primary,
-                    borderRadius: 999,
-                    color: "white",
-                    textDecoration: "none",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
+              ) : null}
+              {nav && nav.ctaPrimary ? (
+                <a href={nav.ctaPrimary.href} style={{ padding: "8px 16px", background: primary, borderRadius: 999, color: "white", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
                   {nav.ctaPrimary.label}
                 </a>
-              )}
+              ) : null}
             </div>
-          ) : cabinet.contact_phone || cabinet.contact_email ? (
+          ) : hasContact ? (
             <div style={{ fontSize: 13, color: "#475569", textAlign: "right" }}>
-              {cabinet.contact_phone && (
+              {cabinet.contact_phone ? (
                 <div>
                   📞 <a href={`tel:${cabinet.contact_phone}`} style={{ color: primary, textDecoration: "none" }}>{cabinet.contact_phone}</a>
                 </div>
-              )}
-              {cabinet.contact_email && (
+              ) : null}
+              {cabinet.contact_email ? (
                 <div style={{ fontSize: 11, color: "#64748b" }}>
                   <a href={`mailto:${cabinet.contact_email}`} style={{ color: primary, textDecoration: "none" }}>{cabinet.contact_email}</a>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : null}
         </header>
@@ -219,37 +158,21 @@ export default async function CabinetLayout({
           {children}
         </main>
 
-        <footer
-          style={{
-            textAlign: "center",
-            padding: "20px 16px 40px",
-            borderTop: "1px solid #e2e8f0",
-            marginTop: 40,
-            background: "white",
-            fontSize: 11,
-            color: "#94a3b8",
-          }}
-        >
+        <footer style={{ textAlign: "center", padding: "20px 16px 40px", borderTop: "1px solid #e2e8f0", marginTop: 40, background: "white", fontSize: 11, color: "#94a3b8" }}>
           <div style={{ marginBottom: 6 }}>
             Propulsé par{" "}
-            
-              href="https://datamerry.com"
-              style={{ color: "#475569", textDecoration: "none", fontWeight: 600 }}
-            >
+            <a href="https://datamerry.com" style={{ color: "#475569", textDecoration: "none", fontWeight: 600 }}>
               DATAMERRY®
             </a>{" "}
             · Sources : DVF, OLAP, ANIL, ADEME, INSEE
           </div>
-          {nav?.legalUrl && (
+          {nav ? (
             <div>
-              
-                href={nav.legalUrl}
-                style={{ color: "#94a3b8", textDecoration: "none" }}
-              >
+              <a href={nav.legalUrl} style={{ color: "#94a3b8", textDecoration: "none" }}>
                 Mentions légales
               </a>
             </div>
-          )}
+          ) : null}
         </footer>
       </div>
     </>

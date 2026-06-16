@@ -75,7 +75,10 @@ export default async function CabinetLayout({
 
   const primary = cabinet.primary_color || "#1f3a8a";
   const secondary = cabinet.secondary_color || primary;
-  const nav: CabinetNavConfig | undefined = CABINET_NAV[slug.toLowerCase()];
+  const nav: CabinetNavConfig | undefined =
+    CABINET_NAV[slug.toLowerCase()] ||
+    CABINET_NAV[(cabinet.slug || "").toLowerCase()] ||
+    CABINET_NAV[(cabinet.cabinet_name || "").toLowerCase().replace(/[^a-z0-9]/g, "")];
   const homeUrl = nav ? nav.homeUrl : "/";
   const fontFam = cabinet.font_family || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   const hasCtas = nav && (nav.ctaSecondary || nav.ctaPrimary);

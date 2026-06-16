@@ -2,8 +2,7 @@
  * Layout pour pages white-label cabinet.
  *
  * Masque le Header global DATAMERRY pour laisser place au branding du cabinet.
- * Charge les infos du cabinet en SSR et les met à disposition des pages enfant
- * via props (passées par le système de slot Next.js).
+ * Ajoute la navigation cabinet (config par slug) et un footer minimal "Propulsé par DATAMERRY".
  */
 
 import { notFound } from "next/navigation";
@@ -21,6 +20,32 @@ type Cabinet = {
   contact_email: string | null;
   contact_phone: string | null;
   legal_mention: string | null;
+};
+
+// Config navigation par cabinet — à déplacer en BDD quand >3 cabinets
+const CABINET_NAV: Record
+  string,
+  {
+    homeUrl: string;
+    legalUrl: string;
+    items: { label: string; href: string }[];
+    ctaSecondary?: { label: string; href: string };
+    ctaPrimary?: { label: string; href: string };
+  }
+> = {
+  collabimo: {
+    homeUrl: "https://collabimo.com",
+    legalUrl: "https://collabimo.com/mentions-legales",
+    items: [
+      { label: "Vendre", href: "https://collabimo.com/vendre" },
+      { label: "Acheter", href: "https://collabimo.com/acheter" },
+      { label: "A propos", href: "https://collabimo.com/a-propos" },
+      { label: "Nos professionnels", href: "https://collabimo.com/nos-professionnels" },
+      { label: "Contact", href: "https://collabimo.com/contact" },
+    ],
+    ctaSecondary: { label: "RDV Experts", href: "https://collabimo.com/rdv-experts" },
+    ctaPrimary: { label: "Se connecter", href: "https://collabimo.com/login" },
+  },
 };
 
 async function loadCabinet(slug: string): Promise<Cabinet | null> {
@@ -50,10 +75,10 @@ export default async function CabinetLayout({
 
   const primary = cabinet.primary_color || "#1f3a8a";
   const secondary = cabinet.secondary_color || primary;
+  const nav = CABINET_NAV[slug.toLowerCase()];
 
   return (
     <>
-      {/* Reset du layout global DATAMERRY (header datamerry caché) */}
       <style
         // eslint-disable-next-line react/no-unknown-property
         dangerouslySetInnerHTML={{
@@ -83,7 +108,7 @@ export default async function CabinetLayout({
           color: "#0f172a",
         }}
       >
-        {/* Header cabinet */}
+        {/* Header cabinet avec navigation */}
         <header
           style={{
             background: "white",
@@ -92,9 +117,15 @@ export default async function CabinetLayout({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Logo cliquable */}
+          
+            href={nav?.homeUrl ?? "/"}
+            style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}
+          >
             {cabinet.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -114,8 +145,65 @@ export default async function CabinetLayout({
                 {cabinet.cabinet_name.toUpperCase()}
               </span>
             )}
-          </div>
-          {cabinet.contact_phone || cabinet.contact_email ? (
+          </a>
+
+          {/* Navigation centrale */}
+          {nav && (
+            <nav style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+              {nav.items.map((item) => (
+                
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    color: "#0f172a",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    textDecoration: "none",
+                  }}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          )}
+
+          {/* CTAs droite */}
+          {nav?.ctaSecondary || nav?.ctaPrimary ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {nav.ctaSecondary && (
+                
+                  href={nav.ctaSecondary.href}
+                  style={{
+                    padding: "8px 16px",
+                    border: `1px solid ${primary}`,
+                    borderRadius: 999,
+                    color: primary,
+                    textDecoration: "none",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {nav.ctaSecondary.label}
+                </a>
+              )}
+              {nav.ctaPrimary && (
+                
+                  href={nav.ctaPrimary.href}
+                  style={{
+                    padding: "8px 16px",
+                    background: primary,
+                    borderRadius: 999,
+                    color: "white",
+                    textDecoration: "none",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {nav.ctaPrimary.label}
+                </a>
+              )}
+            </div>
+          ) : cabinet.contact_phone || cabinet.contact_email ? (
             <div style={{ fontSize: 13, color: "#475569", textAlign: "right" }}>
               {cabinet.contact_phone && (
                 <div>
@@ -136,7 +224,7 @@ export default async function CabinetLayout({
           {children}
         </main>
 
-        {/* Footer obligatoire */}
+        {/* Footer minimaliste */}
         <footer
           style={{
             textAlign: "center",
@@ -148,19 +236,26 @@ export default async function CabinetLayout({
             color: "#94a3b8",
           }}
         >
-          {cabinet.legal_mention && (
-            <div style={{ marginBottom: 6 }}>{cabinet.legal_mention}</div>
-          )}
-          <div>
-            Estimation propulsée par{" "}
-            <a
+          <div style={{ marginBottom: 6 }}>
+            Propulsé par{" "}
+            
               href="https://datamerry.com"
               style={{ color: "#475569", textDecoration: "none", fontWeight: 600 }}
             >
               DATAMERRY®
             </a>{" "}
-            · Sources officielles DVF (notaires), OLAP, ANIL, ADEME, INSEE
+            · Sources : DVF, OLAP, ANIL, ADEME, INSEE
           </div>
+          {nav?.legalUrl && (
+            <div>
+              
+                href={nav.legalUrl}
+                style={{ color: "#94a3b8", textDecoration: "none" }}
+              >
+                Mentions légales
+              </a>
+            </div>
+          )}
         </footer>
       </div>
     </>

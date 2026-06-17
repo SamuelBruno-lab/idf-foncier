@@ -12,7 +12,7 @@
  * en log pour analytics futures).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Modèle de question
@@ -260,6 +260,12 @@ export default function EstimWizard({
   const [loading, setLoading] = useState(false);
   const [leadStatus, setLeadStatus] = useState<LeadStatus>("wizard");
   const [leadError, setLeadError] = useState<string | null>(null);
+  const [addressMeta, setAddressMeta] = useState<{
+    lat: number;
+    lon: number;
+    city: string;
+    postcode: string;
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Détermine la prochaine question pertinente (en sautant les skipIf)
@@ -341,7 +347,18 @@ export default function EstimWizard({
     }
 
     setHistory((prev) => [...prev, { q: currentQuestion, answer: humanReadable }]);
-    const newAnswers = { ...answers, [currentQuestion.id]: value };
+    const newAnswers: Answers = {
+      ...answers,
+      [currentQuestion.id]: value,
+      ...(currentQuestion.id === "address" && addressMeta
+        ? {
+            address_lat: String(addressMeta.lat),
+            address_lon: String(addressMeta.lon),
+            address_city: addressMeta.city,
+            address_postcode: addressMeta.postcode,
+          }
+        : {}),
+    };
     setAnswers(newAnswers);
     setCurrentInput("");
     setCurrentMulti([]);
@@ -546,6 +563,50 @@ export default function EstimWizard({
                   }
                   onValidate={() => submitAnswer(currentMulti)}
                 />
+         ) : currentQuestion.type === "address" ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (currentInput.trim()) submitAnswer(currentInput.trim());
+                  }}
+                  style={{ paddingLeft: 36, display: "flex", flexDirection: "column", gap: 10 }}
+                >
+                  <AddressAutocompleteInput
+                    value={currentInput}
+                    onChange={(value, suggestion) => {
+                      setCurrentInput(value);
+                      if (suggestion) {
+                        setAddressMeta({
+                          lat: suggestion.lat,
+                          lon: suggestion.lon,
+                          city: suggestion.city,
+                          postcode: suggestion.postcode,
+                        });
+                      }
+                    }}
+                    placeholder={currentQuestion.placeholder ?? "Tapez votre adresse..."}
+                    primaryColor={primaryColor}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!currentInput.trim()}
+                    style={{
+                      background: primaryColor,
+                      color: "white",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "12px 22px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: !currentInput.trim() ? "not-allowed" : "pointer",
+                      opacity: !currentInput.trim() ? 0.5 : 1,
+                      fontFamily: "inherit",
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    Suivant →
+                  </button>
+                </form>
               ) : (
                 <FreeInput
                   question={currentQuestion}

@@ -11,9 +11,8 @@
  * réponses collectées (les paramètres utilisés pour le calcul + ceux stockés
  * en log pour analytics futures).
  */
-
-import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
-
+import { useEffect, useRef, useState } from "react";
+16: import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
 // ──────────────────────────────────────────────────────────────────────────────
 // Modèle de question
 // ──────────────────────────────────────────────────────────────────────────────

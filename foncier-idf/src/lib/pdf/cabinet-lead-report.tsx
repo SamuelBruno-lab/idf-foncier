@@ -1295,7 +1295,7 @@ export function CabinetLeadReportPDF({ data }: { data: CabinetLeadReportData }) 
               }}
             >
               <Text style={{ fontSize: 11, color: "#0f172a", lineHeight: 1.5 }}>
-                🗼 Adresse{" "}
+                Adresse{" "}
                 <Text style={{ fontWeight: 700, color: data.primary_color }}>
                   Paris intra-muros
                 </Text>{" "}

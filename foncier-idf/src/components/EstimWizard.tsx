@@ -12,7 +12,7 @@
  * en log pour analytics futures).
  */
 import { useEffect, useRef, useState } from "react";
-16: import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
+import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
 // ──────────────────────────────────────────────────────────────────────────────
 // Modèle de question
 // ──────────────────────────────────────────────────────────────────────────────

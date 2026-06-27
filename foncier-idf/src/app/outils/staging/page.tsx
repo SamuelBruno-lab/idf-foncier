@@ -38,7 +38,7 @@ const ZONE_DEFS: Record<
     icon: "🍳",
     hint: "📐 Dessine un L : le SOL où vont les meubles bas + le MUR derrière jusqu'à ~2m de haut (pour les placards muraux et la hotte).",
     defaultPrompt:
-      "modern fully-equipped kitchen with white shaker base cabinets and matching upper wall cabinets, brushed brass hardware, oak wood countertops, marble subway tile backsplash on the wall, stainless steel range hood mounted on the wall, induction cooktop, integrated oven, plants on the counter, scandinavian style, photorealistic, magazine quality interior photo",
+      "L-shaped modern kitchen built directly against the existing flat wall, white shaker base cabinets aligned with the floor, matching upper wall cabinets mounted on the existing wall at eye level, brushed brass hardware, oak wood countertop, marble subway tile backsplash covering the wall between cabinets, stainless steel range hood mounted flush on the wall, induction cooktop on the countertop, integrated oven below, fridge built into the cabinet line, plants on the counter, scandinavian style, photorealistic interior magazine photo, single open living room space, continuous parquet floor adjacent",
   },
   repas: {
     label: "Salle à manger",
@@ -47,7 +47,7 @@ const ZONE_DEFS: Record<
     icon: "🍽️",
     hint: "📐 Le SOL uniquement, là où va la table. Inclus un peu de hauteur si tu veux une suspension lumineuse au plafond.",
     defaultPrompt:
-      "oak wood dining table with 6 cane back chairs, linear pendant light hanging above, small plants centerpiece, scandinavian style, photorealistic, magazine quality",
+      "oak wood dining table with 6 cane back chairs placed on the floor of the room, linear pendant light hanging from the ceiling above the table, small plants centerpiece on the table, soft natural light from the existing window, scandinavian style, photorealistic, magazine quality, single open living space",
   },
   salon: {
     label: "Salon",
@@ -56,7 +56,7 @@ const ZONE_DEFS: Record<
     icon: "🛋️",
     hint: "📐 Le SOL principalement (canapé, table basse, tapis posent au sol). Ajoute un peu de mur si tu veux un cadre ou une console TV.",
     defaultPrompt:
-      "cream sectional sofa, boucle armchair, marble round coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art on wall, scandinavian style, photorealistic, magazine quality",
+      "cream sectional sofa placed on the floor, boucle armchair, marble round coffee table, beige tufted area rug under the furniture, large potted Strelitzia plant in the corner, low oak sideboard against the wall, framed art on the existing wall, scandinavian style, photorealistic, magazine quality, single open living room",
   },
   lecture: {
     label: "Lecture",
@@ -65,7 +65,7 @@ const ZONE_DEFS: Record<
     icon: "📚",
     hint: "📐 Le SOL uniquement, dans un angle. Fauteuil + lampadaire + petite table posent tous au sol.",
     defaultPrompt:
-      "rattan armchair, arc floor lamp, small wooden side table with books and candle, plant, cozy scandinavian reading nook, photorealistic, magazine quality",
+      "rattan armchair placed in the corner on the floor, tall arc floor lamp next to it, small wooden side table with books and a candle, potted plant, cozy scandinavian reading nook, photorealistic, magazine quality, single open living room",
   },
 };
 

@@ -641,20 +641,14 @@ export default function StagingPage() {
                 margin: "0 auto",
                 overflow: "hidden",
                 borderRadius: 6,
-                aspectRatio: "16/9",
                 background: "#000",
+                lineHeight: 0,
               }}
             >
               <img
                 src={result.result_url}
                 alt="Après"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                }}
+                style={{ width: "100%", height: "auto", display: "block" }}
               />
               <div
                 style={{
@@ -666,7 +660,7 @@ export default function StagingPage() {
                 <img
                   src={result.original_url}
                   alt="Avant"
-                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  style={{ width: "100%", height: "auto", display: "block" }}
                 />
               </div>
               <input

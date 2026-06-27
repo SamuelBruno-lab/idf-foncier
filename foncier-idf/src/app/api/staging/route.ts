@@ -59,32 +59,31 @@ async function callInpaint(args: {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
 
-  // stability-ai/sdxl : supporte inpainting natif via input `mask`
-  // (pixels blancs = repeints selon prompt, pixels noirs = preserves)
-  const res = await fetch(
-    `${REPLICATE_BASE}/models/stability-ai/sdxl/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=60",
-      },
-      body: JSON.stringify({
-        input: {
-          image: args.imageUrl,
-          mask: args.maskUrl,
-          prompt: args.prompt,
-          negative_prompt: NEGATIVE_PROMPT,
-          num_inference_steps: 35,
-          guidance_scale: 8,
-          prompt_strength: 0.95,
-          refine: "expert_ensemble_refiner",
-          high_noise_frac: 0.8,
-        },
-      }),
+  // lucataco/sdxl-inpainting (vrai SDXL 1.0 Inpainting HuggingFace diffusers)
+  // Resolution native 1024x1024. Inputs HF diffusers standards.
+  const SDXL_INPAINT_VERSION =
+    "a5b13068cc81a89a4fbeefeccc774869fcb34df4dbc92c1555e0f2771d49dde7";
+  const res = await fetch(`${REPLICATE_BASE}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "wait=60",
     },
-  );
+    body: JSON.stringify({
+      version: SDXL_INPAINT_VERSION,
+      input: {
+        image: args.imageUrl,
+        mask: args.maskUrl,
+        prompt: args.prompt,
+        negative_prompt: NEGATIVE_PROMPT,
+        num_inference_steps: 30,
+        guidance_scale: 8,
+        strength: 0.99,
+        num_outputs: 1,
+      },
+    }),
+  });
   if (!res.ok) {
     const t = await res.text();
     throw new Error(`Replicate inpaint failed: ${res.status} ${t}`);

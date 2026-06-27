@@ -59,10 +59,10 @@ async function callInpaint(args: {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
 
-  // Endpoint moderne : pas besoin de hash version, utilise la dernière
-  // lucataco/sdxl-inpainting accepte: image, mask, prompt
+  // stability-ai/sdxl : supporte inpainting natif via input `mask`
+  // (pixels blancs = repeints selon prompt, pixels noirs = preserves)
   const res = await fetch(
-    `${REPLICATE_BASE}/models/lucataco/sdxl-inpainting/predictions`,
+    `${REPLICATE_BASE}/models/stability-ai/sdxl/predictions`,
     {
       method: "POST",
       headers: {
@@ -76,9 +76,11 @@ async function callInpaint(args: {
           mask: args.maskUrl,
           prompt: args.prompt,
           negative_prompt: NEGATIVE_PROMPT,
-          num_inference_steps: 30,
+          num_inference_steps: 35,
           guidance_scale: 8,
-          strength: 0.95,
+          prompt_strength: 0.95,
+          refine: "expert_ensemble_refiner",
+          high_noise_frac: 0.8,
         },
       }),
     },

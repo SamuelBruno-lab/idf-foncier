@@ -69,14 +69,9 @@ const NEGATIVE_PROMPT =
 
 const REPLICATE_API = "https://api.replicate.com/v1/predictions";
 
-// Modèle mono-image (pas de plan)
+// adirik/interior-design — modèle mono-image éprouvé
 const MODEL_SIMPLE_VERSION =
   "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38";
-
-// Modèle SDXL + ControlNet Canny (avec plan)
-// lucataco/sdxl-controlnet — supporte une image principale + une image de control
-const MODEL_CONTROLNET_VERSION =
-  "db21e45e5fe6e7b7e5b6f3a4dc54f5e6c5dfaf9c46aff3c8f6b3ad6ee9a2e8d2";
 
 async function callReplicateSimple(args: {
   imageUrl: string;
@@ -108,44 +103,7 @@ async function callReplicateSimple(args: {
   });
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(`Replicate simple start failed: ${res.status} ${t}`);
-  }
-  return await res.json();
-}
-
-async function callReplicateControlNet(args: {
-  imageUrl: string;
-  controlImageUrl: string;
-  prompt: string;
-  seed?: number;
-}): Promise<{ id: string; status: string; output?: string | string[] }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
-
-  const res = await fetch(REPLICATE_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Token ${token}`,
-      "Content-Type": "application/json",
-      Prefer: "wait=60",
-    },
-    body: JSON.stringify({
-      version: MODEL_CONTROLNET_VERSION,
-      input: {
-        image: args.imageUrl,
-        control_image: args.controlImageUrl,
-        prompt: args.prompt,
-        negative_prompt: NEGATIVE_PROMPT,
-        num_inference_steps: 50,
-        guidance_scale: 9,
-        controlnet_conditioning_scale: 0.7,
-        ...(args.seed !== undefined ? { seed: args.seed } : {}),
-      },
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Replicate controlnet start failed: ${res.status} ${t}`);
+    throw new Error(`Replicate start failed: ${res.status} ${t}`);
   }
   return await res.json();
 }
@@ -214,18 +172,18 @@ async function runStaging(args: {
   seed: number;
 }): Promise<{ resultUrl: string | null; status: string; error?: string }> {
   try {
-    const start = args.planUrl
-      ? await callReplicateControlNet({
-          imageUrl: args.imageUrl,
-          controlImageUrl: args.planUrl,
-          prompt: args.prompt,
-          seed: args.seed,
-        })
-      : await callReplicateSimple({
-          imageUrl: args.imageUrl,
-          prompt: args.prompt,
-          seed: args.seed,
-        });
+    // Note Phase C : le plan 2D est uploadé et tracé en DB mais pas encore
+    // injecté en ControlNet (Phase C.2 = vraie intégration ControlNet Canny).
+    // Pour l'instant, on enrichit juste le prompt si plan présent.
+    const enhancedPrompt = args.planUrl
+      ? `${args.prompt}, respecting the floor plan layout, accurate spatial proportions`
+      : args.prompt;
+
+    const start = await callReplicateSimple({
+      imageUrl: args.imageUrl,
+      prompt: enhancedPrompt,
+      seed: args.seed,
+    });
 
     let final: { status: string; output?: string | string[]; error?: string };
     if (start.status === "succeeded" || start.status === "failed") {
@@ -339,7 +297,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Update job
-  const totalCost = (r1.resultUrl ? 0.05 : 0) + (r2?.resultUrl ? 0.05 : 0);
+  const totalCost = (r1.resultUrl ? 0.014 : 0) + (r2?.resultUrl ? 0.014 : 0);
   if (jobId) {
     await sb
       .from("staging_jobs")

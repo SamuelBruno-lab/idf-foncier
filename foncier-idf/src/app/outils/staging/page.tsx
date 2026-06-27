@@ -36,9 +36,9 @@ const ZONE_DEFS: Record<
     color: "rgba(220, 38, 38, 0.45)",
     stroke: "#dc2626",
     icon: "🍳",
-    hint: "📐 Dessine un L : le SOL où vont les meubles bas + le MUR derrière jusqu'à ~2m de haut (pour les placards muraux et la hotte).",
+    hint: "📐 IMPORTANT : la base au SOL doit avancer de ~60-80 cm depuis le mur (profondeur d'un plan de travail) pour que les meubles bas aient un volume réaliste. Pas juste un trait collé au mur.",
     defaultPrompt:
-      "L-shaped modern kitchen built directly against the existing flat wall, white shaker base cabinets aligned with the floor, matching upper wall cabinets mounted on the existing wall at eye level, brushed brass hardware, oak wood countertop, marble subway tile backsplash covering the wall between cabinets, stainless steel range hood mounted flush on the wall, induction cooktop on the countertop, integrated oven below, fridge built into the cabinet line, plants on the counter, scandinavian style, photorealistic interior magazine photo, single open living room space, continuous parquet floor adjacent",
+      "modern L-shaped fitted kitchen with deep 60cm base cabinets extending forward into the room with a thick oak wood countertop overhang creating clear three-dimensional depth and shadow on the floor, matching upper wall cabinets mounted on the wall above, brushed brass hardware, marble subway tile backsplash between cabinets, stainless steel range hood mounted on the wall, induction cooktop on the countertop, integrated oven below the cooktop, dishwasher built into the base cabinets, kitchen island or peninsula visible, plants on the counter, scandinavian style, photorealistic interior magazine photo, natural light, realistic perspective with kitchen volume occupying the floor space",
   },
   repas: {
     label: "Salle à manger",

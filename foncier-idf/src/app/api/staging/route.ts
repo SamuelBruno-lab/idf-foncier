@@ -1,19 +1,17 @@
 /**
- * POST /api/staging — Phase D : multi-pass inpainting par zones.
+ * POST /api/staging — Phase D.3 : melgor/stabledesign_interiordesign
+ *
+ * Modèle spécifiquement entraîné sur la tâche "empty room → furnished room"
+ * (2e place Generative Interior Design Competition 2024).
+ *
+ * Pas de mask : on compose UN prompt combiné à partir des zones,
+ * en utilisant le centroïde des polygones comme indicateur de position
+ * (gauche/centre/droite, haut/bas).
  *
  * Body (multipart/form-data) :
- *   - image       : File OBLIGATOIRE — photo principale de la pièce vide
- *   - zones_json  : string JSON — array de zones :
- *       [{type, prompt, mask: dataURL_PNG}, ...]
- *       (les masques sont générés côté client via Canvas API)
+ *   - image       : File OBLIGATOIRE
+ *   - zones_json  : array de zones {type, prompt, mask?, points?:[{x,y}]}
  *   - cabinet_slug: optionnel
- *
- * Process :
- *   Pour chaque zone, dans l'ordre :
- *     1. Upload masque → Supabase Storage
- *     2. Appel Replicate inpainting (image courante + masque + prompt zone)
- *     3. L'image suivante = résultat
- *   Renvoie URL finale.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -27,42 +25,48 @@ function getSupabase() {
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// Prompts par type de zone
-// ────────────────────────────────────────────────────────────────
-
-const ZONE_PROMPTS: Record<string, string> = {
-  cuisine:
-    "L-shaped modern kitchen built directly against the existing flat wall, white shaker base cabinets aligned with the floor, matching upper wall cabinets mounted on the existing wall at eye level, brushed brass hardware, oak wood countertop, marble subway tile backsplash covering the wall between cabinets, stainless steel range hood mounted flush on the wall, induction cooktop on the countertop, integrated oven below, fridge built into the cabinet line, plants on the counter, scandinavian style, photorealistic interior magazine photo, single open living room space, continuous parquet floor adjacent",
-  repas:
-    "oak wood dining table with 6 cane back chairs placed on the floor of the room, linear pendant light hanging from the ceiling above the table, small plants centerpiece on the table, soft natural light from the existing window, scandinavian style, photorealistic, magazine quality, single open living space",
-  salon:
-    "cream sectional sofa placed on the floor, boucle armchair, marble round coffee table, beige tufted area rug under the furniture, large potted Strelitzia plant in the corner, low oak sideboard against the wall, framed art on the existing wall, scandinavian style, photorealistic, magazine quality, single open living room",
-  lecture:
-    "rattan armchair placed in the corner on the floor, tall arc floor lamp next to it, small wooden side table with books and a candle, potted plant, cozy scandinavian reading nook, photorealistic, magazine quality, single open living room",
-};
-
-const NEGATIVE_PROMPT =
-  "door, doorway, archway, arch, opening in wall, passage, separated room, additional room, wall division, partition, closed wall hiding furniture, alcove, niche room, corridor, hallway, second room visible through opening, blurry, low quality, distorted, deformed, watermark, text, logo, people, person, faces, cartoon, anime, sketch, empty room, modified architecture, broken perspective, floating furniture, oversized objects, miniature room";
-
-// ────────────────────────────────────────────────────────────────
-// Replicate inpainting
-// ────────────────────────────────────────────────────────────────
-
 const REPLICATE_BASE = "https://api.replicate.com/v1";
 
-async function callInpaint(args: {
+// melgor/stabledesign_interiordesign — 2nd place Generative Interior Design 2024
+const STABLEDESIGN_VERSION =
+  "5e13482ea317670bfc797bb18bace359860a721a39b5bbcaa1ffcd241d62bca0";
+
+const ZONE_DESCRIPTIONS: Record<string, string> = {
+  cuisine:
+    "modern fully-equipped kitchen with white shaker cabinets, oak countertops, marble backsplash, stainless steel range hood",
+  repas:
+    "dining area with oak wood table, six cane back chairs and a pendant light",
+  salon:
+    "living room with cream sectional sofa, boucle armchair, marble coffee table, beige rug and large potted plants",
+  lecture:
+    "cozy reading nook with rattan armchair, arc floor lamp and small side table",
+};
+
+function positionHint(centroidX: number, centroidY: number): string {
+  // centroidX et Y en % (0-100)
+  let horiz = "in the center";
+  if (centroidX < 35) horiz = "on the left side";
+  else if (centroidX > 65) horiz = "on the right side";
+  let vert = "";
+  if (centroidY < 35) vert = " against the back wall";
+  else if (centroidY > 65) vert = " in the foreground";
+  return `${horiz}${vert}`;
+}
+
+function computeCentroid(points: { x: number; y: number }[]): { x: number; y: number } {
+  if (!points || points.length === 0) return { x: 50, y: 50 };
+  const sumX = points.reduce((s, p) => s + p.x, 0);
+  const sumY = points.reduce((s, p) => s + p.y, 0);
+  return { x: sumX / points.length, y: sumY / points.length };
+}
+
+async function callStableDesign(args: {
   imageUrl: string;
-  maskUrl: string;
   prompt: string;
 }): Promise<{ id: string; status: string; output?: string | string[] }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
 
-  // lucataco/sdxl-inpainting (vrai SDXL 1.0 Inpainting HuggingFace diffusers)
-  // Resolution native 1024x1024. Inputs HF diffusers standards.
-  const SDXL_INPAINT_VERSION =
-    "a5b13068cc81a89a4fbeefeccc774869fcb34df4dbc92c1555e0f2771d49dde7";
   const res = await fetch(`${REPLICATE_BASE}/predictions`, {
     method: "POST",
     headers: {
@@ -71,22 +75,18 @@ async function callInpaint(args: {
       Prefer: "wait=60",
     },
     body: JSON.stringify({
-      version: SDXL_INPAINT_VERSION,
+      version: STABLEDESIGN_VERSION,
       input: {
-        image: args.imageUrl,
-        mask: args.maskUrl,
+        image_base: args.imageUrl,
         prompt: args.prompt,
-        negative_prompt: NEGATIVE_PROMPT,
-        num_inference_steps: 50,
-        guidance_scale: 12,
-        strength: 0.85,
-        num_outputs: 1,
+        strength: 0.95,
+        seed: Math.floor(Math.random() * 1000000),
       },
     }),
   });
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(`Replicate inpaint failed: ${res.status} ${t}`);
+    throw new Error(`Replicate stabledesign failed: ${res.status} ${t}`);
   }
   return await res.json();
 }
@@ -122,34 +122,6 @@ async function pollReplicate(predictionId: string, maxSeconds = 120): Promise<{
   return { status: "timeout" };
 }
 
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
-
-async function uploadFromDataUrl(
-  sb: ReturnType<typeof getSupabase>,
-  dataUrl: string,
-  pathPrefix: string,
-  cabinetSlug: string | null,
-): Promise<{ path: string; signedUrl: string }> {
-  const match = dataUrl.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
-  if (!match) throw new Error("invalid_data_url");
-  const ext = match[1] === "jpeg" ? "jpg" : match[1];
-  const buf = Buffer.from(match[2], "base64");
-  const timestamp = Date.now();
-  const path = `${pathPrefix}/${cabinetSlug ?? "anon"}/${timestamp}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await sb.storage
-    .from("staging-images")
-    .upload(path, buf, { contentType: `image/${match[1]}`, upsert: false });
-  if (error) throw new Error(`upload_failed: ${error.message}`);
-  const { data: signed, error: signErr } = await sb.storage
-    .from("staging-images")
-    .createSignedUrl(path, 3600);
-  if (signErr || !signed?.signedUrl)
-    throw new Error(`sign_url_failed: ${signErr?.message}`);
-  return { path, signedUrl: signed.signedUrl };
-}
-
 async function uploadFile(
   sb: ReturnType<typeof getSupabase>,
   file: File,
@@ -175,14 +147,11 @@ async function uploadFile(
   return { path, signedUrl: signed.signedUrl };
 }
 
-// ────────────────────────────────────────────────────────────────
-// Handler
-// ────────────────────────────────────────────────────────────────
-
 type ZoneInput = {
   type: string;
   prompt?: string;
-  mask: string; // dataURL PNG
+  mask?: string;
+  points?: { x: number; y: number }[];
 };
 
 export async function POST(req: NextRequest) {
@@ -210,9 +179,6 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(zones) || zones.length === 0) {
     return NextResponse.json({ ok: false, error: "empty_zones" }, { status: 400 });
   }
-  if (zones.length > 6) {
-    return NextResponse.json({ ok: false, error: "too_many_zones" }, { status: 400 });
-  }
 
   const sb = getSupabase();
 
@@ -227,7 +193,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2. Insert job
+  // 2. Construire le prompt combiné depuis les zones + leurs positions
+  const zoneDescriptions = zones.map((z) => {
+    const desc = ZONE_DESCRIPTIONS[z.type] ?? z.type;
+    const centroid = computeCentroid(z.points ?? []);
+    const pos = z.points && z.points.length > 0 ? positionHint(centroid.x, centroid.y) : "";
+    return pos ? `${desc} ${pos}` : desc;
+  });
+
+  const combinedPrompt = `A photorealistic interior design of a bright open living space, scandinavian style, magazine quality. The space contains: ${zoneDescriptions.join("; ")}. Natural light, warm wood floor, white walls preserved. Professional real estate photography.`;
+
+  // 3. Insert job
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const ua = req.headers.get("user-agent");
   const { data: jobIns } = await sb
@@ -237,68 +213,58 @@ export async function POST(req: NextRequest) {
       client_ip: ip,
       user_agent: ua,
       original_image_path: imgUp.path,
-      zones_json: zones.map((z) => ({ type: z.type, prompt: z.prompt })),
+      zones_json: zones.map((z) => ({
+        type: z.type,
+        prompt: z.prompt,
+        points: z.points,
+      })),
       replicate_status: "starting",
     })
     .select("id")
     .single();
   const jobId = (jobIns as { id: string } | null)?.id;
 
-  // 3. Multi-pass inpainting
-  let currentImageUrl = imgUp.signedUrl;
+  // 4. Single call to StableDesign
+  let resultUrl = imgUp.signedUrl;
   const errors: string[] = [];
-  let zoneIndex = 0;
 
-  for (const zone of zones) {
-    zoneIndex++;
-    try {
-      // Upload masque
-      const maskUp = await uploadFromDataUrl(sb, zone.mask, "masks", cabinetSlug);
-      // Choisir prompt
-      const prompt = zone.prompt?.trim() || ZONE_PROMPTS[zone.type] || ZONE_PROMPTS.salon;
-      // Appel inpainting
-      const start = await callInpaint({
-        imageUrl: currentImageUrl,
-        maskUrl: maskUp.signedUrl,
-        prompt,
-      });
-      // Poll si pas terminé
-      let final: {
-        status: string;
-        output?: string | string[];
-        error?: string;
-      };
-      if (start.status === "succeeded" || start.status === "failed") {
-        final = start as { status: string; output?: string | string[] };
-      } else {
-        final = await pollReplicate(start.id, 120);
-      }
-      if (final.status !== "succeeded") {
-        errors.push(`zone ${zoneIndex} (${zone.type}): ${final.error ?? final.status}`);
-        continue; // on garde l'image courante et passe à la zone suivante
-      }
+  try {
+    const start = await callStableDesign({
+      imageUrl: imgUp.signedUrl,
+      prompt: combinedPrompt,
+    });
+    let final: {
+      status: string;
+      output?: string | string[];
+      error?: string;
+    };
+    if (start.status === "succeeded" || start.status === "failed") {
+      final = start as { status: string; output?: string | string[] };
+    } else {
+      final = await pollReplicate(start.id, 120);
+    }
+    if (final.status !== "succeeded") {
+      errors.push(`stabledesign: ${final.error ?? final.status}`);
+    } else {
       const out = final.output;
       const newUrl = Array.isArray(out) ? out[0] : (out as string | null);
-      if (newUrl) {
-        currentImageUrl = newUrl;
-      }
-    } catch (err) {
-      errors.push(`zone ${zoneIndex} (${zone.type}): ${err instanceof Error ? err.message : String(err)}`);
+      if (newUrl) resultUrl = newUrl;
     }
+  } catch (err) {
+    errors.push(`stabledesign: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // 4. Update job
-  const totalCost = zones.length * 0.012;
+  // 5. Update job
   const finalStatus = errors.length === 0 ? "succeeded" : "partial";
   if (jobId) {
     await sb
       .from("staging_jobs")
       .update({
         replicate_status: finalStatus,
-        final_image_url: currentImageUrl,
-        result_image_url: currentImageUrl,
+        final_image_url: resultUrl,
+        result_image_url: resultUrl,
         completed_at: new Date().toISOString(),
-        cost_usd: totalCost,
+        cost_usd: 0.05,
       })
       .eq("id", jobId);
   }
@@ -306,8 +272,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     job_id: jobId,
-    result_url: currentImageUrl,
+    result_url: resultUrl,
     original_url: imgUp.signedUrl,
+    prompt_used: combinedPrompt,
     zones_processed: zones.length,
     errors: errors.length > 0 ? errors : undefined,
   });

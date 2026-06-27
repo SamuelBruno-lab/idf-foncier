@@ -222,6 +222,7 @@ export default function StagingPage() {
           type: z.type,
           prompt: ZONE_DEFS[z.type].defaultPrompt,
           mask: generateMask(z),
+          points: z.points,
         })),
       ),
     );

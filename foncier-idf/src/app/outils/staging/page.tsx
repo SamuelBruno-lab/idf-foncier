@@ -36,9 +36,9 @@ const ZONE_DEFS: Record<
     color: "rgba(220, 38, 38, 0.45)",
     stroke: "#dc2626",
     icon: "🍳",
-    hint: "📐 IMPORTANT : la base au SOL doit avancer de ~60-80 cm depuis le mur (profondeur d'un plan de travail) pour que les meubles bas aient un volume réaliste. Pas juste un trait collé au mur.",
+    hint: "📐 Suis exactement le contour du CARRELAGE BLANC au sol (la zone prévue par l'architecte pour la cuisine) + le MUR arrière. Pas de débordement sur le parquet. La cuisine doit remplir entièrement la zone carrelée.",
     defaultPrompt:
-      "modern L-shaped fitted kitchen with deep 60cm base cabinets extending forward into the room with a thick oak wood countertop overhang creating clear three-dimensional depth and shadow on the floor, matching upper wall cabinets mounted on the wall above, brushed brass hardware, marble subway tile backsplash between cabinets, stainless steel range hood mounted on the wall, induction cooktop on the countertop, integrated oven below the cooktop, dishwasher built into the base cabinets, kitchen island or peninsula visible, plants on the counter, scandinavian style, photorealistic interior magazine photo, natural light, realistic perspective with kitchen volume occupying the floor space",
+      "modern L-shaped fitted kitchen filling the entire tiled floor area against the wall, base cabinets occupying the full depth of the tile zone with solid oak wood countertop, matching upper wall cabinets mounted on the existing wall at eye level, brushed brass hardware, marble subway tile backsplash between cabinets, stainless steel range hood mounted on the wall, induction cooktop on the countertop, integrated oven below the cooktop, dishwasher built into the base cabinets, fridge built in, plants and decorative items on the counter, scandinavian style, photorealistic interior magazine photo, natural light, the kitchen volume completely occupies the tiled area while preserving the surrounding parquet floor",
   },
   repas: {
     label: "Salle à manger",

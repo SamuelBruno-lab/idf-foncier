@@ -1,21 +1,19 @@
 /**
- * POST /api/staging
- *
- * Virtual home staging Phase C — multi-photos + plan 2D.
+ * POST /api/staging — Phase D : multi-pass inpainting par zones.
  *
  * Body (multipart/form-data) :
- *   - image       : File OBLIGATOIRE — photo 1 de pièce vide
- *   - image_2     : File optionnel — autre angle de la même pièce
- *   - plan        : File optionnel — plan 2D (PDF/PNG/JPG)
- *   - room_type   : "salon" | "sejour_cuisine" | "chambre" | "cuisine" | "sdb" | "bureau"
- *   - style       : "moderne" | "scandinave" | "luxe" | "industriel"
+ *   - image       : File OBLIGATOIRE — photo principale de la pièce vide
+ *   - zones_json  : string JSON — array de zones :
+ *       [{type, prompt, mask: dataURL_PNG}, ...]
+ *       (les masques sont générés côté client via Canvas API)
  *   - cabinet_slug: optionnel
  *
- * Modèles utilisés :
- *   - Si plan présent → `lucataco/sdxl-controlnet` (Canny edges du plan)
- *   - Sinon          → `adirik/interior-design` (mode mono-image simple)
- *
- * Cohérence : si 2 photos fournies, même seed utilisée → style consistant.
+ * Process :
+ *   Pour chaque zone, dans l'ordre :
+ *     1. Upload masque → Supabase Storage
+ *     2. Appel Replicate inpainting (image courante + masque + prompt zone)
+ *     3. L'image suivante = résultat
+ *   Renvoie URL finale.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,91 +28,64 @@ function getSupabase() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Prompts
+// Prompts par type de zone
 // ────────────────────────────────────────────────────────────────
 
-const ROOM_DESCRIPTIONS: Record<string, string> = {
-  salon: "living room with sofa, armchairs, coffee table, side tables, decorative lamps, rug, preserving fireplace, moldings, parquet pattern, original architecture",
-  sejour_cuisine: "open-plan living-dining-kitchen space with kitchen island, bar stools, dining table with chairs, sofa, coffee table, pendant lights, preserving kitchen island position, structural columns, stairs, baies vitrées, original walls and openings",
-  chambre: "bedroom with bed, headboard, nightstands, bedside lamps, dresser, mirror, rug, preserving original walls, windows, fireplace if any, parquet pattern",
-  cuisine: "fully-equipped kitchen with island, stools, pendant lights, appliances, plants, preserving cabinet layout, sink position, structural elements",
-  sdb: "bathroom with vanity, sinks, mirror, lighting fixtures, towels, plants, preserving tiling, plumbing fixtures, shower/bath position",
-  bureau: "home office with desk, ergonomic chair, bookshelves, lamp, plants, framed art, preserving original architecture and openings",
+const ZONE_PROMPTS: Record<string, string> = {
+  cuisine:
+    "modern fully-equipped kitchen with white shaker cabinets, brushed brass hardware, oak wood countertops, marble backsplash, induction cooktop, integrated stainless steel oven, kitchen island, plants, scandinavian style, photorealistic, magazine quality",
+  repas:
+    "oak wood dining table with 6 cane back chairs, linear pendant light above, plants centerpiece, soft natural light, scandinavian style, photorealistic, magazine quality",
+  salon:
+    "cream sectional sofa, boucle armchair, marble round coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art on wall, scandinavian style, photorealistic, magazine quality",
+  lecture:
+    "rattan armchair, arc floor lamp, small wooden side table with books and candle, plant, cozy reading nook, scandinavian hygge, photorealistic, magazine quality",
 };
-
-const STYLE_DESCRIPTIONS: Record<string, string> = {
-  moderne:
-    "modern contemporary style, clean lines, neutral palette (white, beige, charcoal), minimalist, natural materials, large windows",
-  scandinave:
-    "scandinavian nordic style, light woods, white walls, cozy textiles, plants, warm minimalist, hygge atmosphere",
-  luxe:
-    "luxury high-end interior, marble surfaces, brass and gold accents, velvet upholstery, crystal lighting, sophisticated and elegant, art pieces",
-  industriel:
-    "industrial loft style, exposed brick, metal beams, leather sofa, raw wood, Edison bulbs, vintage decor",
-};
-
-function buildPrompt(
-  roomType: string,
-  style: string,
-  custom?: string,
-  spatial?: string,
-): string {
-  const room = ROOM_DESCRIPTIONS[roomType] ?? ROOM_DESCRIPTIONS.salon;
-  const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.moderne;
-  // Préservation de la structure : on demande explicitement au modèle de
-  // garder les éléments architecturaux d'origine (murs, fenêtres, escalier).
-  let base = `A photorealistic interior photograph of a fully furnished ${room}, ${styleDesc}, while preserving original architecture and structural elements including walls, windows, doors, stairs, ceiling height, professional real estate photography, high resolution, soft natural lighting, magazine quality`;
-  if (spatial && spatial.trim()) {
-    base = `${spatial.trim()}. ${base}`;
-  }
-  return custom ? `${base}, ${custom}` : base;
-}
 
 const NEGATIVE_PROMPT =
-  "blurry, low quality, distorted, deformed, watermark, text, logo, people, person, faces, cartoon, anime, sketch, dark, gloomy, empty room, modified walls, modified windows, removed stairs, removed doors, altered architecture, structural changes";
+  "blurry, low quality, distorted, deformed, watermark, text, logo, people, person, faces, cartoon, anime, sketch, empty room, modified architecture";
 
 // ────────────────────────────────────────────────────────────────
-// Replicate
+// Replicate inpainting
 // ────────────────────────────────────────────────────────────────
 
-const REPLICATE_API = "https://api.replicate.com/v1/predictions";
+const REPLICATE_BASE = "https://api.replicate.com/v1";
 
-// adirik/interior-design — modèle mono-image éprouvé
-const MODEL_SIMPLE_VERSION =
-  "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38";
-
-async function callReplicateSimple(args: {
+async function callInpaint(args: {
   imageUrl: string;
+  maskUrl: string;
   prompt: string;
-  seed?: number;
-  intensity?: number; // 0.40 = léger / 0.55 = normal / 0.70 = complet
 }): Promise<{ id: string; status: string; output?: string | string[] }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
 
-  const res = await fetch(REPLICATE_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Token ${token}`,
-      "Content-Type": "application/json",
-      Prefer: "wait=60",
-    },
-    body: JSON.stringify({
-      version: MODEL_SIMPLE_VERSION,
-      input: {
-        image: args.imageUrl,
-        prompt: args.prompt,
-        negative_prompt: NEGATIVE_PROMPT,
-        num_inference_steps: 50,
-        guidance_scale: 9,
-        prompt_strength: args.intensity ?? 0.55,
-        ...(args.seed !== undefined ? { seed: args.seed } : {}),
+  // Endpoint moderne : pas besoin de hash version, utilise la dernière
+  // lucataco/sdxl-inpainting accepte: image, mask, prompt
+  const res = await fetch(
+    `${REPLICATE_BASE}/models/lucataco/sdxl-inpainting/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait=60",
       },
-    }),
-  });
+      body: JSON.stringify({
+        input: {
+          image: args.imageUrl,
+          mask: args.maskUrl,
+          prompt: args.prompt,
+          negative_prompt: NEGATIVE_PROMPT,
+          num_inference_steps: 30,
+          guidance_scale: 8,
+          strength: 0.95,
+        },
+      }),
+    },
+  );
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(`Replicate start failed: ${res.status} ${t}`);
+    throw new Error(`Replicate inpaint failed: ${res.status} ${t}`);
   }
   return await res.json();
 }
@@ -125,7 +96,7 @@ async function pollReplicate(predictionId: string, maxSeconds = 120): Promise<{
   error?: string;
 }> {
   const token = process.env.REPLICATE_API_TOKEN;
-  const url = `${REPLICATE_API}/${predictionId}`;
+  const url = `${REPLICATE_BASE}/predictions/${predictionId}`;
   const deadline = Date.now() + maxSeconds * 1000;
   while (Date.now() < deadline) {
     const res = await fetch(url, {
@@ -138,7 +109,11 @@ async function pollReplicate(predictionId: string, maxSeconds = 120): Promise<{
       output?: string | string[];
       error?: string;
     };
-    if (data.status === "succeeded" || data.status === "failed" || data.status === "canceled") {
+    if (
+      data.status === "succeeded" ||
+      data.status === "failed" ||
+      data.status === "canceled"
+    ) {
       return data;
     }
     await new Promise((r) => setTimeout(r, 1500));
@@ -150,7 +125,31 @@ async function pollReplicate(predictionId: string, maxSeconds = 120): Promise<{
 // Helpers
 // ────────────────────────────────────────────────────────────────
 
-async function uploadToSupabase(
+async function uploadFromDataUrl(
+  sb: ReturnType<typeof getSupabase>,
+  dataUrl: string,
+  pathPrefix: string,
+  cabinetSlug: string | null,
+): Promise<{ path: string; signedUrl: string }> {
+  const match = dataUrl.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
+  if (!match) throw new Error("invalid_data_url");
+  const ext = match[1] === "jpeg" ? "jpg" : match[1];
+  const buf = Buffer.from(match[2], "base64");
+  const timestamp = Date.now();
+  const path = `${pathPrefix}/${cabinetSlug ?? "anon"}/${timestamp}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage
+    .from("staging-images")
+    .upload(path, buf, { contentType: `image/${match[1]}`, upsert: false });
+  if (error) throw new Error(`upload_failed: ${error.message}`);
+  const { data: signed, error: signErr } = await sb.storage
+    .from("staging-images")
+    .createSignedUrl(path, 3600);
+  if (signErr || !signed?.signedUrl)
+    throw new Error(`sign_url_failed: ${signErr?.message}`);
+  return { path, signedUrl: signed.signedUrl };
+}
+
+async function uploadFile(
   sb: ReturnType<typeof getSupabase>,
   file: File,
   pathPrefix: string,
@@ -160,106 +159,66 @@ async function uploadToSupabase(
   const timestamp = Date.now();
   const path = `${pathPrefix}/${cabinetSlug ?? "anon"}/${timestamp}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
-  const { error: uploadErr } = await sb.storage
+  const { error } = await sb.storage
     .from("staging-images")
     .upload(path, buf, {
       contentType: file.type || `image/${ext}`,
       upsert: false,
     });
-  if (uploadErr) throw new Error(`upload_failed: ${uploadErr.message}`);
-
+  if (error) throw new Error(`upload_failed: ${error.message}`);
   const { data: signed, error: signErr } = await sb.storage
     .from("staging-images")
     .createSignedUrl(path, 3600);
-  if (signErr || !signed?.signedUrl) throw new Error(`sign_url_failed: ${signErr?.message}`);
-
+  if (signErr || !signed?.signedUrl)
+    throw new Error(`sign_url_failed: ${signErr?.message}`);
   return { path, signedUrl: signed.signedUrl };
-}
-
-async function runStaging(args: {
-  imageUrl: string;
-  planUrl?: string;
-  prompt: string;
-  seed: number;
-  intensity?: number;
-}): Promise<{ resultUrl: string | null; status: string; error?: string }> {
-  try {
-    const enhancedPrompt = args.planUrl
-      ? `${args.prompt}, respecting the floor plan layout, accurate spatial proportions`
-      : args.prompt;
-
-    const start = await callReplicateSimple({
-      imageUrl: args.imageUrl,
-      prompt: enhancedPrompt,
-      seed: args.seed,
-      intensity: args.intensity,
-    });
-
-    let final: { status: string; output?: string | string[]; error?: string };
-    if (start.status === "succeeded" || start.status === "failed") {
-      final = start as { status: string; output?: string | string[] };
-    } else {
-      final = await pollReplicate(start.id, 120);
-    }
-
-    if (final.status === "succeeded") {
-      const out = final.output;
-      const url = Array.isArray(out) ? out[0] : (out as string | null);
-      return { resultUrl: url, status: "succeeded" };
-    }
-    return { resultUrl: null, status: final.status, error: final.error };
-  } catch (err) {
-    return {
-      resultUrl: null,
-      status: "failed",
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
 }
 
 // ────────────────────────────────────────────────────────────────
 // Handler
 // ────────────────────────────────────────────────────────────────
 
+type ZoneInput = {
+  type: string;
+  prompt?: string;
+  mask: string; // dataURL PNG
+};
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const image1 = formData.get("image") as File | null;
-  const image2 = formData.get("image_2") as File | null;
-  const plan = formData.get("plan") as File | null;
-  const roomType = (formData.get("room_type") as string | null) ?? "salon";
-  const style = (formData.get("style") as string | null) ?? "moderne";
-  const customPrompt = (formData.get("custom_prompt") as string | null) ?? undefined;
+  const image = formData.get("image") as File | null;
+  const zonesJson = formData.get("zones_json") as string | null;
   const cabinetSlug = (formData.get("cabinet_slug") as string | null) ?? null;
-  const intensityKey = (formData.get("intensity") as string | null) ?? "normal";
-  const intensity =
-    intensityKey === "leger" ? 0.40 :
-    intensityKey === "complet" ? 0.70 :
-    0.55;
-  const spatialPrompt = (formData.get("spatial_prompt") as string | null) ?? undefined;
 
-  if (!image1 || !(image1 instanceof File)) {
+  if (!image || !(image instanceof File)) {
     return NextResponse.json({ ok: false, error: "no_image" }, { status: 400 });
   }
-  if (image1.size > 20 * 1024 * 1024) {
+  if (image.size > 20 * 1024 * 1024) {
     return NextResponse.json({ ok: false, error: "image_too_large" }, { status: 400 });
+  }
+  if (!zonesJson) {
+    return NextResponse.json({ ok: false, error: "no_zones" }, { status: 400 });
+  }
+
+  let zones: ZoneInput[];
+  try {
+    zones = JSON.parse(zonesJson) as ZoneInput[];
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_zones_json" }, { status: 400 });
+  }
+  if (!Array.isArray(zones) || zones.length === 0) {
+    return NextResponse.json({ ok: false, error: "empty_zones" }, { status: 400 });
+  }
+  if (zones.length > 6) {
+    return NextResponse.json({ ok: false, error: "too_many_zones" }, { status: 400 });
   }
 
   const sb = getSupabase();
 
-  // 1. Uploads
-  let img1Up: { path: string; signedUrl: string };
-  let img2Up: { path: string; signedUrl: string } | null = null;
-  let planUp: { path: string; signedUrl: string } | null = null;
+  // 1. Upload image originale
+  let imgUp: { path: string; signedUrl: string };
   try {
-    img1Up = await uploadToSupabase(sb, image1, "originals", cabinetSlug);
-    if (image2 && image2 instanceof File && image2.size > 0) {
-      img2Up = await uploadToSupabase(sb, image2, "originals", cabinetSlug);
-    }
-    if (plan && plan instanceof File && plan.size > 0) {
-      // TODO Phase C.2 : conversion PDF → PNG si plan.type === "application/pdf"
-      // Pour POC : on accepte PDF tel quel, Replicate fallback gère certains PDF
-      planUp = await uploadToSupabase(sb, plan, "plans", cabinetSlug);
-    }
+    imgUp = await uploadFile(sb, image, "originals", cabinetSlug);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: "upload_failed", detail: err instanceof Error ? err.message : String(err) },
@@ -270,86 +229,85 @@ export async function POST(req: NextRequest) {
   // 2. Insert job
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const ua = req.headers.get("user-agent");
-  const seed = Math.floor(Math.random() * 1_000_000_000);
   const { data: jobIns } = await sb
     .from("staging_jobs")
     .insert({
       cabinet_slug: cabinetSlug,
       client_ip: ip,
       user_agent: ua,
-      original_image_path: img1Up.path,
-      photo_2_path: img2Up?.path ?? null,
-      plan_path: planUp?.path ?? null,
-      room_type: roomType,
-      style,
-      custom_prompt: customPrompt,
+      original_image_path: imgUp.path,
+      zones_json: zones.map((z) => ({ type: z.type, prompt: z.prompt })),
       replicate_status: "starting",
-      seed_used: seed,
     })
     .select("id")
     .single();
   const jobId = (jobIns as { id: string } | null)?.id;
 
-  // 3. Build prompt
-  const prompt = buildPrompt(roomType, style, customPrompt, spatialPrompt);
+  // 3. Multi-pass inpainting
+  let currentImageUrl = imgUp.signedUrl;
+  const errors: string[] = [];
+  let zoneIndex = 0;
 
-  // 4. Run staging photo 1
-  const r1 = await runStaging({
-    imageUrl: img1Up.signedUrl,
-    planUrl: planUp?.signedUrl,
-    prompt,
-    seed,
-    intensity,
-  });
-
-  // 5. Run staging photo 2 (si fourni) — même seed = cohérence stylistique
-  let r2: { resultUrl: string | null; status: string; error?: string } | null = null;
-  if (img2Up) {
-    r2 = await runStaging({
-      imageUrl: img2Up.signedUrl,
-      planUrl: planUp?.signedUrl,
-      prompt,
-      seed,
-      intensity,
-    });
+  for (const zone of zones) {
+    zoneIndex++;
+    try {
+      // Upload masque
+      const maskUp = await uploadFromDataUrl(sb, zone.mask, "masks", cabinetSlug);
+      // Choisir prompt
+      const prompt = zone.prompt?.trim() || ZONE_PROMPTS[zone.type] || ZONE_PROMPTS.salon;
+      // Appel inpainting
+      const start = await callInpaint({
+        imageUrl: currentImageUrl,
+        maskUrl: maskUp.signedUrl,
+        prompt,
+      });
+      // Poll si pas terminé
+      let final: {
+        status: string;
+        output?: string | string[];
+        error?: string;
+      };
+      if (start.status === "succeeded" || start.status === "failed") {
+        final = start as { status: string; output?: string | string[] };
+      } else {
+        final = await pollReplicate(start.id, 120);
+      }
+      if (final.status !== "succeeded") {
+        errors.push(`zone ${zoneIndex} (${zone.type}): ${final.error ?? final.status}`);
+        continue; // on garde l'image courante et passe à la zone suivante
+      }
+      const out = final.output;
+      const newUrl = Array.isArray(out) ? out[0] : (out as string | null);
+      if (newUrl) {
+        currentImageUrl = newUrl;
+      }
+    } catch (err) {
+      errors.push(`zone ${zoneIndex} (${zone.type}): ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
-  // 6. Update job
-  const totalCost = (r1.resultUrl ? 0.014 : 0) + (r2?.resultUrl ? 0.014 : 0);
+  // 4. Update job
+  const totalCost = zones.length * 0.012;
+  const finalStatus = errors.length === 0 ? "succeeded" : "partial";
   if (jobId) {
     await sb
       .from("staging_jobs")
       .update({
-        replicate_status: r1.status === "succeeded" && (r2?.status ?? "succeeded") === "succeeded" ? "succeeded" : "partial_or_failed",
-        result_image_url: r1.resultUrl,
-        result_image_url_2: r2?.resultUrl ?? null,
+        replicate_status: finalStatus,
+        final_image_url: currentImageUrl,
+        result_image_url: currentImageUrl,
         completed_at: new Date().toISOString(),
         cost_usd: totalCost,
       })
       .eq("id", jobId);
   }
 
-  if (!r1.resultUrl) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "staging_failed",
-        detail: r1.error ?? `status: ${r1.status}`,
-        job_id: jobId,
-      },
-      { status: 502 },
-    );
-  }
-
   return NextResponse.json({
     ok: true,
     job_id: jobId,
-    result_url: r1.resultUrl,
-    original_url: img1Up.signedUrl,
-    result_url_2: r2?.resultUrl ?? null,
-    original_url_2: img2Up?.signedUrl ?? null,
-    plan_used: planUp?.signedUrl ?? null,
-    prompt_used: prompt,
-    seed,
+    result_url: currentImageUrl,
+    original_url: imgUp.signedUrl,
+    zones_processed: zones.length,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }

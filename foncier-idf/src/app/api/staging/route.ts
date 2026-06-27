@@ -33,9 +33,9 @@ function getSupabase() {
 
 const ZONE_PROMPTS: Record<string, string> = {
   cuisine:
-    "modern fully-equipped kitchen with white shaker cabinets, brushed brass hardware, oak wood countertops, marble backsplash, induction cooktop, integrated stainless steel oven, kitchen island, plants, scandinavian style, photorealistic, magazine quality",
+    "modern fully-equipped kitchen with white shaker base cabinets and matching upper wall cabinets, brushed brass hardware, oak wood countertops, marble subway tile backsplash on the wall, stainless steel range hood mounted on the wall, induction cooktop, integrated oven, plants on the counter, scandinavian style, photorealistic, magazine quality interior photo",
   repas:
-    "oak wood dining table with 6 cane back chairs, linear pendant light above, plants centerpiece, soft natural light, scandinavian style, photorealistic, magazine quality",
+    "oak wood dining table with 6 cane back chairs, linear pendant light hanging above, small plants centerpiece, soft natural light, scandinavian style, photorealistic, magazine quality",
   salon:
     "cream sectional sofa, boucle armchair, marble round coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art on wall, scandinavian style, photorealistic, magazine quality",
   lecture:

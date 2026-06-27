@@ -22,39 +22,50 @@ type ZoneType = "cuisine" | "repas" | "salon" | "lecture";
 
 const ZONE_DEFS: Record<
   ZoneType,
-  { label: string; color: string; stroke: string; icon: string; defaultPrompt: string }
+  {
+    label: string;
+    color: string;
+    stroke: string;
+    icon: string;
+    defaultPrompt: string;
+    hint: string;
+  }
 > = {
   cuisine: {
     label: "Cuisine",
     color: "rgba(220, 38, 38, 0.45)",
     stroke: "#dc2626",
     icon: "🍳",
+    hint: "📐 Dessine un L : le SOL où vont les meubles bas + le MUR derrière jusqu'à ~2m de haut (pour les placards muraux et la hotte).",
     defaultPrompt:
-      "modern fully-equipped kitchen with white shaker cabinets, brushed brass hardware, oak wood countertops, marble backsplash, induction cooktop, integrated stainless steel oven, kitchen island, plants, scandinavian style",
+      "modern fully-equipped kitchen with white shaker base cabinets and matching upper wall cabinets, brushed brass hardware, oak wood countertops, marble subway tile backsplash on the wall, stainless steel range hood mounted on the wall, induction cooktop, integrated oven, plants on the counter, scandinavian style, photorealistic, magazine quality interior photo",
   },
   repas: {
     label: "Salle à manger",
     color: "rgba(245, 158, 11, 0.45)",
     stroke: "#f59e0b",
     icon: "🍽️",
+    hint: "📐 Le SOL uniquement, là où va la table. Inclus un peu de hauteur si tu veux une suspension lumineuse au plafond.",
     defaultPrompt:
-      "oak wood dining table with 6 cane back chairs, linear pendant light above, plants centerpiece, scandinavian style",
+      "oak wood dining table with 6 cane back chairs, linear pendant light hanging above, small plants centerpiece, scandinavian style, photorealistic, magazine quality",
   },
   salon: {
     label: "Salon",
     color: "rgba(34, 197, 94, 0.45)",
     stroke: "#22c55e",
     icon: "🛋️",
+    hint: "📐 Le SOL principalement (canapé, table basse, tapis posent au sol). Ajoute un peu de mur si tu veux un cadre ou une console TV.",
     defaultPrompt:
-      "cream sectional sofa, boucle armchair, marble coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art, scandinavian style",
+      "cream sectional sofa, boucle armchair, marble round coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art on wall, scandinavian style, photorealistic, magazine quality",
   },
   lecture: {
     label: "Lecture",
     color: "rgba(59, 130, 246, 0.45)",
     stroke: "#3b82f6",
     icon: "📚",
+    hint: "📐 Le SOL uniquement, dans un angle. Fauteuil + lampadaire + petite table posent tous au sol.",
     defaultPrompt:
-      "rattan armchair, arc floor lamp, small wooden side table with books, plant, cozy scandinavian reading nook",
+      "rattan armchair, arc floor lamp, small wooden side table with books and candle, plant, cozy scandinavian reading nook, photorealistic, magazine quality",
   },
 };
 
@@ -398,6 +409,9 @@ export default function StagingPage() {
                     alignItems: "center",
                   }}
                 >
+                  <div style={{ flexBasis: "100%", marginBottom: 4, fontSize: 12, fontWeight: 600 }}>
+                    {ZONE_DEFS[currentTool].hint}
+                  </div>
                   <span>
                     ✏️ Outil <strong>{ZONE_DEFS[currentTool].label}</strong> · {currentPoints.length} point{currentPoints.length > 1 ? "s" : ""} placé{currentPoints.length > 1 ? "s" : ""}
                     {currentPoints.length < 3

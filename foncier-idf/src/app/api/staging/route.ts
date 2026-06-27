@@ -33,6 +33,7 @@ function getSupabase() {
 
 const ROOM_DESCRIPTIONS: Record<string, string> = {
   salon: "luxurious living room with sofa, armchairs, coffee table, side tables, decorative lamps, rugs",
+  sejour_cuisine: "open-plan living-dining-kitchen space with kitchen island, bar stools, dining table with chairs, sofa, coffee table, pendant lights over island, integrated appliances, plants, large windows",
   chambre: "elegant bedroom with king-size bed, headboard, nightstands, bedside lamps, dresser, mirror, rug",
   cuisine: "modern fully-equipped kitchen with island, stools, pendant lights, appliances, plants",
   sdb: "modern bathroom with vanity, double sinks, large mirror, lighting fixtures, towels, plants",

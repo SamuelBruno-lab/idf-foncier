@@ -20,6 +20,7 @@ const DARK = "#0f172a";
 
 const ROOMS = [
   { key: "salon", label: "Salon", icon: "🛋️" },
+  { key: "sejour_cuisine", label: "Séjour-Cuisine", icon: "🍽️" },
   { key: "chambre", label: "Chambre", icon: "🛏️" },
   { key: "cuisine", label: "Cuisine", icon: "🍳" },
   { key: "sdb", label: "Salle de bain", icon: "🛁" },

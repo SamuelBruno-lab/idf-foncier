@@ -38,7 +38,8 @@ type Payload = {
   note?: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://eurealimmo.com";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.eurealimmo.com";
 const MAIL_FROM = process.env.MAIL_FROM ?? "Samuel BRUNO <samuel@datamerry.com>";
 
 function buildActivationEmail(args: {

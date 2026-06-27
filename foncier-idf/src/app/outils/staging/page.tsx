@@ -1,20 +1,19 @@
 /**
- * Virtual Home Staging Phase D — dessin de zones rectangulaires.
+ * Virtual Home Staging Phase D — polygones libres + multi-pass masked inpainting.
  *
  * URL : /outils/staging
  *
  * UX :
- *   1. Upload une photo
- *   2. Sélectionne une zone (cuisine / repas / salon / lecture)
- *   3. Click + drag sur la photo pour définir un rectangle
- *   4. Répète pour chaque zone
- *   5. Bouton "Stager" → API génère un masque par zone + multi-pass inpainting
- *   6. Affichage du résultat avec slider avant/après
+ *   1. Upload photo
+ *   2. Choisis une zone (cuisine, salon...)
+ *   3. Clique plusieurs points pour définir un polygone (3+ points)
+ *   4. Bouton "Fermer la zone" → polygone finalisé
+ *   5. Stager → 1 pass d'inpainting par zone avec masque polygonal
  */
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -23,11 +22,12 @@ type ZoneType = "cuisine" | "repas" | "salon" | "lecture";
 
 const ZONE_DEFS: Record<
   ZoneType,
-  { label: string; color: string; icon: string; defaultPrompt: string }
+  { label: string; color: string; stroke: string; icon: string; defaultPrompt: string }
 > = {
   cuisine: {
     label: "Cuisine",
     color: "rgba(220, 38, 38, 0.45)",
+    stroke: "#dc2626",
     icon: "🍳",
     defaultPrompt:
       "modern fully-equipped kitchen with white shaker cabinets, brushed brass hardware, oak wood countertops, marble backsplash, induction cooktop, integrated stainless steel oven, kitchen island, plants, scandinavian style",
@@ -35,6 +35,7 @@ const ZONE_DEFS: Record<
   repas: {
     label: "Salle à manger",
     color: "rgba(245, 158, 11, 0.45)",
+    stroke: "#f59e0b",
     icon: "🍽️",
     defaultPrompt:
       "oak wood dining table with 6 cane back chairs, linear pendant light above, plants centerpiece, scandinavian style",
@@ -42,6 +43,7 @@ const ZONE_DEFS: Record<
   salon: {
     label: "Salon",
     color: "rgba(34, 197, 94, 0.45)",
+    stroke: "#22c55e",
     icon: "🛋️",
     defaultPrompt:
       "cream sectional sofa, boucle armchair, marble coffee table, beige tufted rug, large potted Strelitzia plant, low oak sideboard, framed art, scandinavian style",
@@ -49,19 +51,17 @@ const ZONE_DEFS: Record<
   lecture: {
     label: "Lecture",
     color: "rgba(59, 130, 246, 0.45)",
+    stroke: "#3b82f6",
     icon: "📚",
     defaultPrompt:
       "rattan armchair, arc floor lamp, small wooden side table with books, plant, cozy scandinavian reading nook",
   },
 };
 
+type Point = { x: number; y: number }; // en % (0-100)
 type Zone = {
   type: ZoneType;
-  xPct: number; // 0-1
-  yPct: number;
-  wPct: number;
-  hPct: number;
-  prompt?: string;
+  points: Point[]; // au moins 3 points
 };
 
 export default function StagingPage() {
@@ -75,13 +75,8 @@ export default function StagingPage() {
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [currentTool, setCurrentTool] = useState<ZoneType | null>(null);
-  const [drawing, setDrawing] = useState<{ x: number; y: number } | null>(null);
-  const [hoverRect, setHoverRect] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
+  const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
+  const [hoverPoint, setHoverPoint] = useState<Point | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -101,6 +96,7 @@ export default function StagingPage() {
     setError(null);
     setResult(null);
     setZones([]);
+    setCurrentPoints([]);
     setFile(f);
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result as string);
@@ -113,70 +109,53 @@ export default function StagingPage() {
     setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
   }
 
-  function getRelativePoint(e: React.MouseEvent | React.TouchEvent) {
+  function getRelativePoint(e: React.MouseEvent): Point | null {
     const container = containerRef.current;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0]?.clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0]?.clientY : e.clientY;
-    if (clientX === undefined || clientY === undefined) return null;
     return {
-      x: ((clientX - rect.left) / rect.width) * 100,
-      y: ((clientY - rect.top) / rect.height) * 100,
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
     };
   }
 
-  function onMouseDown(e: React.MouseEvent) {
+  function onClick(e: React.MouseEvent) {
     if (!currentTool) return;
     const p = getRelativePoint(e);
     if (!p) return;
-    setDrawing(p);
-    setHoverRect({ x: p.x, y: p.y, w: 0, h: 0 });
+    setCurrentPoints((prev) => [...prev, p]);
   }
 
   function onMouseMove(e: React.MouseEvent) {
-    if (!drawing || !currentTool) return;
+    if (!currentTool) return;
     const p = getRelativePoint(e);
-    if (!p) return;
-    setHoverRect({
-      x: Math.min(drawing.x, p.x),
-      y: Math.min(drawing.y, p.y),
-      w: Math.abs(p.x - drawing.x),
-      h: Math.abs(p.y - drawing.y),
-    });
+    setHoverPoint(p);
   }
 
-  function onMouseUp() {
-    if (!drawing || !currentTool || !hoverRect) {
-      setDrawing(null);
-      setHoverRect(null);
-      return;
-    }
-    if (hoverRect.w < 3 || hoverRect.h < 3) {
-      setDrawing(null);
-      setHoverRect(null);
-      return;
-    }
-    // Ajoute la zone
+  function closePolygon() {
+    if (!currentTool || currentPoints.length < 3) return;
     setZones((prev) => [
       ...prev,
-      {
-        type: currentTool,
-        xPct: hoverRect.x / 100,
-        yPct: hoverRect.y / 100,
-        wPct: hoverRect.w / 100,
-        hPct: hoverRect.h / 100,
-      },
+      { type: currentTool, points: currentPoints },
     ]);
-    setDrawing(null);
-    setHoverRect(null);
+    setCurrentPoints([]);
+    setHoverPoint(null);
+  }
+
+  function cancelPolygon() {
+    setCurrentPoints([]);
+    setHoverPoint(null);
+  }
+
+  function undoLastPoint() {
+    setCurrentPoints((prev) => prev.slice(0, -1));
   }
 
   function removeZone(i: number) {
     setZones((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  // Génère un mask PNG (noir avec rectangle blanc) en dataURL
+  // Génère un mask PNG (noir avec polygone blanc) en dataURL
   function generateMask(zone: Zone): string {
     if (!imgDims) return "";
     const canvas = document.createElement("canvas");
@@ -184,18 +163,30 @@ export default function StagingPage() {
     canvas.height = imgDims.h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return "";
-    // Fond noir = à préserver
+    // Fond noir = préservé
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, imgDims.w, imgDims.h);
-    // Rectangle blanc = zone à inpainter
+    // Polygone blanc = zone à inpainter
     ctx.fillStyle = "white";
-    ctx.fillRect(
-      zone.xPct * imgDims.w,
-      zone.yPct * imgDims.h,
-      zone.wPct * imgDims.w,
-      zone.hPct * imgDims.h,
-    );
+    ctx.beginPath();
+    zone.points.forEach((p, i) => {
+      const px = (p.x / 100) * imgDims.w;
+      const py = (p.y / 100) * imgDims.h;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.fill();
     return canvas.toDataURL("image/png");
+  }
+
+  function pointsToSvgPath(points: Point[]): string {
+    if (points.length === 0) return "";
+    return (
+      points
+        .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+        .join(" ") + " Z"
+    );
   }
 
   async function handleSubmit() {
@@ -204,7 +195,7 @@ export default function StagingPage() {
       return;
     }
     if (zones.length === 0) {
-      setError("Dessine au moins une zone (cuisine, salon, etc.).");
+      setError("Dessine au moins une zone fermée.");
       return;
     }
     setLoading(true);
@@ -218,7 +209,7 @@ export default function StagingPage() {
       JSON.stringify(
         zones.map((z) => ({
           type: z.type,
-          prompt: z.prompt || ZONE_DEFS[z.type].defaultPrompt,
+          prompt: ZONE_DEFS[z.type].defaultPrompt,
           mask: generateMask(z),
         })),
       ),
@@ -273,13 +264,13 @@ export default function StagingPage() {
             Virtual Home Staging IA — Phase D
           </h1>
           <p style={{ color: "#cbd5e1", fontSize: 13, margin: "4px 0 0" }}>
-            Dessine les zones (cuisine, salon...) sur la photo · contrôle pixel-précis
+            Trace les contours de chaque zone (polygone libre) · contrôle pixel-précis
           </p>
         </div>
       </header>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "30px 24px" }}>
-        {/* ─── 1. Upload ──────────────────────────────────────────── */}
+        {/* Upload */}
         {!preview && (
           <section
             style={{
@@ -291,7 +282,7 @@ export default function StagingPage() {
             }}
           >
             <h2 style={{ margin: "0 0 12px", fontSize: 16, fontFamily: "Georgia, serif" }}>
-              1. Upload la photo de pièce vide
+              1. Upload la photo
             </h2>
             <input
               type="file"
@@ -317,17 +308,12 @@ export default function StagingPage() {
               }}
             >
               <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>
-                Clique ou glisse-dépose
-              </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
-                JPG, PNG ou WEBP · max 20 Mo
-              </div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Clique ou glisse-dépose</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>JPG, PNG ou WEBP · max 20 Mo</div>
             </div>
           </section>
         )}
 
-        {/* ─── 2. Dessin des zones ───────────────────────────────── */}
         {preview && !result && (
           <>
             <section
@@ -340,17 +326,10 @@ export default function StagingPage() {
               }}
             >
               <h2 style={{ margin: "0 0 12px", fontSize: 16, fontFamily: "Georgia, serif" }}>
-                2. Sélectionne une zone, puis dessine un rectangle sur la photo
+                2. Sélectionne une zone, clique pour placer des points, ferme le polygone
               </h2>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                 {(Object.keys(ZONE_DEFS) as ZoneType[]).map((key) => {
                   const def = ZONE_DEFS[key];
                   const active = currentTool === key;
@@ -358,12 +337,15 @@ export default function StagingPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setCurrentTool(active ? null : key)}
+                      onClick={() => {
+                        if (currentPoints.length > 0) cancelPolygon();
+                        setCurrentTool(active ? null : key);
+                      }}
                       style={{
                         padding: "10px 16px",
-                        background: active ? def.color.replace("0.45", "1") : "white",
+                        background: active ? def.stroke : "white",
                         color: active ? "white" : "#475569",
-                        border: `2px solid ${def.color.replace("0.45", "1")}`,
+                        border: `2px solid ${def.stroke}`,
                         borderRadius: 6,
                         fontSize: 13,
                         fontWeight: 700,
@@ -380,6 +362,7 @@ export default function StagingPage() {
                     setFile(null);
                     setPreview(null);
                     setZones([]);
+                    setCurrentPoints([]);
                     setCurrentTool(null);
                     if (fileRef.current) fileRef.current.value = "";
                   }}
@@ -404,25 +387,85 @@ export default function StagingPage() {
                   style={{
                     background: "#fef3c7",
                     border: "1px solid #fbbf24",
-                    padding: "8px 12px",
+                    padding: "10px 12px",
                     borderRadius: 4,
                     fontSize: 12,
                     color: "#78350f",
                     marginBottom: 12,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    alignItems: "center",
                   }}
                 >
-                  ✏️ Outil <strong>{ZONE_DEFS[currentTool].label}</strong> sélectionné
-                  — Clique + glisse sur la photo pour définir le rectangle
+                  <span>
+                    ✏️ Outil <strong>{ZONE_DEFS[currentTool].label}</strong> · {currentPoints.length} point{currentPoints.length > 1 ? "s" : ""} placé{currentPoints.length > 1 ? "s" : ""}
+                    {currentPoints.length < 3
+                      ? ` — clique encore ${3 - currentPoints.length} point${3 - currentPoints.length > 1 ? "s" : ""}`
+                      : " — prêt à fermer"}
+                  </span>
+                  {currentPoints.length >= 3 && (
+                    <button
+                      type="button"
+                      onClick={closePolygon}
+                      style={{
+                        background: "#10b981",
+                        color: "white",
+                        border: "none",
+                        padding: "5px 12px",
+                        borderRadius: 3,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ✓ Fermer la zone
+                    </button>
+                  )}
+                  {currentPoints.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={undoLastPoint}
+                        style={{
+                          background: "transparent",
+                          color: "#78350f",
+                          border: "1px solid #78350f",
+                          padding: "5px 10px",
+                          borderRadius: 3,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ← Annuler dernier point
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelPolygon}
+                        style={{
+                          background: "transparent",
+                          color: "#dc2626",
+                          border: "1px solid #dc2626",
+                          padding: "5px 10px",
+                          borderRadius: 3,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✕ Effacer
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
-              {/* Canvas / image */}
+              {/* Photo + SVG overlay */}
               <div
                 ref={containerRef}
-                onMouseDown={onMouseDown}
+                onClick={onClick}
                 onMouseMove={onMouseMove}
-                onMouseUp={onMouseUp}
-                onMouseLeave={onMouseUp}
                 style={{
                   position: "relative",
                   width: "100%",
@@ -438,56 +481,77 @@ export default function StagingPage() {
                   draggable={false}
                   style={{ width: "100%", display: "block", borderRadius: 4 }}
                 />
-                {/* Zones existantes */}
-                {zones.map((z, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      left: `${z.xPct * 100}%`,
-                      top: `${z.yPct * 100}%`,
-                      width: `${z.wPct * 100}%`,
-                      height: `${z.hPct * 100}%`,
-                      background: ZONE_DEFS[z.type].color,
-                      border: `2px solid ${ZONE_DEFS[z.type].color.replace("0.45", "1")}`,
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 4,
-                        left: 6,
-                        background: "rgba(0,0,0,0.7)",
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: 3,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {ZONE_DEFS[z.type].icon} {ZONE_DEFS[z.type].label}
-                    </div>
-                  </div>
-                ))}
-                {/* Rectangle en cours de dessin */}
-                {hoverRect && currentTool && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${hoverRect.x}%`,
-                      top: `${hoverRect.y}%`,
-                      width: `${hoverRect.w}%`,
-                      height: `${hoverRect.h}%`,
-                      background: ZONE_DEFS[currentTool].color,
-                      border: `2px dashed ${ZONE_DEFS[currentTool].color.replace("0.45", "1")}`,
-                      pointerEvents: "none",
-                    }}
-                  />
-                )}
+
+                <svg
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {/* Zones validées */}
+                  {zones.map((z, i) => (
+                    <g key={i}>
+                      <path
+                        d={pointsToSvgPath(z.points)}
+                        fill={ZONE_DEFS[z.type].color}
+                        stroke={ZONE_DEFS[z.type].stroke}
+                        strokeWidth={0.3}
+                      />
+                    </g>
+                  ))}
+                  {/* Polygone en cours */}
+                  {currentTool && currentPoints.length > 0 && (
+                    <g>
+                      {/* Lignes entre points + ligne vers hover */}
+                      <polyline
+                        points={currentPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+                        fill="none"
+                        stroke={ZONE_DEFS[currentTool].stroke}
+                        strokeWidth={0.3}
+                        strokeDasharray="0.5,0.3"
+                      />
+                      {hoverPoint && (
+                        <line
+                          x1={currentPoints[currentPoints.length - 1].x}
+                          y1={currentPoints[currentPoints.length - 1].y}
+                          x2={hoverPoint.x}
+                          y2={hoverPoint.y}
+                          stroke={ZONE_DEFS[currentTool].stroke}
+                          strokeWidth={0.2}
+                          strokeDasharray="0.4,0.4"
+                          opacity={0.6}
+                        />
+                      )}
+                      {/* Polygone fermé prévisualisation si ≥ 3 points */}
+                      {currentPoints.length >= 3 && (
+                        <path
+                          d={pointsToSvgPath(currentPoints)}
+                          fill={ZONE_DEFS[currentTool].color}
+                          opacity={0.5}
+                        />
+                      )}
+                      {/* Points cliqués */}
+                      {currentPoints.map((p, i) => (
+                        <circle
+                          key={i}
+                          cx={p.x}
+                          cy={p.y}
+                          r={0.6}
+                          fill="white"
+                          stroke={ZONE_DEFS[currentTool].stroke}
+                          strokeWidth={0.2}
+                        />
+                      ))}
+                    </g>
+                  )}
+                </svg>
               </div>
 
-              {/* Liste des zones avec suppression */}
               {zones.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
@@ -503,14 +567,14 @@ export default function StagingPage() {
                           padding: "4px 10px",
                           background: ZONE_DEFS[z.type].color,
                           color: DARK,
-                          border: `1px solid ${ZONE_DEFS[z.type].color.replace("0.45", "1")}`,
+                          border: `1px solid ${ZONE_DEFS[z.type].stroke}`,
                           borderRadius: 12,
                           fontSize: 11,
                           fontWeight: 600,
                           cursor: "pointer",
                         }}
                       >
-                        {ZONE_DEFS[z.type].icon} {ZONE_DEFS[z.type].label} ✕
+                        {ZONE_DEFS[z.type].icon} {ZONE_DEFS[z.type].label} ({z.points.length} pts) ✕
                       </button>
                     ))}
                   </div>
@@ -518,7 +582,6 @@ export default function StagingPage() {
               )}
             </section>
 
-            {/* Action */}
             <div style={{ textAlign: "center", marginBottom: 30 }}>
               <button
                 type="button"
@@ -558,7 +621,6 @@ export default function StagingPage() {
           </>
         )}
 
-        {/* ─── 3. Résultat ────────────────────────────────────── */}
         {result && (
           <section
             style={{
@@ -571,10 +633,6 @@ export default function StagingPage() {
             <h2 style={{ margin: "0 0 16px", fontFamily: "Georgia, serif", fontSize: 18 }}>
               ✓ Voici votre bien stagé
             </h2>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
-              Glisse le curseur pour comparer avant / après. Inpainting masqué — la pièce hors des zones dessinées est strictement préservée.
-            </p>
-
             <div
               style={{
                 position: "relative",
@@ -589,7 +647,7 @@ export default function StagingPage() {
             >
               <img
                 src={result.result_url}
-                alt="Après staging"
+                alt="Après"
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -607,12 +665,8 @@ export default function StagingPage() {
               >
                 <img
                   src={result.original_url}
-                  alt="Avant staging"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                  }}
+                  alt="Avant"
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
               </div>
               <input
@@ -660,7 +714,6 @@ export default function StagingPage() {
                 APRÈS
               </div>
             </div>
-
             <div style={{ textAlign: "center", marginTop: 20, display: "flex", justifyContent: "center", gap: 12 }}>
               <a
                 href={result.result_url}
@@ -696,7 +749,7 @@ export default function StagingPage() {
                   cursor: "pointer",
                 }}
               >
-                Refaire avec autres zones
+                Refaire
               </button>
             </div>
           </section>
@@ -713,7 +766,7 @@ export default function StagingPage() {
         >
           Propulsé par DATAMERRY® × Replicate · Modèle SDXL Inpainting masqué
           <br />
-          Phase D — Chaque zone dessinée fait l'objet d'un pass d'inpainting indépendant. Le reste de la pièce est strictement préservé.
+          Phase D — Polygones libres. Inpainting strictement contraint à l'intérieur des zones dessinées.
         </div>
       </div>
     </main>

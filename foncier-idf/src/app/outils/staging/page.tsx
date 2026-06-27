@@ -34,6 +34,57 @@ const STYLES = [
   { key: "industriel", label: "Industriel", desc: "Brique, métal, Edison" },
 ];
 
+const INTENSITIES = [
+  {
+    key: "leger",
+    label: "Léger",
+    desc: "Structure ultra préservée · mobilier discret",
+    icon: "🔍",
+  },
+  {
+    key: "normal",
+    label: "Normal",
+    desc: "Équilibre fidélité / wow effect",
+    icon: "⚖️",
+  },
+  {
+    key: "complet",
+    label: "Complet",
+    desc: "Transformation maximale · plus de liberté IA",
+    icon: "✨",
+  },
+];
+
+const PROMPT_TEMPLATES = [
+  { label: "Haussmannien", value: "with moldings, fireplace, herringbone parquet, parisian style" },
+  { label: "Loft industriel", value: "with exposed brick, metal beams, large windows, industrial loft style" },
+  { label: "Maison neuve", value: "with large bay windows, open layout, modern contemporary materials" },
+  { label: "Provence", value: "with terracotta tiles, exposed wooden beams, mediterranean light" },
+];
+
+const SPATIAL_TEMPLATES = [
+  {
+    label: "Cuisine à droite, salon à gauche",
+    value:
+      "Place the kitchen sink, induction cooktop and kitchen appliances against the right wall. Place the dining table and lounge sofa area against the left wall. Keep the center as a transition space",
+  },
+  {
+    label: "Cuisine au fond, salon devant baie",
+    value:
+      "Place the kitchen with island at the back of the room. Place the lounge sofa and coffee table near the front bay window facing the view",
+  },
+  {
+    label: "Cuisine à gauche, salon à droite",
+    value:
+      "Place the kitchen sink, cooktop and appliances against the left wall. Place the sofa, armchairs and coffee table area against the right wall",
+  },
+  {
+    label: "Cuisine en îlot central",
+    value:
+      "Place a central kitchen island as room divider, with bar stools on the living room side. Dining area near the window, sofa area at the opposite end",
+  },
+];
+
 type FilePreview = { file: File; preview: string };
 
 export default function StagingPage() {
@@ -47,7 +98,9 @@ export default function StagingPage() {
 
   const [roomType, setRoomType] = useState("salon");
   const [style, setStyle] = useState("moderne");
+  const [intensity, setIntensity] = useState("normal");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [spatialPrompt, setSpatialPrompt] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -98,7 +151,9 @@ export default function StagingPage() {
     if (plan) form.append("plan", plan.file);
     form.append("room_type", roomType);
     form.append("style", style);
+    form.append("intensity", intensity);
     if (customPrompt.trim()) form.append("custom_prompt", customPrompt.trim());
+    if (spatialPrompt.trim()) form.append("spatial_prompt", spatialPrompt.trim());
 
     try {
       const res = await fetch("/api/staging", { method: "POST", body: form });
@@ -318,6 +373,132 @@ export default function StagingPage() {
                 boxSizing: "border-box",
               }}
             />
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {PROMPT_TEMPLATES.map((t) => (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => setCustomPrompt(t.value)}
+                  style={{
+                    background: customPrompt === t.value ? PRIMARY : "#f1f5f9",
+                    color: customPrompt === t.value ? DARK : "#475569",
+                    border: "1px solid transparent",
+                    padding: "5px 10px",
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  + {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 3 bis. Aménagement spatial souhaité (optionnel) ────── */}
+        <section
+          style={{
+            background: "white",
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 20,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          }}
+        >
+          <h2 style={{ margin: "0 0 4px", fontSize: 16, fontFamily: "Georgia, serif" }}>
+            3 bis. Aménagement souhaité (optionnel)
+          </h2>
+          <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 12px" }}>
+            Décris où placer les éléments. L'IA comprend ~40-60 % des indications
+            spatiales — c'est imparfait mais ça aide à orienter le rendu.
+          </p>
+
+          <textarea
+            value={spatialPrompt}
+            onChange={(e) => setSpatialPrompt(e.target.value)}
+            placeholder="ex: cuisine (évier + plaque) sur le mur de droite, salon + table à manger sur le mur de gauche, espace de transition au centre"
+            rows={3}
+            style={{
+              width: "100%",
+              padding: 10,
+              border: "1px solid #cbd5e1",
+              borderRadius: 4,
+              fontSize: 13,
+              boxSizing: "border-box",
+              fontFamily: "inherit",
+              resize: "vertical",
+            }}
+          />
+          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {SPATIAL_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => setSpatialPrompt(t.value)}
+                style={{
+                  background: spatialPrompt === t.value ? PRIMARY : "#f1f5f9",
+                  color: spatialPrompt === t.value ? DARK : "#475569",
+                  border: "1px solid transparent",
+                  padding: "5px 10px",
+                  borderRadius: 12,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                + {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ─── 4. Intensité du staging ──────────────────────────────── */}
+        <section
+          style={{
+            background: "white",
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 20,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          }}
+        >
+          <h2 style={{ margin: "0 0 4px", fontSize: 16, fontFamily: "Georgia, serif" }}>
+            4. Intensité du staging
+          </h2>
+          <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 12px" }}>
+            Plus c'est léger, plus la photo originale est préservée (escalier, baies, parquet, fenêtres).
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 10,
+            }}
+          >
+            {INTENSITIES.map((i) => (
+              <button
+                key={i.key}
+                type="button"
+                onClick={() => setIntensity(i.key)}
+                style={{
+                  padding: 14,
+                  background: intensity === i.key ? PRIMARY : "white",
+                  color: intensity === i.key ? DARK : "#475569",
+                  border: intensity === i.key ? `2px solid ${PRIMARY}` : "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{i.icon}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{i.label}</div>
+                <div style={{ fontSize: 11, opacity: 0.8 }}>{i.desc}</div>
+              </button>
+            ))}
           </div>
         </section>
 

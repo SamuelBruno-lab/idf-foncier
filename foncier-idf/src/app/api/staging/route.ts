@@ -34,12 +34,12 @@ function getSupabase() {
 // ────────────────────────────────────────────────────────────────
 
 const ROOM_DESCRIPTIONS: Record<string, string> = {
-  salon: "luxurious living room with sofa, armchairs, coffee table, side tables, decorative lamps, rugs",
-  sejour_cuisine: "open-plan living-dining-kitchen space with kitchen island, bar stools, dining table with chairs, sofa, coffee table, pendant lights over island, integrated appliances, plants, large windows",
-  chambre: "elegant bedroom with king-size bed, headboard, nightstands, bedside lamps, dresser, mirror, rug",
-  cuisine: "modern fully-equipped kitchen with island, stools, pendant lights, appliances, plants",
-  sdb: "modern bathroom with vanity, double sinks, large mirror, lighting fixtures, towels, plants",
-  bureau: "stylish home office with desk, ergonomic chair, bookshelves, lamp, plants, framed art",
+  salon: "living room with sofa, armchairs, coffee table, side tables, decorative lamps, rug, preserving fireplace, moldings, parquet pattern, original architecture",
+  sejour_cuisine: "open-plan living-dining-kitchen space with kitchen island, bar stools, dining table with chairs, sofa, coffee table, pendant lights, preserving kitchen island position, structural columns, stairs, baies vitrées, original walls and openings",
+  chambre: "bedroom with bed, headboard, nightstands, bedside lamps, dresser, mirror, rug, preserving original walls, windows, fireplace if any, parquet pattern",
+  cuisine: "fully-equipped kitchen with island, stools, pendant lights, appliances, plants, preserving cabinet layout, sink position, structural elements",
+  sdb: "bathroom with vanity, sinks, mirror, lighting fixtures, towels, plants, preserving tiling, plumbing fixtures, shower/bath position",
+  bureau: "home office with desk, ergonomic chair, bookshelves, lamp, plants, framed art, preserving original architecture and openings",
 };
 
 const STYLE_DESCRIPTIONS: Record<string, string> = {
@@ -53,15 +53,25 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
     "industrial loft style, exposed brick, metal beams, leather sofa, raw wood, Edison bulbs, vintage decor",
 };
 
-function buildPrompt(roomType: string, style: string, custom?: string): string {
+function buildPrompt(
+  roomType: string,
+  style: string,
+  custom?: string,
+  spatial?: string,
+): string {
   const room = ROOM_DESCRIPTIONS[roomType] ?? ROOM_DESCRIPTIONS.salon;
   const styleDesc = STYLE_DESCRIPTIONS[style] ?? STYLE_DESCRIPTIONS.moderne;
-  const base = `A photorealistic interior photograph of a fully furnished ${room}, ${styleDesc}, professional real estate photography, high resolution, soft natural lighting, magazine quality`;
+  // Préservation de la structure : on demande explicitement au modèle de
+  // garder les éléments architecturaux d'origine (murs, fenêtres, escalier).
+  let base = `A photorealistic interior photograph of a fully furnished ${room}, ${styleDesc}, while preserving original architecture and structural elements including walls, windows, doors, stairs, ceiling height, professional real estate photography, high resolution, soft natural lighting, magazine quality`;
+  if (spatial && spatial.trim()) {
+    base = `${spatial.trim()}. ${base}`;
+  }
   return custom ? `${base}, ${custom}` : base;
 }
 
 const NEGATIVE_PROMPT =
-  "blurry, low quality, distorted, deformed, watermark, text, logo, people, person, faces, cartoon, anime, sketch, dark, gloomy, empty room";
+  "blurry, low quality, distorted, deformed, watermark, text, logo, people, person, faces, cartoon, anime, sketch, dark, gloomy, empty room, modified walls, modified windows, removed stairs, removed doors, altered architecture, structural changes";
 
 // ────────────────────────────────────────────────────────────────
 // Replicate
@@ -77,6 +87,7 @@ async function callReplicateSimple(args: {
   imageUrl: string;
   prompt: string;
   seed?: number;
+  intensity?: number; // 0.40 = léger / 0.55 = normal / 0.70 = complet
 }): Promise<{ id: string; status: string; output?: string | string[] }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
@@ -96,7 +107,7 @@ async function callReplicateSimple(args: {
         negative_prompt: NEGATIVE_PROMPT,
         num_inference_steps: 50,
         guidance_scale: 9,
-        prompt_strength: 0.8,
+        prompt_strength: args.intensity ?? 0.55,
         ...(args.seed !== undefined ? { seed: args.seed } : {}),
       },
     }),
@@ -170,11 +181,9 @@ async function runStaging(args: {
   planUrl?: string;
   prompt: string;
   seed: number;
+  intensity?: number;
 }): Promise<{ resultUrl: string | null; status: string; error?: string }> {
   try {
-    // Note Phase C : le plan 2D est uploadé et tracé en DB mais pas encore
-    // injecté en ControlNet (Phase C.2 = vraie intégration ControlNet Canny).
-    // Pour l'instant, on enrichit juste le prompt si plan présent.
     const enhancedPrompt = args.planUrl
       ? `${args.prompt}, respecting the floor plan layout, accurate spatial proportions`
       : args.prompt;
@@ -183,6 +192,7 @@ async function runStaging(args: {
       imageUrl: args.imageUrl,
       prompt: enhancedPrompt,
       seed: args.seed,
+      intensity: args.intensity,
     });
 
     let final: { status: string; output?: string | string[]; error?: string };
@@ -220,6 +230,12 @@ export async function POST(req: NextRequest) {
   const style = (formData.get("style") as string | null) ?? "moderne";
   const customPrompt = (formData.get("custom_prompt") as string | null) ?? undefined;
   const cabinetSlug = (formData.get("cabinet_slug") as string | null) ?? null;
+  const intensityKey = (formData.get("intensity") as string | null) ?? "normal";
+  const intensity =
+    intensityKey === "leger" ? 0.40 :
+    intensityKey === "complet" ? 0.70 :
+    0.55;
+  const spatialPrompt = (formData.get("spatial_prompt") as string | null) ?? undefined;
 
   if (!image1 || !(image1 instanceof File)) {
     return NextResponse.json({ ok: false, error: "no_image" }, { status: 400 });
@@ -275,7 +291,7 @@ export async function POST(req: NextRequest) {
   const jobId = (jobIns as { id: string } | null)?.id;
 
   // 3. Build prompt
-  const prompt = buildPrompt(roomType, style, customPrompt);
+  const prompt = buildPrompt(roomType, style, customPrompt, spatialPrompt);
 
   // 4. Run staging photo 1
   const r1 = await runStaging({
@@ -283,6 +299,7 @@ export async function POST(req: NextRequest) {
     planUrl: planUp?.signedUrl,
     prompt,
     seed,
+    intensity,
   });
 
   // 5. Run staging photo 2 (si fourni) — même seed = cohérence stylistique
@@ -293,6 +310,7 @@ export async function POST(req: NextRequest) {
       planUrl: planUp?.signedUrl,
       prompt,
       seed,
+      intensity,
     });
   }
 

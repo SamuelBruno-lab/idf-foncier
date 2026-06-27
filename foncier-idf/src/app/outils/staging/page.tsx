@@ -1,14 +1,14 @@
 /**
- * Page Virtual Home Staging — outil public DATAMERRY.
+ * Page Virtual Home Staging Phase C — multi-photos + plan 2D.
  *
  * URL : /outils/staging
  *
  * UX :
- *   1. L'utilisateur upload une photo de pièce vide (JPG/PNG, max 20 MB)
- *   2. Il choisit le type de pièce et le style de décoration
+ *   1. Photo 1 (obligatoire) + Photo 2 angle (optionnel) + Plan 2D (optionnel)
+ *   2. Choix pièce + style
  *   3. Bouton "Stager" → POST /api/staging
- *   4. ~15-30 sec d'attente
- *   5. Affichage avant/après avec slider, lien de téléchargement
+ *   4. ~30-60 sec si 2 photos
+ *   5. Slider avant/après pour chaque photo
  */
 
 "use client";
@@ -34,10 +34,17 @@ const STYLES = [
   { key: "industriel", label: "Industriel", desc: "Brique, métal, Edison" },
 ];
 
+type FilePreview = { file: File; preview: string };
+
 export default function StagingPage() {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const fileRef1 = useRef<HTMLInputElement>(null);
+  const fileRef2 = useRef<HTMLInputElement>(null);
+  const fileRefPlan = useRef<HTMLInputElement>(null);
+
+  const [photo1, setPhoto1] = useState<FilePreview | null>(null);
+  const [photo2, setPhoto2] = useState<FilePreview | null>(null);
+  const [plan, setPlan] = useState<FilePreview | null>(null);
+
   const [roomType, setRoomType] = useState("salon");
   const [style, setStyle] = useState("moderne");
   const [customPrompt, setCustomPrompt] = useState("");
@@ -46,28 +53,39 @@ export default function StagingPage() {
   const [result, setResult] = useState<{
     original_url: string;
     result_url: string;
+    original_url_2: string | null;
+    result_url_2: string | null;
     job_id: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sliderPos, setSliderPos] = useState(50);
+  const [slider1, setSlider1] = useState(50);
+  const [slider2, setSlider2] = useState(50);
 
-  function handleFile(f: File | null) {
+  function loadFile(
+    f: File | null,
+    setter: (fp: FilePreview | null) => void,
+    isPlan = false,
+  ) {
     if (!f) return;
     if (f.size > 20 * 1024 * 1024) {
-      setError("Photo trop lourde (max 20 Mo). Compresse-la avant.");
+      setError("Fichier trop lourd (max 20 Mo).");
       return;
     }
     setError(null);
     setResult(null);
-    setFile(f);
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(f);
+    if (isPlan && f.type === "application/pdf") {
+      // PDF : pas de preview navigateur, juste nom + icône
+      setter({ file: f, preview: "" });
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => setter({ file: f, preview: reader.result as string });
+      reader.readAsDataURL(f);
+    }
   }
 
   async function handleSubmit() {
-    if (!file) {
-      setError("Choisis d'abord une photo de pièce vide.");
+    if (!photo1) {
+      setError("La photo principale est obligatoire.");
       return;
     }
     setLoading(true);
@@ -75,7 +93,9 @@ export default function StagingPage() {
     setResult(null);
 
     const form = new FormData();
-    form.append("image", file);
+    form.append("image", photo1.file);
+    if (photo2) form.append("image_2", photo2.file);
+    if (plan) form.append("plan", plan.file);
     form.append("room_type", roomType);
     form.append("style", style);
     if (customPrompt.trim()) form.append("custom_prompt", customPrompt.trim());
@@ -83,14 +103,23 @@ export default function StagingPage() {
     try {
       const res = await fetch("/api/staging", { method: "POST", body: form });
       const data = (await res.json()) as
-        | { ok: true; original_url: string; result_url: string; job_id: string }
+        | {
+            ok: true;
+            original_url: string;
+            result_url: string;
+            original_url_2: string | null;
+            result_url_2: string | null;
+            job_id: string;
+          }
         | { ok: false; error: string; detail?: string };
       if (!data.ok) {
-        setError(`Échec du staging : ${data.detail ?? data.error}`);
+        setError(`Échec : ${data.detail ?? data.error}`);
       } else {
         setResult({
           original_url: data.original_url,
           result_url: data.result_url,
+          original_url_2: data.original_url_2,
+          result_url_2: data.result_url_2,
           job_id: data.job_id,
         });
       }
@@ -103,7 +132,6 @@ export default function StagingPage() {
 
   return (
     <main style={{ background: "#fafafa", minHeight: "100vh", color: DARK }}>
-      {/* ─── Header ─────────────────────────────────────────────────── */}
       <header
         style={{
           background: DARK,
@@ -111,7 +139,7 @@ export default function StagingPage() {
           borderBottom: `1px solid ${PRIMARY}40`,
         }}
       >
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ color: PRIMARY, fontSize: 11, letterSpacing: "0.1em", fontWeight: 700 }}>
             DATAMERRY · OUTILS PRO
           </div>
@@ -124,16 +152,16 @@ export default function StagingPage() {
               margin: "4px 0 0",
             }}
           >
-            Virtual Home Staging IA
+            Virtual Home Staging IA — Phase C
           </h1>
           <p style={{ color: "#cbd5e1", fontSize: 13, margin: "4px 0 0" }}>
-            Transforme une photo de pièce vide en intérieur meublé professionnel en quelques secondes.
+            2 angles + plan 2D pour un staging cohérent et géométriquement précis.
           </p>
         </div>
       </header>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "30px 24px" }}>
-        {/* ─── 1. Upload ──────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "30px 24px" }}>
+        {/* ─── 1. Uploads (3 zones) ──────────────────────────────────── */}
         <section
           style={{
             background: "white",
@@ -143,69 +171,46 @@ export default function StagingPage() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
           }}
         >
-          <h2 style={{ margin: "0 0 12px", fontSize: 16, fontFamily: "Georgia, serif" }}>
-            1. Photo de pièce vide
+          <h2 style={{ margin: "0 0 16px", fontSize: 16, fontFamily: "Georgia, serif" }}>
+            1. Photos du bien
           </h2>
 
-          <input
-            type="file"
-            ref={fileRef}
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-            style={{ display: "none" }}
-          />
-
-          {preview ? (
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-              <img
-                src={preview}
-                alt="Preview"
-                style={{
-                  maxWidth: 300,
-                  maxHeight: 220,
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                }}
-              />
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-                  ✓ Image chargée ({Math.round((file?.size ?? 0) / 1024)} ko)
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  style={secondaryBtn}
-                >
-                  Changer la photo
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleFile(e.dataTransfer.files?.[0] ?? null);
-              }}
-              style={{
-                border: `2px dashed ${PRIMARY}`,
-                borderRadius: 8,
-                padding: 40,
-                textAlign: "center",
-                cursor: "pointer",
-                background: "#fafafa",
-              }}
-            >
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📸</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>
-                Clique ou glisse-dépose une photo
-              </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                JPG, PNG ou WEBP · max 20 Mo
-              </div>
-            </div>
-          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <UploadZone
+              label="Photo principale"
+              required
+              accept="image/jpeg,image/png,image/webp"
+              fileRef={fileRef1}
+              preview={photo1?.preview}
+              fileName={photo1?.file.name}
+              onPick={(f) => loadFile(f, setPhoto1)}
+            />
+            <UploadZone
+              label="Autre angle (optionnel)"
+              accept="image/jpeg,image/png,image/webp"
+              fileRef={fileRef2}
+              preview={photo2?.preview}
+              fileName={photo2?.file.name}
+              onPick={(f) => loadFile(f, setPhoto2)}
+              hint="Cohérence stylistique garantie"
+            />
+            <UploadZone
+              label="Plan 2D (optionnel)"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              fileRef={fileRefPlan}
+              preview={plan?.preview}
+              fileName={plan?.file.name}
+              onPick={(f) => loadFile(f, setPlan, true)}
+              hint="PNG, JPG ou PDF — guide géométrique"
+              isPlan
+            />
+          </div>
         </section>
 
         {/* ─── 2. Type de pièce ─────────────────────────────────────── */}
@@ -252,7 +257,7 @@ export default function StagingPage() {
           </div>
         </section>
 
-        {/* ─── 3. Style ───────────────────────────────────────────────── */}
+        {/* ─── 3. Style ─────────────────────────────────────────────── */}
         <section
           style={{
             background: "white",
@@ -294,7 +299,6 @@ export default function StagingPage() {
               </button>
             ))}
           </div>
-
           <div style={{ marginTop: 16 }}>
             <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
               Précisions facultatives (optionnel — en anglais idéalement)
@@ -317,25 +321,27 @@ export default function StagingPage() {
           </div>
         </section>
 
-        {/* ─── 4. Action ──────────────────────────────────────────────── */}
+        {/* ─── 4. Action ────────────────────────────────────────────── */}
         <div style={{ textAlign: "center", marginBottom: 30 }}>
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !file}
+            disabled={loading || !photo1}
             style={{
-              background: loading || !file ? "#cbd5e1" : DARK,
+              background: loading || !photo1 ? "#cbd5e1" : DARK,
               color: "white",
               border: "none",
               padding: "14px 40px",
               borderRadius: 6,
               fontSize: 15,
               fontWeight: 700,
-              cursor: loading || !file ? "not-allowed" : "pointer",
+              cursor: loading || !photo1 ? "not-allowed" : "pointer",
               minWidth: 280,
             }}
           >
-            {loading ? "Génération en cours… (~20-40 sec)" : "✨ Stager mon bien"}
+            {loading
+              ? `Génération en cours… (${photo2 ? "~60 sec" : "~30 sec"})`
+              : "✨ Stager mon bien"}
           </button>
           {error && (
             <div
@@ -353,7 +359,7 @@ export default function StagingPage() {
           )}
         </div>
 
-        {/* ─── 5. Résultat avec slider avant/après ──────────────────── */}
+        {/* ─── 5. Résultats ────────────────────────────────────────── */}
         {result && (
           <section
             style={{
@@ -363,107 +369,37 @@ export default function StagingPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
             }}
           >
-            <h2 style={{ margin: "0 0 12px", fontFamily: "Georgia, serif", fontSize: 18 }}>
+            <h2 style={{ margin: "0 0 16px", fontFamily: "Georgia, serif", fontSize: 18 }}>
               ✓ Voici votre bien stagé
             </h2>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
-              Glisse le curseur pour comparer avant / après.
-            </p>
 
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: 900,
-                margin: "0 auto",
-                overflow: "hidden",
-                borderRadius: 6,
-                aspectRatio: "16/9",
-                background: "#000",
-              }}
-            >
-              <img
-                src={result.result_url}
-                alt="Après staging"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  clipPath: `inset(0 ${100 - sliderPos}% 0 0)`,
-                }}
-              >
-                <img
-                  src={result.original_url}
-                  alt="Avant staging"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                  }}
+            <BeforeAfterSlider
+              before={result.original_url}
+              after={result.result_url}
+              pos={slider1}
+              onChange={setSlider1}
+              label="Vue 1"
+            />
+
+            {result.original_url_2 && result.result_url_2 && (
+              <div style={{ marginTop: 24 }}>
+                <BeforeAfterSlider
+                  before={result.original_url_2}
+                  after={result.result_url_2}
+                  pos={slider2}
+                  onChange={setSlider2}
+                  label="Vue 2 (cohérence stylistique garantie)"
                 />
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={sliderPos}
-                onChange={(e) => setSliderPos(Number(e.target.value))}
-                style={{
-                  position: "absolute",
-                  bottom: 16,
-                  left: "10%",
-                  width: "80%",
-                  zIndex: 5,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  left: 12,
-                  background: "rgba(0,0,0,0.7)",
-                  color: "white",
-                  padding: "4px 10px",
-                  borderRadius: 3,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
-                AVANT
-              </div>
-              <div
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 12,
-                  background: PRIMARY,
-                  color: DARK,
-                  padding: "4px 10px",
-                  borderRadius: 3,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
-                APRÈS
-              </div>
-            </div>
+            )}
 
-            <div style={{ textAlign: "center", marginTop: 20 }}>
+            <div style={{ textAlign: "center", marginTop: 24, display: "flex", justifyContent: "center", gap: 12 }}>
               <a
                 href={result.result_url}
-                download={`staging-${result.job_id}.png`}
+                download={`staging-1-${result.job_id}.png`}
                 target="_blank"
                 rel="noopener"
                 style={{
-                  display: "inline-block",
                   background: PRIMARY,
                   color: DARK,
                   textDecoration: "none",
@@ -473,13 +409,31 @@ export default function StagingPage() {
                   fontWeight: 700,
                 }}
               >
-                ⬇ Télécharger l'image stagée
+                ⬇ Télécharger vue 1
               </a>
+              {result.result_url_2 && (
+                <a
+                  href={result.result_url_2}
+                  download={`staging-2-${result.job_id}.png`}
+                  target="_blank"
+                  rel="noopener"
+                  style={{
+                    background: PRIMARY,
+                    color: DARK,
+                    textDecoration: "none",
+                    padding: "12px 24px",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
+                  ⬇ Télécharger vue 2
+                </a>
+              )}
             </div>
           </section>
         )}
 
-        {/* ─── Mentions ───────────────────────────────────────────────── */}
         <div
           style={{
             marginTop: 40,
@@ -489,24 +443,202 @@ export default function StagingPage() {
             lineHeight: 1.6,
           }}
         >
-          Propulsé par DATAMERRY® × Replicate · Modèle IA <code>adirik/interior-design</code>
+          Propulsé par DATAMERRY® × Replicate · Modèle multi-ControlNet
           <br />
-          Les images générées sont fictives et destinées à un usage illustratif (mise en valeur du potentiel d'un bien).
-          <br />
-          Aucune image originale n'est partagée avec des tiers à des fins commerciales.
+          Le plan 2D guide la géométrie (ControlNet Canny). Seed fixe garantit la cohérence stylistique entre les vues.
         </div>
       </div>
     </main>
   );
 }
 
-const secondaryBtn: React.CSSProperties = {
-  background: "transparent",
-  color: "#64748b",
-  border: "1px solid #cbd5e1",
-  padding: "8px 14px",
-  borderRadius: 4,
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: "pointer",
-};
+// ──────────────────────────────────────────────────────────────
+// Composants
+// ──────────────────────────────────────────────────────────────
+
+function UploadZone({
+  label,
+  required,
+  accept,
+  fileRef,
+  preview,
+  fileName,
+  onPick,
+  hint,
+  isPlan,
+}: {
+  label: string;
+  required?: boolean;
+  accept: string;
+  fileRef: React.RefObject<HTMLInputElement | null>;
+  preview?: string;
+  fileName?: string;
+  onPick: (f: File | null) => void;
+  hint?: string;
+  isPlan?: boolean;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: DARK }}>
+        {label} {required && <span style={{ color: "#dc2626" }}>*</span>}
+      </div>
+      <input
+        type="file"
+        ref={fileRef}
+        accept={accept}
+        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+        style={{ display: "none" }}
+      />
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          onPick(e.dataTransfer.files?.[0] ?? null);
+        }}
+        style={{
+          border: `2px dashed ${preview || fileName ? "#10b981" : "#cbd5e1"}`,
+          borderRadius: 6,
+          padding: 16,
+          textAlign: "center",
+          cursor: "pointer",
+          background: "#fafafa",
+          minHeight: 140,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        {preview ? (
+          <img
+            src={preview}
+            alt={label}
+            style={{ maxHeight: 100, maxWidth: "100%", borderRadius: 4 }}
+          />
+        ) : fileName && isPlan ? (
+          <>
+            <div style={{ fontSize: 30 }}>📄</div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>{fileName}</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 28 }}>{isPlan ? "📐" : "📸"}</div>
+            <div style={{ fontSize: 13, color: "#64748b" }}>Cliquer / glisser</div>
+          </>
+        )}
+        {hint && (
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>{hint}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BeforeAfterSlider({
+  before,
+  after,
+  pos,
+  onChange,
+  label,
+}: {
+  before: string;
+  after: string;
+  pos: number;
+  onChange: (v: number) => void;
+  label: string;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: DARK }}>
+        {label} — Glisse le curseur pour comparer
+      </div>
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 1000,
+          margin: "0 auto",
+          overflow: "hidden",
+          borderRadius: 6,
+          aspectRatio: "16/9",
+          background: "#000",
+        }}
+      >
+        <img
+          src={after}
+          alt="Après"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            clipPath: `inset(0 ${100 - pos}% 0 0)`,
+          }}
+        >
+          <img
+            src={before}
+            alt="Avant"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={pos}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{
+            position: "absolute",
+            bottom: 16,
+            left: "10%",
+            width: "80%",
+            zIndex: 5,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            background: "rgba(0,0,0,0.7)",
+            color: "white",
+            padding: "4px 10px",
+            borderRadius: 3,
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          AVANT
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            background: PRIMARY,
+            color: DARK,
+            padding: "4px 10px",
+            borderRadius: 3,
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          APRÈS
+        </div>
+      </div>
+    </div>
+  );
+}

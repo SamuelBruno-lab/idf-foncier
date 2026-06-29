@@ -82,7 +82,7 @@ export default async function WorkspaceLeadsPage({
         </h1>
         <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
           {leads.length} lead{leads.length > 1 ? "s" : ""} attribué{leads.length > 1 ? "s" : ""}.
-          Pour signer un mandat Hoguet, ouvrez le détail du lead via votre tableau cabinet.
+          Cliquez sur un lead pour ouvrir son détail et générer un mandat Hoguet.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ export default async function WorkspaceLeadsPage({
                 {col.leads.map((lead) => (
                   <a
                     key={lead.id}
-                    href={`/cabinets/${lead.cabinet_slug}/admin/lead/${lead.id}`}
+                    href={`/mandataire/${id}/workspace/leads/${lead.id}`}
                     style={{
                       display: "block",
                       padding: 10,
@@ -217,7 +217,7 @@ export default async function WorkspaceLeadsPage({
                   <tr key={lead.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "10px 6px" }}>
                       <a
-                        href={`/cabinets/${lead.cabinet_slug}/admin/lead/${lead.id}`}
+                        href={`/mandataire/${id}/workspace/leads/${lead.id}`}
                         style={{ color: DARK, textDecoration: "none", fontWeight: 600 }}
                       >
                         {lead.visitor_name ?? "Anonyme"}

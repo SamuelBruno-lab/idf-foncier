@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import ProModal from "./ProModal";
 import { useAuth } from "./AuthProvider";
 
@@ -11,7 +11,19 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const isLoggedIn = !loading && !!user;
+
+  // Surfaces white-label (Eurealimmo / cabinets / widgets embed) ont leur
+  // propre branding — pas de header datamerry par-dessus.
+  if (
+    pathname?.startsWith("/mandataire/") ||
+    pathname?.startsWith("/cabinets/") ||
+    pathname?.startsWith("/chatbot/embed") ||
+    pathname?.startsWith("/widget/")
+  ) {
+    return null;
+  }
 
   return (
     <>

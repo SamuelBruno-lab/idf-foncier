@@ -30,7 +30,7 @@ VALUES (
   'Discuter avec Diara CAMARA',
   'diara.camara@collabimo.com',
   NULL,                                                 -- téléphone à ajouter si Diara veut
-  'Estimation propulsée par DATAMERRY® · Collabimo, partenaire HNWI Eurealimmo Réseau (carte T CPI 7501 2024 000 219)',
+  'Estimation propulsée par DATAMERRY®',
   true
 )
 ON CONFLICT (slug) DO UPDATE SET

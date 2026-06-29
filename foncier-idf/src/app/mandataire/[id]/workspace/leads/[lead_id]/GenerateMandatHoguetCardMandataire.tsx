@@ -211,7 +211,7 @@ export function GenerateMandatHoguetCardMandataire({
       </div>
 
       <p style={{ fontSize: 12, color: MUTED, margin: "0 0 14px 0", lineHeight: 1.5 }}>
-        Mandat entre <strong>Eurealimmo SARL</strong> (titulaire Carte T CPI 7501 2024 000 219,
+        Mandat entre <strong>Eurealimmo SARL</strong> (titulaire Carte T CPI 7501 2024 000 000 219,
         représentée par vous en tant que mandataire commercial) et le client vendeur.
         Conforme décret 72-678 art. 73 (9 mentions obligatoires + droit de rétractation +
         RGPD). DOCX stocké privé + hash SHA-256 ancré <code>dim_mandate_anchor</code>.

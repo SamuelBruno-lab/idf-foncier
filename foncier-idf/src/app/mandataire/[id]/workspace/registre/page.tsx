@@ -130,7 +130,7 @@ export default async function WorkspaceRegistrePage({
             Registre officiel
           </h2>
           <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            Eurealimmo SARL · CPI 7501 2024 000 219
+            Eurealimmo SARL · CPI 7501 2024 000 000 219
           </span>
         </div>
 
@@ -283,7 +283,7 @@ export default async function WorkspaceRegistrePage({
         }}
       >
         <strong>Conformité Hoguet :</strong> ce registre est tenu sous la responsabilité d'Eurealimmo SARL,
-        titulaire de la carte professionnelle T n° CPI 7501 2024 000 219. La numérotation est
+        titulaire de la carte professionnelle T n° CPI 7501 2024 000 000 219. La numérotation est
         continue, sans rature ni surcharge, et conservée 10 ans (art. 65 du décret 72-678).
         Conformément à l'art. 73, chaque mandat porte le n° d'inscription au registre.
       </div>

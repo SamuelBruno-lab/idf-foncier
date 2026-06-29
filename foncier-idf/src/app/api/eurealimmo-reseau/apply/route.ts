@@ -389,7 +389,7 @@ function buildCandidateEmail(ctx: EmailContext): string {
     <p style="margin: 0 0 8px;">
       <strong style="color: white;">EUREALIMMO</strong> · SARL au capital social
       <br>SIREN 984 449 470 · RCS Paris
-      <br>Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris)
+      <br>Carte professionnelle T n° CPI 7501 2024 000 000 219 (CCI Paris)
     </p>
     <p style="margin: 12px 0 0; color: #475569;">
       Conforme loi Hoguet n° 70-9 et décret 72-678 · RGPD conforme · Application ${ctx.application_id.slice(0, 8)}

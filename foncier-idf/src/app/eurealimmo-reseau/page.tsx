@@ -26,7 +26,7 @@ import { ReferralSimulator } from "./ReferralSimulator";
 export const metadata: Metadata = {
   title: "Rejoindre Eurealimmo Réseau",
   description:
-    "Réseau de mandataires immobiliers HNWI. Carte T sous notre couverture (CPI 7501 2024 000 219), outils DATAMERRY data, 6 mois gratuits Fondateur. Réponse sous 48 h.",
+    "Réseau de mandataires immobiliers HNWI. Carte T sous notre couverture (CPI 7501 2024 000 000 219), outils DATAMERRY data, 6 mois gratuits Fondateur. Réponse sous 48 h.",
   alternates: { canonical: "https://reseau.eurealimmo.com/" },
   robots: { index: true, follow: true },
 };
@@ -228,7 +228,7 @@ export default async function EurealimmoReseauPage({
             {isFounderInvite ? "Rejoindre (offre Fondateur)" : "Rejoindre Eurealimmo"} →
           </a>
           <div style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
-            Carte T n° CPI 7501 2024 000 219 · SARL EUREALIMMO · SIREN 984 449 470
+            Carte T n° CPI 7501 2024 000 000 219 · SARL EUREALIMMO · SIREN 984 449 470
           </div>
         </div>
       </section>
@@ -260,7 +260,7 @@ export default async function EurealimmoReseauPage({
             <Advantage
               icon="🛡️"
               title="Carte T sous couverture"
-              text="Vous exercez sous notre carte CPI 7501 2024 000 219, sans avoir à monter votre propre agence (formalités, ~360 €/an de carte T en propre). Eurealimmo ne pratique pas le maniement de fonds — transfert direct notaire ↔ vendeur, donc aucune garantie financière requise."
+              text="Vous exercez sous notre carte CPI 7501 2024 000 000 219, sans avoir à monter votre propre agence (formalités, ~360 €/an de carte T en propre). Eurealimmo ne pratique pas le maniement de fonds — transfert direct notaire ↔ vendeur, donc aucune garantie financière requise."
             />
             <Advantage
               icon="💎"
@@ -618,7 +618,7 @@ export default async function EurealimmoReseauPage({
           </h2>
           <Faq
             q="Faut-il avoir sa propre carte T ?"
-            a="Non. Vous exercez sous la nôtre (CPI 7501 2024 000 219). Pas d'ouverture d'agence à votre charge, pas de carte T à demander ni à renouveler (~360 €/an + dossier complexe). Précision réglementaire : Eurealimmo est déclarée sans maniement de fonds (pas de séquestre client, paiements directs notaire ↔ vendeur), donc aucune garantie financière Hoguet n'est requise — ni pour nous, ni pour vous. Votre seule obligation personnelle est votre RCP agent commercial (150-200 €/an, à souscrire à part)."
+            a="Non. Vous exercez sous la nôtre (CPI 7501 2024 000 000 219). Pas d'ouverture d'agence à votre charge, pas de carte T à demander ni à renouveler (~360 €/an + dossier complexe). Précision réglementaire : Eurealimmo est déclarée sans maniement de fonds (pas de séquestre client, paiements directs notaire ↔ vendeur), donc aucune garantie financière Hoguet n'est requise — ni pour nous, ni pour vous. Votre seule obligation personnelle est votre RCP agent commercial (150-200 €/an, à souscrire à part)."
           />
           <Faq
             q="Combien je gagne vraiment ?"
@@ -683,10 +683,10 @@ export default async function EurealimmoReseauPage({
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <div style={{ color: "white", fontWeight: 700, marginBottom: 6 }}>EUREALIMMO</div>
           <div>SARL · SIREN 984 449 470 · RCS Paris · 60 Rue François 1<sup>er</sup>, 75008 Paris</div>
-          <div>Carte professionnelle T n° CPI 7501 2024 000 219 (CCI Paris Île-de-France) · Sans maniement de fonds</div>
+          <div>Carte professionnelle T n° CPI 7501 2024 000 000 219 (CCI Paris Île-de-France) · Sans maniement de fonds</div>
           <div style={{ marginTop: 14, color: "#475569" }}>
             © {new Date().getFullYear()} EUREALIMMO · Conforme loi Hoguet n° 70-9 ·{" "}
-            <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>contact@datamerry.com</a>{" · "}
+            <a href="mailto:contact@eurealimmo.com" style={{ color: PRIMARY }}>contact@eurealimmo.com</a>{" · "}
             <Link href="/legal/mentions-legales" style={{ color: "#64748b", textDecoration: "underline" }}>
               Mentions légales
             </Link>

@@ -301,7 +301,7 @@ export default async function MandataireLeadDetailPage({
         }}
       >
         Mandat signé entre <strong>Eurealimmo SARL</strong> (titulaire Carte T
-        CPI 7501 2024 000 219 — préfecture de Police de Paris) et le client
+        CPI 7501 2024 000 000 219 — préfecture de Police de Paris) et le client
         vendeur ci-dessus. Vous intervenez en tant que mandataire commercial
         Eurealimmo (loi Hoguet n°70-9, décret 72-678 art. 4). Le mandat est
         ajouté automatiquement à votre registre des mandats (art. 65 décret

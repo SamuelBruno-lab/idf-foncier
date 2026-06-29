@@ -88,7 +88,7 @@ export function ApplicationForm({ referral }: { referral?: ReferralContext }) {
         // Mapping des codes d'erreur vers messages utilisateur clairs
         const errorMap: Record<string, string> = {
           db_error:
-            "Notre base de données n'est pas encore opérationnelle pour l'enregistrement. Écrivez-nous directement à contact@datamerry.com — votre candidature sera traitée manuellement.",
+            "Notre base de données n'est pas encore opérationnelle pour l'enregistrement. Écrivez-nous directement à contact@eurealimmo.com — votre candidature sera traitée manuellement.",
           invalid_email: "L'adresse email saisie n'est pas valide.",
           invalid_phone: "Le numéro de téléphone est trop court.",
           name_required: "Merci de saisir votre prénom et votre nom.",
@@ -99,7 +99,7 @@ export function ApplicationForm({ referral }: { referral?: ReferralContext }) {
         const friendly = errorMap[j.error ?? ""] ?? null;
         const detailSuffix = j.detail ? ` (détail technique : ${j.detail})` : "";
         setError(
-          friendly ?? `Erreur : ${j.error ?? "inconnue"}${detailSuffix}. Écrivez à contact@datamerry.com.`,
+          friendly ?? `Erreur : ${j.error ?? "inconnue"}${detailSuffix}. Écrivez à contact@eurealimmo.com.`,
         );
         return;
       }
@@ -477,8 +477,8 @@ function SuccessScreen({
 
       <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
         Question urgente ?{" "}
-        <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY, fontWeight: 700 }}>
-          contact@datamerry.com
+        <a href="mailto:contact@eurealimmo.com" style={{ color: PRIMARY, fontWeight: 700 }}>
+          contact@eurealimmo.com
         </a>
       </p>
     </div>

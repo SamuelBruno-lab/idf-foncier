@@ -230,8 +230,8 @@ export default async function WorkspaceLayout({
               }}
             >
               Support :{" "}
-              <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>
-                contact@datamerry.com
+              <a href="mailto:contact@eurealimmo.com" style={{ color: PRIMARY }}>
+                contact@eurealimmo.com
               </a>
             </div>
           </nav>
@@ -251,7 +251,7 @@ export default async function WorkspaceLayout({
           textAlign: "center",
         }}
       >
-        EUREALIMMO SARL · SIREN 984 449 470 · Carte T CPI 7501 2024 000 219 · Sans maniement de fonds
+        EUREALIMMO SARL · SIREN 984 449 470 · Carte T CPI 7501 2024 000 000 219 · Sans maniement de fonds
       </footer>
     </div>
   );

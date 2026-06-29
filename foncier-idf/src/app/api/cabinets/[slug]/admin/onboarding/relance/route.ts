@@ -218,7 +218,7 @@ function buildEmailHtml(args: {
   <div style="background: #020617; color: #94a3b8; padding: 20px 30px; font-size: 11px; text-align: center; font-family: Arial, sans-serif;">
     <p style="margin: 0 0 8px;">
       <strong style="color: white;">EUREALIMMO</strong> · SARL · SIREN 984 449 470 · RCS Paris
-      <br>Carte T n° CPI 7501 2024 000 219 · Sans maniement de fonds
+      <br>Carte T n° CPI 7501 2024 000 000 219 · Sans maniement de fonds
     </p>
   </div>
 </body></html>`;

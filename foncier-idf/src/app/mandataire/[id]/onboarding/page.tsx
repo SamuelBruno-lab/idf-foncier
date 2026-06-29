@@ -294,13 +294,13 @@ export default async function MandataireOnboardingPage({
         <div style={{ maxWidth: 920, margin: "0 auto" }}>
           <p style={{ margin: "0 0 8px" }}>
             Question urgente ? Email{" "}
-            <a href="mailto:contact@datamerry.com" style={{ color: PRIMARY }}>
-              contact@datamerry.com
+            <a href="mailto:contact@eurealimmo.com" style={{ color: PRIMARY }}>
+              contact@eurealimmo.com
             </a>{" "}
             — réponse sous 24h.
           </p>
           <p style={{ margin: 0, color: "#475569", fontSize: 11 }}>
-            EUREALIMMO SARL · SIREN 984 449 470 · Carte T CPI 7501 2024 000 219 · Sans maniement de fonds
+            EUREALIMMO SARL · SIREN 984 449 470 · Carte T CPI 7501 2024 000 000 219 · Sans maniement de fonds
           </p>
         </div>
       </footer>

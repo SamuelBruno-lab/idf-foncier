@@ -82,7 +82,7 @@ function buildActivationEmail(args: {
     "Samuel",
     "",
     "—",
-    "EUREALIMMO SARL · SIREN 984 449 470 · CPI 7501 2024 000 219 · Sans maniement de fonds",
+    "EUREALIMMO SARL · SIREN 984 449 470 · CPI 7501 2024 000 000 219 · Sans maniement de fonds",
   ].join("\n");
 
   const html = `
@@ -116,7 +116,7 @@ function buildActivationEmail(args: {
   <p>Bienvenue officiellement dans le réseau,<br><strong>Samuel</strong></p>
 
   <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-  <p style="font-size: 11px; color: #94a3b8;">EUREALIMMO SARL · SIREN 984 449 470 · CPI 7501 2024 000 219 · Sans maniement de fonds</p>
+  <p style="font-size: 11px; color: #94a3b8;">EUREALIMMO SARL · SIREN 984 449 470 · CPI 7501 2024 000 000 219 · Sans maniement de fonds</p>
 </div>
   `.trim();
 

@@ -16,6 +16,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { OnboardingChecklist } from "./OnboardingChecklist";
 
 export const metadata: Metadata = {
@@ -142,16 +143,33 @@ export default async function MandataireOnboardingPage({
               </div>
             </div>
           </div>
-          <div style={{ textAlign: "right", color: "white", fontSize: 13 }}>
-            <div style={{ fontWeight: 700 }}>
-              {mandataire.first_name} {mandataire.last_name}
-            </div>
-            <div style={{ color: PRIMARY, fontSize: 11, letterSpacing: "0.05em" }}>
-              {mandataire.tier === "founder"
-                ? "👑 FONDATEUR"
-                : mandataire.tier === "standard"
-                  ? "💎 STANDARD"
-                  : "⏳ EN ATTENTE D'ACTIVATION"}
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <Link
+              href={`/mandataire/${id}/workspace`}
+              style={{
+                color: PRIMARY,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                padding: "6px 12px",
+                border: `1px solid ${PRIMARY}`,
+                borderRadius: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              ← Tableau de bord
+            </Link>
+            <div style={{ textAlign: "right", color: "white", fontSize: 13 }}>
+              <div style={{ fontWeight: 700 }}>
+                {mandataire.first_name} {mandataire.last_name}
+              </div>
+              <div style={{ color: PRIMARY, fontSize: 11, letterSpacing: "0.05em" }}>
+                {mandataire.tier === "founder"
+                  ? "👑 FONDATEUR"
+                  : mandataire.tier === "standard"
+                    ? "💎 STANDARD"
+                    : "⏳ EN ATTENTE D'ACTIVATION"}
+              </div>
             </div>
           </div>
         </div>

@@ -74,7 +74,7 @@ const COMMISSION_CHARGE_OPTIONS = [
   },
   {
     value: "vendeur",
-    label: "Charge Vendeur (style OLEAN)",
+    label: "Charge Vendeur",
     hint: "Prix saisi = prix de vente TTC. Vendeur reçoit prix - honos.",
   },
 ];

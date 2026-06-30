@@ -37,7 +37,7 @@ const MODALITES = [
 
 const CHARGE_OPTIONS = [
   { value: "acquereur", label: "Charge Acquéreur (FAI)" },
-  { value: "vendeur", label: "Charge Vendeur (style OLEAN)" },
+  { value: "vendeur", label: "Charge Vendeur" },
 ];
 
 const TYPES_BIEN = [

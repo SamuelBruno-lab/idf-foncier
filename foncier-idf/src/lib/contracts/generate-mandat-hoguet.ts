@@ -90,7 +90,7 @@ function normalizeMandatType(t: string): MandatType {
   return t as MandatType;
 }
 
-// Conversion d'un entier en mots français (style OLEAN, conformité juridique).
+// Conversion d'un entier en mots français (pour conformité juridique mandats Hoguet).
 // Supporte 0 à 999 999 999. Gère les particularités françaises :
 // - "et un" pour 21, 31, 41, 51, 61, 71
 // - "quatre-vingts" (avec s) pour 80 seul ; "quatre-vingt" sinon
@@ -293,7 +293,7 @@ export async function generateMandatHoguet(
   endDate.setMonth(endDate.getMonth() + dureeMois);
 
   // Calcul des prix selon la charge
-  // - charge "vendeur" (style OLEAN) : prixSaisi = prix de vente TTC inclus honos.
+  // - charge "vendeur" : prixSaisi = prix de vente TTC inclus honos.
   //   Le vendeur reçoit prixSaisi - commission.
   // - charge "acquereur" (modèle FAI) : prixSaisi = prix net vendeur.
   //   L'acquéreur paie prixSaisi + commission. Vendeur reçoit prixSaisi.
@@ -373,7 +373,7 @@ export async function generateMandatHoguet(
     commission_bailleur_eur: Math.round(commissionEur * 0.5).toLocaleString("fr-FR"),
     commission_locataire_eur: Math.round(commissionEur * 0.5).toLocaleString("fr-FR"),
 
-    // Charge des honoraires (OLEAN vendeur vs FAI acquéreur)
+    // Charge des honoraires (vendeur = prix TTC incl honos / acquéreur = FAI prix net + honos)
     commission_charge: commissionCharge,
     commission_charge_label: commissionCharge === "vendeur" ? "VENDEUR" : "ACQUÉREUR",
     commission_charge_label_lc: commissionCharge === "vendeur" ? "Vendeur" : "Acquéreur",
@@ -390,7 +390,7 @@ export async function generateMandatHoguet(
     date_entree_souhaitee: "[à compléter]",
 
     // ────────────────────────────────────────────────────────
-    // Sections juridiques complémentaires (style OLEAN)
+    // Sections juridiques complémentaires (Hoguet + conso)
     // ────────────────────────────────────────────────────────
     clauses_complementaires: [
       // 1. Reproduction des articles L. 215-1 à L. 215-3 et L. 241-3 du Code de la consommation (tacite reconduction)
@@ -401,13 +401,13 @@ export async function generateMandatHoguet(
       "Article L. 215-3 : Les dispositions du présent chapitre sont également applicables aux contrats conclus entre des professionnels et des non-professionnels.",
       "Article L. 241-3 : Lorsque le professionnel n'a pas procédé au remboursement dans les conditions prévues à l'article L. 215-1, les sommes dues sont productives d'intérêts au taux légal.",
       "",
-      // 2. Clause pénale (style OLEAN)
+      // 2. Clause pénale
       "CLAUSE PÉNALE",
       "Pendant le cours du présent mandat et dans l'année qui suivra l'expiration ou la résiliation du mandat, le Client s'interdit de vendre le Bien, directement ou indirectement, à une personne présentée à lui par le Mandataire ou un Mandataire qu'il aura substitué. La présente interdiction vise également le conjoint ou partenaire avec lequel cette personne se porterait acquéreur.",
       "SI LE CLIENT NE RESPECTAIT PAS CETTE INTERDICTION DE VENDRE À UNE PERSONNE PRÉSENTÉE PAR LE MANDATAIRE, LE MANDATAIRE AURA DROIT, À TITRE DE CLAUSE PÉNALE, À UNE INDEMNITÉ FORFAITAIRE À LA CHARGE DU CLIENT, D'UN MONTANT ÉGAL À CELUI DE LA RÉMUNÉRATION TOUTES TAXES COMPRISES DU MANDATAIRE PRÉVUE AU PRÉSENT MANDAT.",
       "En outre, si le Client vend le bien sans l'intermédiaire du Mandataire, il s'oblige à lui communiquer immédiatement les nom et adresse de l'acquéreur.",
       "",
-      // 3. Engagement de non-discrimination (style OLEAN)
+      // 3. Engagement de non-discrimination
       "ENGAGEMENT DE NON-DISCRIMINATION",
       "Il est rappelé que constitue une discrimination toute distinction opérée entre les personnes en raison de leur origine, sexe, situation de famille, grossesse, apparence physique, particulière vulnérabilité résultant de leur situation économique apparente ou connue de son auteur, patronyme, lieu de résidence, état de santé, perte d'autonomie, handicap, caractéristiques génétiques, mœurs, orientation sexuelle, identité de genre, âge, opinions politiques, activités syndicales, capacité à s'exprimer dans une langue autre que le français, appartenance ou non-appartenance, vraie ou supposée, à une ethnie, une nation, une prétendue race ou une religion déterminée. Toute discrimination commise à l'égard d'une personne est punie de trois ans d'emprisonnement et de 45 000 € d'amende (article 225-2 du Code pénal).",
       "En conséquence, les Parties prennent l'engagement exprès de n'opposer à un candidat à l'acquisition du Bien aucun refus fondé sur un motif discriminatoire au sens de l'article 225-1 du Code pénal. Le Client s'interdit expressément de donner au Mandataire des directives ou consignes, verbales ou écrites, tendant à refuser l'acquisition pour des motifs discriminatoires au sens de l'article 225-1 du Code pénal.",

@@ -231,7 +231,7 @@ VALUES
 
   (2, 'structure_juridique',
    'Création / vérification structure juridique',
-   'Auto-entrepreneur (gratuit, recommandé pour démarrage), EI réel, SASU ou EURL. Renseignez votre SIREN une fois créé sur formalites.entreprises.gouv.fr (activité : agent commercial code APE 6831Z, régime micro-BNC).',
+   'Entreprise Individuelle (EI) — au régime micro (= auto-entrepreneur, gratuit, recommandé pour démarrage) ou au régime réel ; sinon société SASU ou EURL. Renseignez votre SIREN une fois créé sur formalites.entreprises.gouv.fr (activité : agent commercial code APE 6831Z, régime micro-BNC ou réel).',
    'https://formalites.entreprises.gouv.fr',
    5, true, 'self_declare', 'legal'),
 

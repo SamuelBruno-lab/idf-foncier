@@ -11,11 +11,13 @@
  * id de l'URL). Sinon notFound().
  */
 
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
 import { GenerateMandatHoguetCardMandataire } from "./GenerateMandatHoguetCardMandataire";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -72,8 +74,14 @@ type Lead = {
 async function fetchData(mandataireId: string, leadId: string): Promise<{
   lead: Lead | null;
   contractSigned: boolean;
+  fetchError?: string;
 } | null> {
-  if (!UUID_RE.test(mandataireId) || !UUID_RE.test(leadId)) return null;
+  if (!UUID_RE.test(mandataireId)) {
+    return { lead: null, contractSigned: false, fetchError: `invalid_mandataire_id: "${mandataireId}"` };
+  }
+  if (!UUID_RE.test(leadId)) {
+    return { lead: null, contractSigned: false, fetchError: `invalid_lead_id: "${leadId}"` };
+  }
 
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,24 +89,28 @@ async function fetchData(mandataireId: string, leadId: string): Promise<{
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
-  const [{ data: lead }, { data: mandataire }] = await Promise.all([
-    sb
-      .from("dim_cabinet_leads")
-      .select(
-        "id, cabinet_slug, mandataire_id, visitor_name, visitor_email, visitor_phone, address, status, created_at, surface_m2, type_bien, prix_estime, wizard_answers, mandat_type, mandat_modalite, mandat_duree_mois, mandat_commission_pct, mandat_commission_charge, mandat_prix_net_vendeur, mandat_prix_max, mandat_numero_registre, mandat_signe_at, signature_pdf_url, signature_status",
-      )
-      .eq("id", leadId)
-      .maybeSingle(),
-    sb
-      .from("eurealimmo_mandataires")
-      .select("contract_signed_at")
-      .eq("id", mandataireId)
-      .maybeSingle(),
-  ]);
+  // select("*") — robuste à l'évolution du schéma
+  const [{ data: lead, error: leadErr }, { data: mandataire, error: mErr }] =
+    await Promise.all([
+      sb.from("dim_cabinet_leads").select("*").eq("id", leadId).maybeSingle(),
+      sb
+        .from("eurealimmo_mandataires")
+        .select("contract_signed_at")
+        .eq("id", mandataireId)
+        .maybeSingle(),
+    ]);
+
+  if (leadErr) {
+    console.error("[lead detail] lead query error:", leadErr);
+  }
+  if (mErr) {
+    console.error("[lead detail] mandataire query error:", mErr);
+  }
 
   return {
     lead: lead as Lead | null,
     contractSigned: !!mandataire?.contract_signed_at,
+    fetchError: leadErr?.message ?? mErr?.message,
   };
 }
 
@@ -120,12 +132,32 @@ export default async function MandataireLeadDetailPage({
   const { id, lead_id } = await params;
   const data = await fetchData(id, lead_id);
 
-  if (!data || !data.lead) notFound();
+  if (!data || !data.lead) {
+    return (
+      <ErrorState
+        title="Lead introuvable"
+        detail={
+          data?.fetchError
+            ? `Erreur Supabase : ${data.fetchError}`
+            : `Aucun lead trouvé avec l'identifiant ${lead_id}. Mandataire : ${id}.`
+        }
+        backHref={`/mandataire/${id}/workspace/leads`}
+      />
+    );
+  }
 
   const { lead, contractSigned } = data;
 
-  // Lead doit être attribué à ce mandataire — sinon notFound (pas leak d'info)
-  if (lead.mandataire_id !== id) notFound();
+  // Lead doit être attribué à ce mandataire
+  if (lead.mandataire_id !== id) {
+    return (
+      <ErrorState
+        title="Lead non attribué"
+        detail={`Ce lead existe (${lead.id}) mais n'est pas attribué à votre profil mandataire. mandataire_id du lead : ${lead.mandataire_id ?? "(null)"} · attendu : ${id}.`}
+        backHref={`/mandataire/${id}/workspace/leads`}
+      />
+    );
+  }
 
   const status = STATUS_LABELS[lead.status] ?? { label: lead.status, color: "#6b7280" };
 
@@ -331,6 +363,45 @@ function WizardExtras({ answers }: { answers: Record<string, unknown> }) {
     return [<Row key={k} label={label} value={display} />];
   });
   return <>{rows}</>;
+}
+
+function ErrorState({
+  title,
+  detail,
+  backHref,
+}: {
+  title: string;
+  detail: string;
+  backHref: string;
+}) {
+  return (
+    <div>
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          href={backHref}
+          style={{ fontSize: 12, color: MUTED, textDecoration: "none", fontWeight: 500 }}
+        >
+          ← Retour à mes leads
+        </Link>
+      </div>
+      <div
+        style={{
+          background: "#fef2f2",
+          border: "1px solid #fecaca",
+          borderRadius: 8,
+          padding: 24,
+          color: "#7f1d1d",
+        }}
+      >
+        <div style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+          ⚠️ {title}
+        </div>
+        <div style={{ fontSize: 13, fontFamily: "monospace", lineHeight: 1.6 }}>
+          {detail}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Row({

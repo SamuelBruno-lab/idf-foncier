@@ -115,7 +115,12 @@ export async function POST(
       surface,
       intent: String(body.intent ?? "vendeur"),
       consentement: true,
-      status: "mandat_signe",
+      // ⚠ Mandat juste GÉNÉRÉ (DOCX prêt) — pas encore signé.
+      // Statut "contacted" : Diara a le client en main mais le mandat
+      // doit encore être contre-signé par le Mandant (vendeur) ET
+      // Eurealimmo SARL (Samuel, titulaire Carte T) avant d'être
+      // juridiquement opérant.
+      status: "contacted",
       mandat_type: String(body.mandat_type ?? "vente"),
       mandat_modalite: String(body.mandat_modalite ?? "simple"),
       mandat_duree_mois: body.duree_mois ? Number(body.duree_mois) : 3,
@@ -123,7 +128,7 @@ export async function POST(
       mandat_commission_charge: String(body.commission_charge ?? "acquereur"),
       mandat_prix_net_vendeur: body.prix_net_vendeur ? Number(body.prix_net_vendeur) : null,
       mandat_prix_max: body.prix_max ? Number(body.prix_max) : null,
-      mandat_signe_at: new Date().toISOString(),
+      mandat_signe_at: null, // sera renseigné quand les 2 parties auront signé
       wizard_answers: {
         manual_creation: true,
         creation_source: "mandataire_workspace_manual",

@@ -81,6 +81,10 @@ export async function POST(
         | undefined,
       dureeMois: body.duree_mois as number | undefined,
       commissionPct: body.commission_pct as number | undefined,
+      commissionCharge: body.commission_charge as
+        | "vendeur"
+        | "acquereur"
+        | undefined,
       prixNetVendeur: body.prix_net_vendeur as number | undefined,
       prixMax: body.prix_max as number | undefined,
     });

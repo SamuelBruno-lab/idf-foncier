@@ -42,6 +42,8 @@ export type MandatType =
 
 export type MandatModalite = "simple" | "exclusif" | "semi_exclusif";
 
+export type CommissionCharge = "vendeur" | "acquereur";
+
 export interface GenerateMandatHoguetArgs {
   supabase: SupabaseClient;
   leadId: string;
@@ -53,6 +55,7 @@ export interface GenerateMandatHoguetArgs {
   commissionPct?: number;
   prixNetVendeur?: number;
   prixMax?: number;
+  commissionCharge?: CommissionCharge;
 }
 
 export interface GenerateMandatHoguetResult {
@@ -87,10 +90,69 @@ function normalizeMandatType(t: string): MandatType {
   return t as MandatType;
 }
 
+// Conversion d'un entier en mots français (style OLEAN, conformité juridique).
+// Supporte 0 à 999 999 999. Gère les particularités françaises :
+// - "et un" pour 21, 31, 41, 51, 61, 71
+// - "quatre-vingts" (avec s) pour 80 seul ; "quatre-vingt" sinon
+// - "cent" / "cents" selon contexte
+// - "mille" sans accord ; "million(s)" avec accord
+function numberToFrenchWords(n: number): string {
+  if (n === 0) return "zéro";
+  if (n < 0) return "moins " + numberToFrenchWords(-n);
+
+  const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"];
+  const teens = [
+    "dix", "onze", "douze", "treize", "quatorze",
+    "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf",
+  ];
+  const tens = [
+    "", "", "vingt", "trente", "quarante", "cinquante",
+    "soixante", "soixante", "quatre-vingt", "quatre-vingt",
+  ];
+
+  function below100(n: number): string {
+    if (n < 10) return units[n];
+    if (n < 20) return teens[n - 10];
+    const t = Math.floor(n / 10);
+    const u = n % 10;
+    if (t === 7 || t === 9) return tens[t] + "-" + teens[u];
+    if (u === 0) return t === 8 ? "quatre-vingts" : tens[t];
+    if (u === 1 && t !== 8) return tens[t] + " et un";
+    return tens[t] + "-" + units[u];
+  }
+
+  function below1000(n: number, isFollowedByMore = false): string {
+    if (n < 100) return below100(n);
+    const h = Math.floor(n / 100);
+    const r = n % 100;
+    let res: string;
+    if (h === 1) res = "cent";
+    else res = units[h] + " cent" + (r === 0 && !isFollowedByMore ? "s" : "");
+    if (r > 0) res += " " + below100(r);
+    return res;
+  }
+
+  let result = "";
+  const millions = Math.floor(n / 1_000_000);
+  if (millions > 0) {
+    result += millions === 1 ? "un million" : below1000(millions) + " millions";
+    n = n % 1_000_000;
+    if (n > 0) result += " ";
+  }
+  const thousands = Math.floor(n / 1000);
+  if (thousands > 0) {
+    result += thousands === 1 ? "mille" : below1000(thousands, true) + " mille";
+    n = n % 1000;
+    if (n > 0) result += " ";
+  }
+  if (n > 0) result += below1000(n);
+  return result.trim();
+}
+
 function formatEurLettres(n: number): string {
-  // Implementation simple, à enrichir si besoin (jusqu'à 9 999 999)
-  // Pour MVP : juste un formatage propre 1 234 567 EUR
-  return `${n.toLocaleString("fr-FR")} euros`;
+  if (!Number.isFinite(n)) return "";
+  const words = numberToFrenchWords(Math.round(n)).toUpperCase();
+  return `${words} EUROS`;
 }
 
 function formatDateFr(d: Date): string {
@@ -159,6 +221,7 @@ export async function generateMandatHoguet(
     mandat_modalite: string | null;
     mandat_duree_mois: number | null;
     mandat_commission_pct: number | null;
+    mandat_commission_charge: string | null;
     mandat_prix_net_vendeur: number | null;
     mandat_prix_max: number | null;
     mandat_numero_registre: string | null;
@@ -171,7 +234,8 @@ export async function generateMandatHoguet(
       "id, visitor_name, visitor_email, visitor_phone, address, " +
         "type_bien, surface, prix_total_median, intent, " +
         "mandat_type, mandat_modalite, mandat_duree_mois, " +
-        "mandat_commission_pct, mandat_prix_net_vendeur, mandat_prix_max, " +
+        "mandat_commission_pct, mandat_commission_charge, " +
+        "mandat_prix_net_vendeur, mandat_prix_max, " +
         "mandat_numero_registre, mandat_criteres_recherche",
     )
     .eq("id", leadId)
@@ -220,13 +284,25 @@ export async function generateMandatHoguet(
     (lead.prix_total_median as number | null) ??
     0;
 
+  const commissionCharge: CommissionCharge =
+    (args.commissionCharge as CommissionCharge | undefined) ??
+    ((lead.mandat_commission_charge as CommissionCharge | null) ?? "acquereur");
+
   const today = new Date();
   const endDate = new Date(today);
   endDate.setMonth(endDate.getMonth() + dureeMois);
 
-  const commissionEur = Math.round(
-    (prixNetVendeur || prixMax || 0) * (commissionPct / 100),
-  );
+  // Calcul des prix selon la charge
+  // - charge "vendeur" (style OLEAN) : prixSaisi = prix de vente TTC inclus honos.
+  //   Le vendeur reçoit prixSaisi - commission.
+  // - charge "acquereur" (modèle FAI) : prixSaisi = prix net vendeur.
+  //   L'acquéreur paie prixSaisi + commission. Vendeur reçoit prixSaisi.
+  const prixSaisi = prixNetVendeur || prixMax || 0;
+  const commissionEur = Math.round(prixSaisi * (commissionPct / 100));
+  const prixAffichage =
+    commissionCharge === "vendeur" ? prixSaisi : prixSaisi + commissionEur;
+  const prixNetVendeurEffectif =
+    commissionCharge === "vendeur" ? prixSaisi - commissionEur : prixSaisi;
 
   // 5. Splitter visitor_name en nom/prénom (best-effort)
   const visitorName = String(lead.visitor_name ?? "").trim();
@@ -279,8 +355,10 @@ export async function generateMandatHoguet(
     duree_mois: String(dureeMois),
 
     // Prix
-    prix_net_vendeur: prixNetVendeur.toLocaleString("fr-FR"),
-    prix_net_vendeur_lettres: formatEurLettres(prixNetVendeur),
+    prix_net_vendeur: prixNetVendeurEffectif.toLocaleString("fr-FR"),
+    prix_net_vendeur_lettres: formatEurLettres(prixNetVendeurEffectif),
+    prix_vente_ttc: prixAffichage.toLocaleString("fr-FR"),
+    prix_vente_ttc_lettres: formatEurLettres(prixAffichage),
     prix_max: prixMax.toLocaleString("fr-FR"),
     prix_max_lettres: formatEurLettres(prixMax),
 
@@ -291,6 +369,15 @@ export async function generateMandatHoguet(
     commission_mois: "1",
     commission_bailleur_eur: Math.round(commissionEur * 0.5).toLocaleString("fr-FR"),
     commission_locataire_eur: Math.round(commissionEur * 0.5).toLocaleString("fr-FR"),
+
+    // Charge des honoraires (OLEAN vendeur vs FAI acquéreur)
+    commission_charge: commissionCharge,
+    commission_charge_label: commissionCharge === "vendeur" ? "VENDEUR" : "ACQUÉREUR",
+    commission_charge_label_lc: commissionCharge === "vendeur" ? "Vendeur" : "Acquéreur",
+    article_honoraires_complet:
+      commissionCharge === "vendeur"
+        ? `Les honoraires de l'Agence sont fixés à ${commissionPct} % TTC du prix de vente stipulé à l'article 3, soit la somme de ${commissionEur.toLocaleString("fr-FR")} EUR TTC (${formatEurLettres(commissionEur)}).\nCes honoraires sont à la charge du VENDEUR.\nUne fois la vente conclue, l'Acquéreur versera le prix de vente d'un montant de ${prixAffichage.toLocaleString("fr-FR")} EUR ; le Vendeur devra au Mandataire la somme de ${commissionEur.toLocaleString("fr-FR")} EUR.\nLe taux actuel de la TVA est susceptible de modification conformément à la réglementation fiscale ; le taux appliqué sera celui en vigueur le jour où les honoraires seront exigibles.\nLa rémunération du Mandataire sera exigible le jour où l'opération sera effectivement conclue et réitérée par acte authentique.`
+        : `Les honoraires de l'Agence sont fixés à ${commissionPct} % TTC du prix net vendeur stipulé à l'article 3, soit la somme de ${commissionEur.toLocaleString("fr-FR")} EUR TTC (${formatEurLettres(commissionEur)}).\nCes honoraires sont mis à la CHARGE EXCLUSIVE DE L'ACQUÉREUR, conformément à l'article 6 alinéa 3 de la loi Hoguet n° 70-9 et à l'arrêté du 10 janvier 2017.\nLe prix affiché à la commercialisation correspondra au prix net vendeur majoré desdits honoraires (« prix FAI » — frais d'agence inclus), soit ${prixAffichage.toLocaleString("fr-FR")} EUR TTC.\nIls ne seront dus que dans le cas d'une vente effectivement réalisée par l'intermédiaire de l'Agence et constatée par acte authentique reçu par notaire.`,
 
     // Location
     loyer_hc: "[à compléter]",
@@ -356,6 +443,7 @@ export async function generateMandatHoguet(
       mandat_type: mandatType,
       mandat_duree_mois: dureeMois,
       mandat_commission_pct: commissionPct,
+      mandat_commission_charge: commissionCharge,
       mandat_prix_net_vendeur: prixNetVendeur || null,
       mandat_prix_max: prixMax || null,
       mandat_date_fin: endDate.toISOString().split("T")[0],

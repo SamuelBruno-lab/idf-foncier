@@ -14,6 +14,7 @@ interface Lead {
   mandat_modalite: string | null;
   mandat_duree_mois: number | null;
   mandat_commission_pct: number | null;
+  mandat_commission_charge: string | null;
   mandat_prix_net_vendeur: number | null;
   mandat_prix_max: number | null;
   mandat_numero_registre: string | null;
@@ -56,6 +57,19 @@ const MODALITE_OPTIONS = [
   { value: "semi_exclusif", label: "Semi-exclusif" },
 ];
 
+const COMMISSION_CHARGE_OPTIONS = [
+  {
+    value: "acquereur",
+    label: "Charge Acquéreur (FAI)",
+    hint: "Prix saisi = prix net vendeur. Acquéreur paie net + honos.",
+  },
+  {
+    value: "vendeur",
+    label: "Charge Vendeur (style OLEAN)",
+    hint: "Prix saisi = prix de vente TTC. Vendeur reçoit prix - honos.",
+  },
+];
+
 function normalizeMandatType(t: string | null): string {
   if (!t) return "vente";
   if (t === "recherche") return "recherche_acquereur";
@@ -87,6 +101,9 @@ export function GenerateMandatHoguetCardMandataire({
   const [commissionPct, setCommissionPct] = useState(
     lead.mandat_commission_pct ?? (initialType === "vente" ? 5 : 3),
   );
+  const [commissionCharge, setCommissionCharge] = useState<"vendeur" | "acquereur">(
+    (lead.mandat_commission_charge as "vendeur" | "acquereur" | null) ?? "acquereur",
+  );
   const [prix, setPrix] = useState(
     lead.mandat_prix_net_vendeur ?? lead.mandat_prix_max ?? 0,
   );
@@ -112,6 +129,7 @@ export function GenerateMandatHoguetCardMandataire({
         mandat_modalite: modalite,
         duree_mois: dureeMois,
         commission_pct: commissionPct,
+        commission_charge: isVente ? commissionCharge : undefined,
         prix_net_vendeur: isVente ? prix : undefined,
         prix_max: isRecherche ? prix : undefined,
       };
@@ -268,6 +286,33 @@ export function GenerateMandatHoguetCardMandataire({
             ))}
           </select>
         </label>
+
+        {isVente && (
+          <label style={{ display: "block", gridColumn: "span 2" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+              Charge des honoraires
+            </span>
+            <select
+              value={commissionCharge}
+              onChange={(e) => setCommissionCharge(e.target.value as "vendeur" | "acquereur")}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 6,
+                fontSize: 13,
+              }}
+            >
+              {COMMISSION_CHARGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 10, color: MUTED, marginTop: 4, display: "block" }}>
+              {COMMISSION_CHARGE_OPTIONS.find((o) => o.value === commissionCharge)?.hint}
+            </span>
+          </label>
+        )}
 
         <label style={{ display: "block" }}>
           <span style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>

@@ -60,6 +60,7 @@ type Lead = {
   mandat_modalite: string | null;
   mandat_duree_mois: number | null;
   mandat_commission_pct: number | null;
+  mandat_commission_charge: string | null;
   mandat_prix_net_vendeur: number | null;
   mandat_prix_max: number | null;
   mandat_numero_registre: string | null;
@@ -84,7 +85,7 @@ async function fetchData(mandataireId: string, leadId: string): Promise<{
     sb
       .from("dim_cabinet_leads")
       .select(
-        "id, cabinet_slug, mandataire_id, visitor_name, visitor_email, visitor_phone, address, status, created_at, surface_m2, type_bien, prix_estime, wizard_answers, mandat_type, mandat_modalite, mandat_duree_mois, mandat_commission_pct, mandat_prix_net_vendeur, mandat_prix_max, mandat_numero_registre, mandat_signe_at, signature_pdf_url, signature_status",
+        "id, cabinet_slug, mandataire_id, visitor_name, visitor_email, visitor_phone, address, status, created_at, surface_m2, type_bien, prix_estime, wizard_answers, mandat_type, mandat_modalite, mandat_duree_mois, mandat_commission_pct, mandat_commission_charge, mandat_prix_net_vendeur, mandat_prix_max, mandat_numero_registre, mandat_signe_at, signature_pdf_url, signature_status",
       )
       .eq("id", leadId)
       .maybeSingle(),
@@ -277,6 +278,7 @@ export default async function MandataireLeadDetailPage({
           mandat_modalite: lead.mandat_modalite,
           mandat_duree_mois: lead.mandat_duree_mois,
           mandat_commission_pct: lead.mandat_commission_pct,
+          mandat_commission_charge: lead.mandat_commission_charge,
           mandat_prix_net_vendeur: lead.mandat_prix_net_vendeur,
           mandat_prix_max: lead.mandat_prix_max,
           mandat_numero_registre: lead.mandat_numero_registre,

@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AddressAutocomplete } from "./AddressAutocomplete";
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -178,18 +179,39 @@ export function ManualMandatForm({ mandataireId, cabinetSlug }: Props) {
 
       {/* ─── Bien ────────────────────────────────────────────────────── */}
       <Section title="2. Bien">
-        <Row>
-          <Field label="Adresse du bien *">
-            <input
-              type="text"
-              required
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Ex. 109 Rue Constant Coquelin, Vitry-sur-Seine (94400)"
-              style={inputStyle()}
-            />
-          </Field>
-        </Row>
+        <div>
+          <span
+            style={{
+              display: "block",
+              fontSize: 12,
+              fontWeight: 600,
+              color: DARK,
+              marginBottom: 4,
+            }}
+          >
+            Adresse du bien *
+          </span>
+          <AddressAutocomplete
+            value={address}
+            onChange={setAddress}
+            onSelect={(d) => {
+              // Auto-remplit l'adresse à partir de la suggestion
+              setAddress(d.label);
+            }}
+            placeholder="Tape l'adresse — ex. 109 rue Constant Coquelin Vitry"
+            required
+          />
+          <span
+            style={{
+              display: "block",
+              fontSize: 10,
+              color: MUTED,
+              marginTop: 4,
+            }}
+          >
+            💡 Suggestions BAN (Base Adresse Nationale) — tape au moins 3 caractères. Flèches ↑↓ + Entrée pour valider.
+          </span>
+        </div>
         <Row>
           <Field label="Type">
             <select

@@ -317,11 +317,14 @@ export async function generateMandatHoguet(
     date_mandat: formatDateFr(today),
     date_fin: formatDateFr(endDate),
 
-    // Mandataire (Diara — à enrichir avec données réelles plus tard)
-    prenom_mandataire: "[Prénom mandataire]",
-    nom_mandataire: "[Nom mandataire]",
-    numero_rsac_mandataire: "[N° RSAC]",
-    numero_attestation: "[N° attestation CCI]",
+    // Mandataire — agent commercial Eurealimmo (Diara par défaut, à généraliser plus tard via dim_mandataires)
+    prenom_mandataire: "Diara",
+    nom_mandataire: "CAMARA",
+    statut_mandataire: "EI",
+    numero_rsac_mandataire: "520 502 469",
+    numero_attestation: "[N° attestation CCI à compléter]",
+    telephone_mandataire: "+33 7 66 95 30 89",
+    email_mandataire: "camaradiara96@gmail.com",
 
     // Client
     client_civilite: "M./Mme",

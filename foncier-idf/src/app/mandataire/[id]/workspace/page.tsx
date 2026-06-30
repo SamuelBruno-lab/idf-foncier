@@ -86,21 +86,50 @@ export default async function WorkspaceDashboardPage({
 
   return (
     <div>
-      {/* ─── Titre ─────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <h1
+      {/* ─── Titre + CTA ──────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: 24,
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: 28,
+              fontWeight: 700,
+              margin: "0 0 4px",
+            }}
+          >
+            Tableau de bord
+          </h1>
+          <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
+            Vue d'ensemble de votre activité Eurealimmo
+          </p>
+        </div>
+        <Link
+          href={`/mandataire/${id}/workspace/mandats/nouveau`}
           style={{
-            fontFamily: "Georgia, serif",
-            fontSize: 28,
+            background: "#064e3b",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 6,
+            fontSize: 13,
             fontWeight: 700,
-            margin: "0 0 4px",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          Tableau de bord
-        </h1>
-        <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
-          Vue d'ensemble de votre activité Eurealimmo
-        </p>
+          📝 Créer un mandat
+        </Link>
       </div>
 
       {/* ─── 4 KPIs ────────────────────────────────────────────────────── */}

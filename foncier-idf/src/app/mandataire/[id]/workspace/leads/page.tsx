@@ -5,6 +5,7 @@
  */
 
 import { headers } from "next/headers";
+import Link from "next/link";
 
 const PRIMARY = "#c8a25d";
 const DARK = "#0f172a";
@@ -74,16 +75,45 @@ export default async function WorkspaceLeadsPage({
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1
-          style={{ fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 700, margin: "0 0 4px" }}
+      <div
+        style={{
+          marginBottom: 24,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1
+            style={{ fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 700, margin: "0 0 4px" }}
+          >
+            Mes leads
+          </h1>
+          <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
+            {leads.length} lead{leads.length > 1 ? "s" : ""} attribué{leads.length > 1 ? "s" : ""}.
+            Cliquez sur un lead pour ouvrir son détail et générer un mandat Hoguet.
+          </p>
+        </div>
+        <Link
+          href={`/mandataire/${id}/workspace/mandats/nouveau`}
+          style={{
+            background: "#064e3b",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 700,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
         >
-          Mes leads
-        </h1>
-        <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
-          {leads.length} lead{leads.length > 1 ? "s" : ""} attribué{leads.length > 1 ? "s" : ""}.
-          Cliquez sur un lead pour ouvrir son détail et générer un mandat Hoguet.
-        </p>
+          📝 Créer un mandat manuellement
+        </Link>
       </div>
 
       {/* ─── Kanban 4 colonnes ─────────────────────────────────────────── */}

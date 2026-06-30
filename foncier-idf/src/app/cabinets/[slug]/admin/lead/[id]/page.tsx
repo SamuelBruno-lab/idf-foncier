@@ -45,6 +45,7 @@ type Lead = {
   mandat_duree_mois: number | null;
   mandat_date_fin: string | null;
   mandat_commission_pct: number | null;
+  mandat_commission_charge: string | null;
   mandat_prix_net_vendeur: number | null;
   mandat_prix_max: number | null;
   mandat_numero_registre: string | null;

@@ -385,6 +385,38 @@ export async function generateMandatHoguet(
     charges_mensuelles: "[à compléter]",
     depot_garantie: "[à compléter]",
     date_entree_souhaitee: "[à compléter]",
+
+    // ────────────────────────────────────────────────────────
+    // Sections juridiques complémentaires (style OLEAN)
+    // ────────────────────────────────────────────────────────
+    clauses_complementaires: [
+      // 1. Reproduction des articles L. 215-1 à L. 215-3 et L. 241-3 du Code de la consommation (tacite reconduction)
+      "RECONDUCTION TACITE — REPRODUCTION DES ARTICLES L. 215-1 À L. 215-3 ET L. 241-3 DU CODE DE LA CONSOMMATION",
+      "Conformément à l'article L. 215-4 du Code de la consommation, les dispositions des articles L. 215-1 à L. 215-3 et L. 241-3 dudit code sont intégralement reproduites ci-après :",
+      "Article L. 215-1 : Pour les contrats de prestations de services conclus pour une durée déterminée avec une clause de reconduction tacite, le professionnel prestataire de services informe le consommateur par écrit, par lettre nominative ou courrier électronique dédiés, au plus tôt trois mois et au plus tard un mois avant le terme de la période autorisant le rejet de la reconduction, de la possibilité de ne pas reconduire le contrat qu'il a conclu avec une clause de reconduction tacite. Cette information, délivrée dans des termes clairs et compréhensibles, mentionne, dans un encadré apparent, la date limite de non-reconduction. Lorsque cette information ne lui a pas été adressée conformément aux dispositions du premier alinéa, le consommateur peut mettre gratuitement un terme au contrat, à tout moment à compter de la date de reconduction. Les avances effectuées après la dernière date de reconduction ou, s'agissant des contrats à durée indéterminée, après la date de transformation du contrat initial à durée déterminée, sont dans ce cas remboursées dans un délai de trente jours à compter de la date de résiliation, déduction faite des sommes correspondant, jusqu'à celle-ci, à l'exécution du contrat. Les dispositions du présent article s'appliquent sans préjudice de celles qui soumettent légalement certains contrats à des règles particulières en ce qui concerne l'information du consommateur.",
+      "Article L. 215-2 : Les dispositions du présent chapitre ne sont pas applicables aux exploitants des services d'eau potable et d'assainissement.",
+      "Article L. 215-3 : Les dispositions du présent chapitre sont également applicables aux contrats conclus entre des professionnels et des non-professionnels.",
+      "Article L. 241-3 : Lorsque le professionnel n'a pas procédé au remboursement dans les conditions prévues à l'article L. 215-1, les sommes dues sont productives d'intérêts au taux légal.",
+      "",
+      // 2. Clause pénale (style OLEAN)
+      "CLAUSE PÉNALE",
+      "Pendant le cours du présent mandat et dans l'année qui suivra l'expiration ou la résiliation du mandat, le Client s'interdit de vendre le Bien, directement ou indirectement, à une personne présentée à lui par le Mandataire ou un Mandataire qu'il aura substitué. La présente interdiction vise également le conjoint ou partenaire avec lequel cette personne se porterait acquéreur.",
+      "SI LE CLIENT NE RESPECTAIT PAS CETTE INTERDICTION DE VENDRE À UNE PERSONNE PRÉSENTÉE PAR LE MANDATAIRE, LE MANDATAIRE AURA DROIT, À TITRE DE CLAUSE PÉNALE, À UNE INDEMNITÉ FORFAITAIRE À LA CHARGE DU CLIENT, D'UN MONTANT ÉGAL À CELUI DE LA RÉMUNÉRATION TOUTES TAXES COMPRISES DU MANDATAIRE PRÉVUE AU PRÉSENT MANDAT.",
+      "En outre, si le Client vend le bien sans l'intermédiaire du Mandataire, il s'oblige à lui communiquer immédiatement les nom et adresse de l'acquéreur.",
+      "",
+      // 3. Engagement de non-discrimination (style OLEAN)
+      "ENGAGEMENT DE NON-DISCRIMINATION",
+      "Il est rappelé que constitue une discrimination toute distinction opérée entre les personnes en raison de leur origine, sexe, situation de famille, grossesse, apparence physique, particulière vulnérabilité résultant de leur situation économique apparente ou connue de son auteur, patronyme, lieu de résidence, état de santé, perte d'autonomie, handicap, caractéristiques génétiques, mœurs, orientation sexuelle, identité de genre, âge, opinions politiques, activités syndicales, capacité à s'exprimer dans une langue autre que le français, appartenance ou non-appartenance, vraie ou supposée, à une ethnie, une nation, une prétendue race ou une religion déterminée. Toute discrimination commise à l'égard d'une personne est punie de trois ans d'emprisonnement et de 45 000 € d'amende (article 225-2 du Code pénal).",
+      "En conséquence, les Parties prennent l'engagement exprès de n'opposer à un candidat à l'acquisition du Bien aucun refus fondé sur un motif discriminatoire au sens de l'article 225-1 du Code pénal. Le Client s'interdit expressément de donner au Mandataire des directives ou consignes, verbales ou écrites, tendant à refuser l'acquisition pour des motifs discriminatoires au sens de l'article 225-1 du Code pénal.",
+      "",
+      // 4. Exécution anticipée + élection de domicile
+      "EXÉCUTION ANTICIPÉE DU MANDAT",
+      "☑ Le Client demande à ce que l'exécution du mandat débute dès sa conclusion, sans attendre l'issue du délai de rétractation de quatorze jours. Il reconnaît avoir été informé qu'il ne pourra plus exercer son droit de rétractation si le Mandataire a pleinement exécuté sa mission avant la fin de ce délai. En cas d'exercice du droit de rétractation après commencement d'exécution, le Client peut devoir verser au Mandataire un montant correspondant au travail fourni jusqu'à cette rétractation.",
+      "☐ Le Client ne demande pas l'exécution anticipée du mandat ; l'Agence ne commencera sa mission qu'à l'issue du délai de rétractation.",
+      "",
+      "ÉLECTION DE DOMICILE",
+      "Les Parties soussignées font élection de domicile chacune à leur adresse respective indiquée en tête de l'acte.",
+    ].join("\n"),
   };
 
   // 7. Charger le template + remplir

@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
     step?: string;
   };
   const insee = body.insee;
-  const step = body.step ?? "all"; // "ingest", "score", "enrich", "all"
+  const step = body.step ?? "all"; // "ingest", "score", "enrich", "dpe-passoire" (opt-in, hors "all"), "zone-urba" (opt-in, hors "all"), "all"
 
   if (!insee || !/^\d{5}$/.test(insee)) {
     return NextResponse.json(
@@ -361,6 +361,17 @@ export async function POST(req: NextRequest) {
               footprint_m2: Math.round(footprint * 10) / 10,
               insee_code: insee,
               geojson: JSON.stringify(f.geometry),
+              // Migration 71 (Phase 2a) : hauteur BD TOPO brute (m), jusque-la
+              // convertie en levels_est puis jetee -- desormais persistee pour
+              // le comparatif hauteur existante/PLU.
+              height_m:
+                f.properties.hauteur != null && f.properties.hauteur > 0
+                  ? f.properties.hauteur
+                  : null,
+              height_source:
+                f.properties.hauteur != null && f.properties.hauteur > 0
+                  ? "bdtopo_lidar"
+                  : null,
             };
           });
 
@@ -474,6 +485,81 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         logs.push(
           `Surface hab enrichment error: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+
+    // ===== STEP 4 (nouveau, opt-in) : DPE passoire thermique (copro/maison) =====
+    // Volontairement EXCLU de step==="all" pour l'instant : a valider isolement
+    // sur les communes test (94081/94033) avant de l'integrer au pipeline
+    // standard de toutes les communes. Appeler explicitement step="dpe-passoire".
+    if (step === "dpe-passoire") {
+      logs.push(`Enriching DPE passoire for ${insee}...`);
+
+      try {
+        const dpeUrl = new URL("/api/foncier/enrich-dpe-passoire", req.url);
+        const dpeRes = await fetch(dpeUrl.toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": ADMIN_SECRET ?? "",
+          },
+          body: JSON.stringify({ insee }),
+          signal: AbortSignal.timeout(120000),
+        });
+
+        if (dpeRes.ok) {
+          const dpeData = (await dpeRes.json()) as {
+            stats?: { batiments_passoire_copro?: number; batiments_passoire_maison?: number };
+          };
+          if (dpeData.stats) {
+            logs.push(
+              `DPE passoire: ${dpeData.stats.batiments_passoire_copro ?? 0} copro, ${dpeData.stats.batiments_passoire_maison ?? 0} maison`
+            );
+          }
+        } else {
+          logs.push(`DPE passoire enrichment warning: ${dpeRes.status}`);
+        }
+      } catch (e) {
+        logs.push(
+          `DPE passoire enrichment error: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+
+    // ===== STEP 5 (nouveau, opt-in) : vraies zones PLU (geometrie + destinations) =====
+    // Volontairement EXCLU de step==="all" : corrige le fallback Phase 1
+    // (une seule zone par commune) -- a lancer explicitement PUIS re-scorer
+    // (step="score") pour re-rattacher chaque parcelle a sa vraie zone.
+    if (step === "zone-urba") {
+      logs.push(`Enriching real PLU zones (GPU) for ${insee}...`);
+
+      try {
+        const zoneUrl = new URL("/api/foncier/enrich-zone-urba", req.url);
+        const zoneRes = await fetch(zoneUrl.toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": ADMIN_SECRET ?? "",
+          },
+          body: JSON.stringify({ insee }),
+          signal: AbortSignal.timeout(60000),
+        });
+
+        if (zoneRes.ok) {
+          const zoneData = (await zoneRes.json()) as {
+            zones_found?: number;
+            zones_distinctes?: number;
+          };
+          logs.push(
+            `Zones PLU: ${zoneData.zones_found ?? 0} polygones, ${zoneData.zones_distinctes ?? 0} zones distinctes`
+          );
+        } else {
+          logs.push(`Zone-urba enrichment warning: ${zoneRes.status}`);
+        }
+      } catch (e) {
+        logs.push(
+          `Zone-urba enrichment error: ${e instanceof Error ? e.message : String(e)}`
         );
       }
     }

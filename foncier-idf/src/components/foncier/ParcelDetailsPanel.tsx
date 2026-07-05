@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ParcelDetail } from "@/lib/foncier-types";
 import {
   formatNumber,
@@ -12,12 +13,17 @@ import {
   PRIX_NEUF_DEFAUT,
 } from "@/lib/foncier-helpers";
 import LocationActionButtons from "@/components/LocationActionButtons";
+import ParcelSimulateurTab from "@/components/foncier/ParcelSimulateurTab";
 
 type Props = {
   item: ParcelDetail | null;
   loading?: boolean;
   latitude?: number | null;
   longitude?: number | null;
+  /** Affiche l'onglet "Simulateur prefaisabilite" (Phase 2c) -- desactive
+   * par defaut pour ne rien changer aux consommateurs existants de ce
+   * composant partage (ex: page foncier publique). */
+  showSimulateur?: boolean;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -37,7 +43,15 @@ const VOCATION_LABELS: Record<string, string> = {
   naturel: "Naturel",
 };
 
-export default function ParcelDetailsPanel({ item, loading = false, latitude, longitude }: Props) {
+export default function ParcelDetailsPanel({
+  item,
+  loading = false,
+  latitude,
+  longitude,
+  showSimulateur = false,
+}: Props) {
+  const [tab, setTab] = useState<"details" | "simulateur">("details");
+
   if (loading) {
     return <div className="p-4 text-sm text-neutral-500">Chargement...</div>;
   }
@@ -106,6 +120,34 @@ export default function ParcelDetailsPanel({ item, loading = false, latitude, lo
         )}
       </div>
 
+      {showSimulateur && (
+        <div className="flex gap-2 border-b border-neutral-200">
+          {(
+            [
+              { key: "details" as const, label: "Detail" },
+              { key: "simulateur" as const, label: "Simulateur prefaisabilite" },
+            ]
+          ).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`-mb-px border-b-2 px-2 pb-2 text-xs font-medium ${
+                tab === t.key
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-neutral-400 hover:text-neutral-600"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showSimulateur && tab === "simulateur" ? (
+        <ParcelSimulateurTab parcelId={item.parcel_id} item={item} />
+      ) : (
+        <>
       {/* Bloc 1 — Situation */}
       <div className="rounded-xl border border-neutral-200 p-3">
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
@@ -231,6 +273,8 @@ export default function ParcelDetailsPanel({ item, loading = false, latitude, lo
           Vues cartographiques fournies par Google Maps et le Geoportail.
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

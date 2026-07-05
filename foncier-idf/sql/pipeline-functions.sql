@@ -39,6 +39,9 @@ END;
 $$;
 
 -- Function 1b: Batch ingest BD TOPO buildings (WGS84 → Lambert93)
+-- Migration 71 (Phase 2a) : ajout height_m/height_source, lecture OPTIONNELLE
+-- des cles dans le JSON (j->>'height_m' vaut NULL si absente -- retro-
+-- compatible avec tout appelant qui n'envoie pas encore ces champs).
 CREATE OR REPLACE FUNCTION public.ingest_buildings_batch(buildings_json TEXT)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -54,24 +57,30 @@ BEGIN
       (j->>'levels_est')::integer AS levels_est,
       (j->>'footprint_m2')::numeric AS footprint_m2,
       j->>'insee_code' AS insee_code,
-      j->>'geojson' AS geojson
+      j->>'geojson' AS geojson,
+      (j->>'height_m')::numeric AS height_m,
+      j->>'height_source' AS height_source
     FROM jsonb_array_elements(buildings_json::jsonb) AS j
   LOOP
-    INSERT INTO public.buildings (building_id, source, levels_est, footprint_m2, insee_code, geom)
+    INSERT INTO public.buildings (building_id, source, levels_est, footprint_m2, insee_code, geom, height_m, height_source)
     VALUES (
       rec.building_id,
       rec.source,
       rec.levels_est,
       rec.footprint_m2,
       rec.insee_code,
-      ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(rec.geojson), 4326), 2154))
+      ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(rec.geojson), 4326), 2154)),
+      rec.height_m,
+      rec.height_source
     )
     ON CONFLICT (building_id) DO UPDATE SET
       source = EXCLUDED.source,
       levels_est = EXCLUDED.levels_est,
       footprint_m2 = EXCLUDED.footprint_m2,
       insee_code = EXCLUDED.insee_code,
-      geom = EXCLUDED.geom;
+      geom = EXCLUDED.geom,
+      height_m = EXCLUDED.height_m,
+      height_source = EXCLUDED.height_source;
     cnt := cnt + 1;
   END LOOP;
   RETURN cnt;

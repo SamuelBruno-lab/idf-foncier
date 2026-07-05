@@ -263,6 +263,24 @@ export default function AdminDashboardPage({
           >
             ♻ Parrainage
           </a>
+          <a
+            href={`/cabinets/${slug}/admin/foncier`}
+            style={{
+              background: "transparent",
+              color: primary,
+              border: `1.5px solid ${primary}`,
+              borderRadius: 8,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            🏗️ Sous-densité foncière
+          </a>
           <button
             onClick={() => setShowArchived((s) => !s)}
             style={{

@@ -17,6 +17,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const cabinet = await loadCabinet(slug);
   const name = cabinet?.cabinet_name ?? slug;
+  const navLogo = CABINET_NAV[slug.toLowerCase()]?.logoUrl;
+  const iconUrl = navLogo || cabinet?.logo_url;
+
   return {
     title: {
       default: `Estimation immobilière — ${name}`,
@@ -24,6 +27,13 @@ export async function generateMetadata({
     },
     description: `Estimation gratuite de votre bien immobilier avec ${name}. Basée sur les ventes notariales DVF et les données officielles.`,
     robots: { index: true, follow: true },
+    icons: iconUrl
+      ? {
+          icon: [{ url: iconUrl, type: "image/png" }],
+          shortcut: iconUrl,
+          apple: iconUrl,
+        }
+      : undefined,
   };
 }
 

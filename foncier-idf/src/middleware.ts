@@ -46,11 +46,18 @@ export function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
-    // Assets statiques : pas de rewrite
+    // Assets statiques + conventions Next.js metadata (icon, robots, sitemap, og-image)
     if (
       path.startsWith("/_next") ||
       path.startsWith("/favicon") ||
-      path.match(/\.(ico|png|jpg|jpeg|svg|webp|gif|woff2?|ttf|css|js)$/i)
+      path === "/icon" || path.startsWith("/icon-") ||
+      path === "/apple-icon" || path.startsWith("/apple-icon-") ||
+      path === "/opengraph-image" || path.startsWith("/opengraph-image-") ||
+      path === "/twitter-image" || path.startsWith("/twitter-image-") ||
+      path === "/robots.txt" ||
+      path === "/sitemap.xml" || path.startsWith("/sitemap") ||
+      path === "/manifest.json" ||
+      path.match(/\.(ico|png|jpg|jpeg|svg|webp|gif|woff2?|ttf|css|js|json|xml|txt)$/i)
     ) {
       return NextResponse.next();
     }

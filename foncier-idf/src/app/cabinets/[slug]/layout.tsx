@@ -5,8 +5,27 @@
  * Footer riche avec colonnes du site + liens légaux + mention DATAMERRY.
  */
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const cabinet = await loadCabinet(slug);
+  const name = cabinet?.cabinet_name ?? slug;
+  return {
+    title: {
+      default: `Estimation immobilière — ${name}`,
+      template: `%s — ${name}`,
+    },
+    description: `Estimation gratuite de votre bien immobilier avec ${name}. Basée sur les ventes notariales DVF et les données officielles.`,
+    robots: { index: true, follow: true },
+  };
+}
 
 type Cabinet = {
   slug: string;

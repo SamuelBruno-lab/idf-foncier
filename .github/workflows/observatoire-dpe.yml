@@ -1,0 +1,113 @@
+name: Observatoire DPE - régression BDNB
+
+on:
+  schedule:
+    # Trimestriel : 15 mars, 15 juin, 15 septembre, 15 décembre à 4h UTC
+    # (après les nouveaux millésimes BDNB qui sortent en début de mois)
+    - cron: '0 4 15 3,6,9,12 *'
+  workflow_dispatch:
+    inputs:
+      dept_only:
+        description: 'Département unique à traiter (vide = tous les départements IDF)'
+        required: false
+        default: ''
+      period_label:
+        description: "Étiquette de période (ex: 2026-Q3). Vide = YYYY-MM auto"
+        required: false
+        default: ''
+
+jobs:
+  build-per-dept:
+    name: Build dépt ${{ matrix.dept }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        # V1 : IDF uniquement (Paris + petite couronne + grande couronne)
+        # V2 : passer à France entière (96 dépts)
+        dept: ['75', '77', '78', '91', '92', '93', '94', '95']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: dpe/requirements.txt
+
+      - name: Install deps
+        run: pip install -r dpe/requirements.txt
+
+      - name: Skip si dept_only et pas nous
+        id: gate
+        run: |
+          if [ -n "${{ github.event.inputs.dept_only }}" ] && [ "${{ github.event.inputs.dept_only }}" != "${{ matrix.dept }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download BDNB (dept ${{ matrix.dept }})
+        if: steps.gate.outputs.skip != 'true'
+        run: python dpe/download_bdnb.py --dept ${{ matrix.dept }} --out ./bdnb_data
+
+      - name: Join DVF x DPE (maisons)
+        if: steps.gate.outputs.skip != 'true'
+        run: python dpe/join_dvf_dpe_maison.py --dept ${{ matrix.dept }} --data ./bdnb_data --out ./joined
+
+      - name: Upload artifact (joined)
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: joined-dept-${{ matrix.dept }}
+          path: ./joined/joined_${{ matrix.dept }}.parquet
+          retention-days: 7
+
+  regression:
+    name: Régression + upload Supabase
+    needs: build-per-dept
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: dpe/requirements.txt
+
+      - name: Install deps
+        run: pip install -r dpe/requirements.txt
+
+      - name: Download all joined artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./joined_all
+          pattern: joined-dept-*
+          merge-multiple: true
+
+      - name: Run regression + upload Supabase
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          PERIOD_LABEL="${{ github.event.inputs.period_label }}"
+          if [ -z "$PERIOD_LABEL" ]; then
+            PERIOD_LABEL=$(date -u +"%Y-%m")
+          fi
+          python dpe/regression_dpe.py \
+            --joined "./joined_all/*.parquet" \
+            --period-label "$PERIOD_LABEL" \
+            --csv-out ./outputs/coefs_${PERIOD_LABEL}.csv
+
+      - name: Upload coefficients as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coefficients-${{ github.run_id }}
+          path: ./outputs/coefs_*.csv
+          retention-days: 90

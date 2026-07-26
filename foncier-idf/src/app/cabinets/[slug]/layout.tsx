@@ -17,8 +17,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const cabinet = await loadCabinet(slug);
   const name = cabinet?.cabinet_name ?? slug;
-  const navLogo = CABINET_NAV[slug.toLowerCase()]?.logoUrl;
-  const iconUrl = navLogo || cabinet?.logo_url;
+  const nav = CABINET_NAV[slug.toLowerCase()];
+  // Priorité : favicon same-origin (public/) > logo header (potentiellement cross-origin) > logo Supabase
+  const iconUrl = nav?.faviconUrl || nav?.logoUrl || cabinet?.logo_url;
 
   return {
     title: {
@@ -57,7 +58,8 @@ type FooterColumn = { title: string; items: NavItem[] };
 type CabinetNavConfig = {
   homeUrl: string;
   legalUrl: string;
-  logoUrl: string | null;
+  logoUrl: string | null;      // logo header/footer (peut être URL externe)
+  faviconUrl?: string | null;  // favicon onglet — DOIT être same-origin (ex: /collabimo-favicon.png)
   items: NavItem[];
   ctaSecondary: NavItem | null;
   ctaPrimary: NavItem | null;
@@ -71,6 +73,7 @@ const CABINET_NAV: Record<string, CabinetNavConfig> = {
     homeUrl: "https://www.collabimo.com",
     legalUrl: "https://www.collabimo.com/mentions-legales",
     logoUrl: "https://assets.softr-files.com/applications/b7e89bf9-c5d9-48f5-84f6-705e2b400a61/assets/7f2b2fb1-ad77-4419-9093-a2bddbe9de6c.png",
+    faviconUrl: "/collabimo-favicon.png",
     items: [
       { label: "Estimer mon bien", href: "https://estimer.collabimo.com" },
       { label: "Vendre", href: "https://www.collabimo.com/vendre" },

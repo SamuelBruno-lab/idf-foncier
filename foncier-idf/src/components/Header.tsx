@@ -3,11 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import ProModal from "./ProModal";
 import { useAuth } from "./AuthProvider";
 
 export default function Header() {
-  const [showProModal, setShowProModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
@@ -81,12 +79,6 @@ export default function Header() {
             }}
             className="hidden-mobile"
           >
-            <Link href="/pricing" style={{ color: "rgba(255,255,255,0.55)", textDecoration: "none", transition: "color 0.15s" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-            >
-              Pricing
-            </Link>
             <Link href="/actualites" style={{ color: "rgba(255,255,255,0.55)", textDecoration: "none", transition: "color 0.15s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
@@ -134,32 +126,6 @@ export default function Header() {
               </>
             )}
 
-            <button
-              onClick={() => setShowProModal(true)}
-              style={{
-                padding: "8px 18px",
-                borderRadius: 8,
-                border: "none",
-                background: "linear-gradient(135deg, #00ff88, #00d4ff)",
-                color: "#0a0a1e",
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: "Segoe UI, Arial, sans-serif",
-                transition: "transform 0.15s, box-shadow 0.15s",
-                boxShadow: "0 2px 12px rgba(0,212,255,0.2)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.04)";
-                e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,212,255,0.35)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,212,255,0.2)";
-              }}
-            >
-              Essai Pro 14 jours
-            </button>
           </nav>
 
           {/* Mobile hamburger */}
@@ -193,7 +159,6 @@ export default function Header() {
               gap: 12,
             }}
           >
-            <Link href="/pricing" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Pricing</Link>
             <Link href="/actualites" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: 14 }}>Nouveautés</Link>
             {isLoggedIn ? (
               <>
@@ -206,28 +171,9 @@ export default function Header() {
                 <Link href="/signup" onClick={() => setMobileOpen(false)} style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 13 }}>Créer un compte</Link>
               </>
             )}
-            <button
-              onClick={() => { setShowProModal(true); setMobileOpen(false); }}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: "linear-gradient(135deg, #00ff88, #00d4ff)",
-                color: "#0a0a1e",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                marginTop: 4,
-              }}
-            >
-              Essai Pro 14 jours
-            </button>
           </div>
         )}
       </header>
-
-      <ProModal open={showProModal} onClose={() => setShowProModal(false)} />
 
       {/* Responsive styles */}
       <style>{`

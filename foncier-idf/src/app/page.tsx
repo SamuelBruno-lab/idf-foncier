@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import ProBadge from "@/components/ProBadge";
 
 const DEPTS = [
   { code: "75", shortName: "Paris", color: "#ef4444" },
@@ -468,19 +467,9 @@ export default function HomePage() {
             <Link href="/methodologie" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", fontWeight: 500, fontSize: 12, textDecoration: "none", transition: "all 0.15s" }}>
               Méthodologie
             </Link>
-            <Link href="/pricing" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(0,255,136,0.2)", background: "rgba(0,255,136,0.06)", color: "#00ff88", fontWeight: 600, fontSize: 12, textDecoration: "none", transition: "all 0.15s" }}>
-              Découvrir l&apos;offre Pro
-            </Link>
             <Link href="/cgu" style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.3)", fontWeight: 500, fontSize: 12, textDecoration: "none" }}>
               CGU
             </Link>
-          </div>
-
-          {/* Pro teaser */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-            <ProBadge label="Historique 5 ans" />
-            <ProBadge label="Export PDF" />
-            <ProBadge label="Alertes ventes" />
           </div>
 
           {/* Social proof */}
@@ -511,12 +500,9 @@ export default function HomePage() {
         </button>
       )}
 
-      {/* Map mode — floating action CTAs bottom left */}
+      {/* Map mode — floating action CTAs bottom left (neutralisé, badges Pro retirés) */}
       {!showHero && (
         <div style={{ position: "absolute", bottom: 70, right: 16, zIndex: 900, display: "flex", flexDirection: "column", gap: 8 }}>
-          <ProBadge label="Export PDF investisseur" />
-          <ProBadge label="Alertes nouvelles ventes" />
-        </div>
       )}
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}

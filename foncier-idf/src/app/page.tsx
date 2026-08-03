@@ -500,10 +500,7 @@ export default function HomePage() {
         </button>
       )}
 
-      {/* Map mode — floating action CTAs bottom left (neutralisé, badges Pro retirés) */}
-      {!showHero && (
-        <div style={{ position: "absolute", bottom: 70, right: 16, zIndex: 900, display: "flex", flexDirection: "column", gap: 8 }}>
-      )}
+      {/* Map mode — bloc CTAs Pro retiré (neutralisation cumul DEAL) */}
 
       {showLeadModal && <LeadModal onClose={() => setShowLeadModal(false)} />}
       <CookieBanner />
